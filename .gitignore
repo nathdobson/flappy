@@ -1,0 +1,7 @@
+arduino_secrets.h
+**/target
+**/_autosave*
+**/#auto_saved_files#
+**/*-backups/
+**/~*.lck
+**/fp-info-cache
