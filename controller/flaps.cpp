@@ -147,7 +147,8 @@ int flapForChar(char c) {
 }
 
 int computeCalibration(char macroCalib, int microCalib) {
-  return (FLAP_COUNT - flapForChar(macroCalib) - 1) * STEPS_PER_FLAP + microCalib + STEPS_PER_FLAP / 2;
+  int total = (FLAP_COUNT - flapForChar(macroCalib) - 1) * STEPS_PER_FLAP + microCalib + STEPS_PER_FLAP / 2;
+  return (total + STEPS_PER_REVOLUTION) % STEPS_PER_REVOLUTION;
 }
 
 class SplitFlap {
@@ -194,6 +195,7 @@ public:
     _motor->step(false);
     _lastStepTime = now;
     if (_sensor->readNext() == HallSignal::FALLING) {
+      Serial.println("Homed");
       _position = 0;
       _homed = true;
     }
@@ -229,7 +231,9 @@ void SplitFlapDisplay::display(std::string_view message, int minStepDelay) {
   }
 
   std::vector<int> usedMotors;
-  usedMotors.push_back(5);
+  for (int i = 0; i < 10; i++) {
+    usedMotors.push_back(i);
+  }
   std::vector<int> nextMotors;
   while (true) {
     long endTime = 0;
@@ -274,18 +278,26 @@ std::unique_ptr<SplitFlapDisplay> createSplitFlapDisplay() {
   const int DATA_PIN = 2;
   const int CLOCK_PIN = 3;
   const int LATCH_PIN = 4;
-  const std::array<int, MOTOR_COUNT> HALL_PINS = { 8, 9, 10, 11, 12, 7, 14, -1, -1, -1 };
-  const std::array<char, MOTOR_COUNT> MACRO_CALIBRATIONS = { ' ', 'V', 'K', 'U', 'Q', 'G', ' ', ' ', ' ', ' ' };
-  const std::array<int, MOTOR_COUNT> MICRO_CALIBRATIONS = { 60, 40, 86, 40, 55, 248, 50, 50, 50, 50 };
+  const std::array<int, MOTOR_COUNT> HALL_PINS = { 12, 11, 10, 9, 8, 14, 15, 16, 17, 18 };
+  const std::array<char, MOTOR_COUNT> MACRO_CALIBRATIONS = { ' ', 'V', 'K', 'U', 'Q', 'G', '$', 'R', 'R', '9' };
+  const std::array<int, MOTOR_COUNT> MICRO_CALIBRATIONS = { 60, 40, 86, 40, 55, 248, 0, 50, 50, 25 };
 
-  auto reg = std::make_unique<ShiftRegister>(DATA_PIN, CLOCK_PIN, LATCH_PIN, MOTOR_COUNT);
+  auto reg = std::make_unique<ShiftRegister>(DATA_PIN, CLOCK_PIN, LATCH_PIN, MOTOR_COUNT * 4);
   std::vector<std::unique_ptr<SplitFlap>> motors;
   long start = micros();
   for (int motor = 0; motor < MOTOR_COUNT; motor++) {
     std::array<ShiftRegisterPin, MOTOR_PHASE_COUNT> motorPins;
+    for (int k = 0; k < MOTOR_PHASE_COUNT; k++) {
+      motorPins[k] = ShiftRegisterPin(&*reg, motor * MOTOR_PHASE_COUNT + k);
+    }
     auto stepper = std::make_unique<StepperMotor>(motorPins);
     auto sensor = std::make_unique<HallSensor>(HALL_PINS[motor]);
     int calibration = computeCalibration(MACRO_CALIBRATIONS[motor], MICRO_CALIBRATIONS[motor]);
+    Serial.print("Calibration ");
+    Serial.print(motor);
+    Serial.print(" is ");
+    Serial.print(calibration);
+    Serial.println();
     motors.push_back(std::make_unique<SplitFlap>(std::move(stepper), std::move(sensor), calibration, start));
   }
   return std::make_unique<SplitFlapDisplay>(std::move(reg), std::move(motors));
