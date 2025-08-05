@@ -195,7 +195,6 @@ public:
     _motor->step(false);
     _lastStepTime = now;
     if (_sensor->readNext() == HallSignal::FALLING) {
-      Serial.println("Homed");
       _position = 0;
       _homed = true;
     }
@@ -228,7 +227,7 @@ void SplitFlapDisplay::display(std::string_view message, int minStepDelay) {
     } else {
       _motors[i]->setTarget(' ');
     }
-  }
+  } 
 
   std::vector<int> usedMotors;
   for (int i = 0; i < 10; i++) {

@@ -1,0 +1,37 @@
+[package]
+name = "housing"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "inner"
+path = "src/inner.rs"
+
+[[bin]]
+name = "outer"
+path = "src/outer.rs"
+
+[[bin]]
+name = "housing"
+path = "src/housing.rs"
+
+[[bin]]
+name = "flaps"
+path = "src/flaps.rs"
+
+[dependencies]
+patina-geo={path="../../patina/patina-geo"}
+patina-mesh ={path="../../patina/patina-mesh"}
+patina-vec={path="../../patina/patina-vec"}
+tokio = {version="1.46.1",features=["rt","macros","rt-multi-thread"]}
+anyhow = "1.0.98"
+patina-sdf= {path="../../patina/patina-sdf"}
+patina-threads={path="../../patina/patina-threads"}
+itertools = "0.14.0"
+patina-bambu = {path="../../patina/patina-bambu"}
+patina-extrude = {path="../../patina/patina-extrude"}
+patina-font = {path="../../patina/patina-font"}
+patina-3mf = {path="../../patina/patina-3mf"}
+rusttype = "0.9.3"
+zip = "4.3.0"
+rand = "0.9.2"
