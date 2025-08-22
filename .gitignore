@@ -5,3 +5,4 @@ arduino_secrets.h
 **/*-backups/
 **/~*.lck
 **/fp-info-cache
+**/.idea

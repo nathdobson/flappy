@@ -174,17 +174,6 @@ impl DrumBuilder {
         )
         .await?;
         Ok(())
-        // let sdf = ;
-        // let mut marching = MarchingMesh::new();
-        // marching
-        //     // .min_render_depth(6)
-        //     // .max_render_depth(7)
-        //     // .subdiv_max_dot(0.9);
-        //     .min_render_depth(7)
-        //     .max_render_depth(10)
-        //     .subdiv_max_dot(0.999);
-        // let mesh = marching.build(&sdf);
-        // mesh
     }
 }
 
@@ -196,7 +185,7 @@ async fn main() -> anyhow::Result<()> {
         flange_height: 1.6,
         height: 41.6,
         outer_radius: 58.5 / 2.0,
-        inner_radius: 55.3 / 2.0,
+        inner_radius: 55.4 / 2.0,
         guide_inner: 3.5,
         guide_outer: 0.5,
         guide_z_min: 21.0,

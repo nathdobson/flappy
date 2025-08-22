@@ -1,0 +1,12 @@
+[package]
+name = "controller"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+arduino-core = { path = "../../arduino-rs/arduino-core" }
+arduino-shift-output = { path = "../../arduino-rs/arduino-shift-output" }
+arduino-stepper = { path = "../../arduino-rs/arduino-stepper" }

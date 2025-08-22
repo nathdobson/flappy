@@ -261,7 +261,7 @@ impl DrumBuilder {
 async fn main() -> anyhow::Result<()> {
     DrumBuilder {
         eps: 1.0,
-        drum_outer_radius: 55.0 / 2.0,
+        drum_outer_radius: 55.1 / 2.0,
         drum_inner_radius: 53.0 / 2.0,
         flange_radius: 69.0 / 2.0,
         drum_height: 8.0,
