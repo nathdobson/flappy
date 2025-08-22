@@ -188,6 +188,8 @@ private:
   std::string _uri_buffer;
 };
 
+const int minStepDelay = 2000;
+
 void setup() {
   Serial.begin(115200);
   std::unique_ptr<SplitFlapDisplay> display = createSplitFlapDisplay();
@@ -195,7 +197,7 @@ void setup() {
   Serial.println("Battlecruiser Operational.");
 
   Serial.println("Homing flaps...");
-  display->display("", 1000);
+  display->display("", minStepDelay);
 
   if (WiFi.status() == WL_NO_MODULE) {
     Serial.println("Cannot connect to WiFi module.");
@@ -249,7 +251,7 @@ void setup() {
         if (auto ig = readUntil(&*uri, '?')) {
           if (auto ig = readUntil(&*uri, '=')) {
             urlDecode(*uri, &urlDecoded);
-            display->display(urlDecoded, 1000);
+            display->display(urlDecoded, minStepDelay);
           }
         }
       }

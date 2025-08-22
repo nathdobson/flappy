@@ -241,6 +241,7 @@ void SplitFlapDisplay::display(std::string_view message, int minStepDelay) {
     }
     nextMotors.clear();
     long nextMotorStepTime = std::numeric_limits<long>::max();
+    int stopped=0;
     for (int motor : usedMotors) {
       long stepTime = _motors[motor]->nextStepTime(endTime, minStepDelay);
       if (stepTime < nextMotorStepTime) {
