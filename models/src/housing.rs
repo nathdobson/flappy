@@ -8,9 +8,11 @@ use crate::encode_sdf::encode_sdf;
 use anyhow::Context;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo2::polygon2::Polygon2;
+use patina_geo::geo2::triangle2::Triangle2;
 use patina_geo::geo3::aabb3::Aabb3;
 use patina_geo::geo3::cylinder::Cylinder;
 use patina_geo::geo3::plane::Plane;
+use patina_geo::geo3::triangle3::Triangle3;
 use patina_geo::sphere::Circle;
 use patina_mesh::decimate::Decimate;
 use patina_mesh::half_edge_mesh::HalfEdgeMesh;
@@ -20,9 +22,10 @@ use patina_sdf::marching_mesh::MarchingMesh;
 use patina_sdf::sdf::leaf::SdfLeafImpl;
 use patina_sdf::sdf::truncated_cone::TruncatedCone;
 use patina_sdf::sdf::{AsSdf, Sdf, Sdf3};
-use patina_threads::{THREAD_M2, THREAD_M3};
+use patina_threads::{THREAD_M2, THREAD_M3, ThreadMetrics};
 use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
+use std::f64;
 use std::path::Path;
 use std::time::Instant;
 
@@ -33,11 +36,14 @@ struct Tab {
     bottom_x: f64,
     top_x: f64,
     right_y: f64,
+    tab_fitment: f64,
+    housing_fitment: f64,
+    through_hole_excess_radius: f64,
 }
 
 struct Catch {
     bottom_thickness: f64,
-    max_x: f64,
+    indent: f64,
 }
 
 struct Mount {
@@ -49,14 +55,6 @@ struct Mount {
     rad1: f64,
     rad2: f64,
     extra_back: f64,
-}
-
-struct Thread {
-    ruthex_depth: f64,
-    ruthex_radius: f64,
-    through_radius: f64,
-    countersink_radius: f64,
-    countersink_depth: f64,
 }
 
 struct Brace {
@@ -98,11 +96,28 @@ struct DrumGuide {
     length: f64,
     rad_inner: f64,
     rad_outer: f64,
+    seam_cut_width: f64,
+    seam_cut_depth: f64,
 }
 
 struct HallChannel {
     width: f64,
     length: f64,
+}
+
+struct BoardMounts {
+    standoff: f64,
+    thread: &'static ThreadMetrics,
+    brace_width: f64,
+    brace_inset: f64,
+    board1_vertical: f64,
+    board1_width: f64,
+    board1_height1: f64,
+    board1_height2: f64,
+
+    board2_vertical: f64,
+    board2_width: f64,
+    board2_height: f64,
 }
 struct HousingBuilder {
     aabb: Aabb3,
@@ -119,6 +134,7 @@ struct HousingBuilder {
     drum_guide: DrumGuide,
     hall_channel: HallChannel,
     top_catch: TopCatch,
+    board_mounts: BoardMounts,
 }
 
 impl HousingBuilder {
@@ -138,7 +154,7 @@ impl HousingBuilder {
                     self.aabb.min().y() + self.catch.bottom_thickness,
                     self.back_thickness,
                 ),
-                Vec3::new(-self.catch.max_x, 0.0, self.inf),
+                Vec3::new(self.aabb.min().x() + self.catch.indent, 0.0, self.inf),
             )
             .as_sdf(),
         );
@@ -338,9 +354,9 @@ impl HousingBuilder {
         );
         sdf = sdf.difference(
             &Polygon2::new(vec![
-                Vec2::new(-self.tab.size, 0.0),
-                Vec2::new(self.tab.size, 0.0),
-                Vec2::new(0.0, self.tab.size),
+                Vec2::new(-self.tab.size - self.tab.tab_fitment, 0.0),
+                Vec2::new(self.tab.size + self.tab.tab_fitment, 0.0),
+                Vec2::new(0.0, self.tab.size + self.tab.tab_fitment),
             ])
             .as_sdf()
             .extrude(
@@ -359,7 +375,7 @@ impl HousingBuilder {
                     self.aabb.max().z() + self.tab.wall_size,
                 ),
                 axis * self.tab.thickness * 2.0,
-                THREAD_M3.through_radius,
+                THREAD_M3.through_radius + self.tab.through_hole_excess_radius,
             )
             .as_sdf(),
         );
@@ -377,7 +393,11 @@ impl HousingBuilder {
         );
         sdf = sdf.difference(
             &Cylinder::new(
-                Vec3::new(origin.x(), origin.y(), self.tab.wall_size),
+                Vec3::new(
+                    origin.x(),
+                    origin.y(),
+                    self.tab.wall_size - self.tab.housing_fitment,
+                ),
                 axis * (self.tab.thickness + THREAD_M3.ruthex_depth),
                 THREAD_M3.ruthex_radius,
             )
@@ -500,6 +520,22 @@ impl HousingBuilder {
             )
             .as_sdf(),
         );
+        sdf = sdf.difference(
+            &Polygon2::new(vec![
+                Vec2::from_rad(f64::consts::PI / 4.0)
+                    * (self.drum_guide.rad_outer - self.drum_guide.seam_cut_depth),
+                Vec2::from_rad(
+                    f64::consts::PI / 4.0
+                        - self.drum_guide.seam_cut_width / (self.drum_guide.rad_outer),
+                ) * (self.drum_guide.rad_outer + self.drum_guide.seam_cut_depth),
+                Vec2::from_rad(
+                    f64::consts::PI / 4.0
+                        + self.drum_guide.seam_cut_width / (self.drum_guide.rad_outer),
+                ) * (self.drum_guide.rad_outer + self.drum_guide.seam_cut_depth),
+            ])
+            .as_sdf()
+            .extrude_z(self.back_thickness..self.back_thickness + self.drum_guide.length),
+        );
         sdf
     }
     fn drillium(&self) -> Sdf3 {
@@ -537,6 +573,113 @@ impl HousingBuilder {
         )
         .as_sdf()
     }
+    fn board_mount(&self, pos: Vec2, sdf: Sdf3) -> Sdf3 {
+        let origin = Vec3::new(self.aabb.max().x(), pos.y(), pos.x());
+        sdf.union(
+            &Cylinder::new(
+                origin,
+                Vec3::axis_x() * self.board_mounts.standoff,
+                self.board_mounts.thread.ruthex_outer_radius(),
+            )
+            .as_sdf(),
+        )
+        .difference(
+            &Cylinder::new(
+                origin + Vec3::axis_x() * self.board_mounts.standoff,
+                Vec3::axis_x() * -self.board_mounts.thread.ruthex_depth,
+                self.board_mounts.thread.ruthex_radius,
+            )
+            .as_sdf(),
+        )
+        .union(
+            &Polygon2::new(vec![
+                Vec2::new(0.00001, 0.00001),
+                Vec2::new(0.0000001, -self.board_mounts.standoff),
+                Vec2::new(self.board_mounts.standoff, 0.000001),
+            ])
+            .as_sdf()
+            .extrude(
+                origin
+                    + Vec3::new(
+                        0.0,
+                        self.board_mounts.brace_width / 2.0,
+                        -self.board_mounts.thread.ruthex_outer_radius()
+                            + self.board_mounts.brace_inset,
+                    ),
+                Vec3::axis_x(),
+                Vec3::axis_z(),
+                self.board_mounts.brace_width,
+            ),
+        )
+    }
+    fn board_mounts(&self, mut sdf: Sdf3) -> Sdf3 {
+        let center_x = self.aabb.center().z();
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x - self.board_mounts.board1_width / 2.0,
+                self.aabb.max().y() - self.board_mounts.board1_vertical,
+            ),
+            sdf,
+        );
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x + self.board_mounts.board1_width / 2.0,
+                self.aabb.max().y() - self.board_mounts.board1_vertical,
+            ),
+            sdf,
+        );
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x - self.board_mounts.board1_width / 2.0,
+                self.aabb.max().y()
+                    - self.board_mounts.board1_vertical
+                    - self.board_mounts.board1_height2,
+            ),
+            sdf,
+        );
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x + self.board_mounts.board1_width / 2.0,
+                self.aabb.max().y()
+                    - self.board_mounts.board1_vertical
+                    - self.board_mounts.board1_height1,
+            ),
+            sdf,
+        );
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x + self.board_mounts.board2_width / 2.0,
+                self.aabb.min().y() + self.board_mounts.board2_vertical,
+            ),
+            sdf,
+        );
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x - self.board_mounts.board2_width / 2.0,
+                self.aabb.min().y() + self.board_mounts.board2_vertical,
+            ),
+            sdf,
+        );
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x + self.board_mounts.board2_width / 2.0,
+                self.aabb.min().y()
+                    + self.board_mounts.board2_vertical
+                    + self.board_mounts.board2_height,
+            ),
+            sdf,
+        );
+        sdf = self.board_mount(
+            Vec2::new(
+                center_x - self.board_mounts.board2_width / 2.0,
+                self.aabb.min().y()
+                    + self.board_mounts.board2_vertical
+                    + self.board_mounts.board2_height,
+            ),
+            sdf,
+        );
+        sdf
+    }
     fn build_sdf(&self) -> Sdf3 {
         let mut sdf = self.main_body();
         sdf = sdf.union(&self.top_catch());
@@ -562,32 +705,17 @@ impl HousingBuilder {
         sdf = sdf.difference(&self.motor_clearance());
         sdf = sdf.union(&self.drum_guide());
         sdf = sdf.difference(&self.drillium());
+        sdf = self.board_mounts(sdf);
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
         let sdf = self.build_sdf();
         let aabb = Aabb::new(
             self.aabb.min() + Vec3::splat(-0.1),
-            self.aabb.max() + Vec3::new(0.1, 0.1, self.tab.size + 0.1),
+            self.aabb.max() + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tab.size + 0.1),
         );
         encode_sdf("housing", sdf, aabb).await?;
         Ok(())
-        // let mut marching = MarchingMesh::new();
-        // marching
-        //     .min_render_depth(6)
-        //     .max_render_depth(7)
-        //     .subdiv_max_dot(0.9);
-        // // .min_render_depth(7)
-        // // .max_render_depth(10)
-        // // .subdiv_max_dot(0.999);
-        // let mesh = marching.build(&sdf);
-        // // let mut hem = HalfEdgeMesh::new(&mesh);
-        // // let mut decimate = Decimate::new(&mut hem);
-        // // decimate.max_degree(13);
-        // // decimate.min_score(0.9999);
-        // // decimate.run_arbitrary();
-        // // let mesh = hem.as_mesh();
-        // mesh
     }
 }
 
@@ -612,15 +740,18 @@ async fn main() -> anyhow::Result<()> {
             bottom_x: 20.0,
             top_x: -20.0,
             right_y: 45.0,
+            tab_fitment: 0.2,
+            housing_fitment: 0.35,
+            through_hole_excess_radius: 0.25,
         },
         catch: Catch {
-            bottom_thickness: 3.0,
-            max_x: 1.0,
+            bottom_thickness: 15.0,
+            indent: 10.0,
         },
         mount: Mount {
             off_x: 8.0,
             off_y: 17.5,
-            length: 22.0,
+            length: 22.2,
             motor_radius: 14.0,
             motor_fit: 0.05,
             rad1: 8.0,
@@ -638,11 +769,11 @@ async fn main() -> anyhow::Result<()> {
             length: 16.0,
         },
         tube: Tube {
-            width: 12.0,
+            width: 14.0,
             wall_bottom: 1.0,
             wall_top: 1.0,
             wire_inlet1: 1.2,
-            wire_inlet2: 0.6,
+            wire_inlet2: 0.8,
             tab_width: 2.0,
         },
         hall_mount: HallMount {
@@ -661,17 +792,35 @@ async fn main() -> anyhow::Result<()> {
             length: 20.0,
             rad_inner: 53.0 / 2.0,
             rad_outer: 55.0 / 2.0,
+            seam_cut_width: 2.0,
+            seam_cut_depth: 0.3,
         },
         hall_channel: HallChannel {
             width: 6.0,
             length: 30.0,
         },
         top_catch: TopCatch {
-            min_y: 34.0,
+            min_y: 35.0,
             max_y: 50.0,
             thickness: 2.0,
         },
+        board_mounts: BoardMounts {
+            standoff: 5.0,
+            thread: &THREAD_M2,
+            brace_width: 3.0,
+            brace_inset: 0.5,
+
+            board1_width: 29.37,
+            board1_vertical: 11.5,
+            board1_height1: 26.39,
+            board1_height2: 27.39,
+
+            board2_width: 31.75,
+            board2_height: 44.45,
+            board2_vertical: 10.0,
+        },
     }
-    .build().await?;
+    .build()
+    .await?;
     Ok(())
 }

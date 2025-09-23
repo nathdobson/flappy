@@ -1,0 +1,24 @@
+### Footprint positions - created on 2025-09-02T23:49:52-0700 ###
+### Printed by KiCad version 9.0.2
+## Unit = mm, Angle = deg.
+## Side : top
+# Ref     Val         Package                                     PosX       PosY       Rot  Side
+C1        100n        C_0805_2012Metric                        55.0000   -53.0000  180.0000  top
+C2        100n        C_0805_2012Metric                        48.0000   -57.0000    0.0000  top
+C3        10uF        C_0805_2012Metric                        51.0500   -53.0000    0.0000  top
+Ctrl1     Conn_01x09  JST_XH_B9B-XH-A_1x09_P2.50mm_Vertical    41.0000   -60.0000   90.0000  top
+D1        LED         LED_0603_1608Metric                      60.2125   -38.0000    0.0000  top
+D2        LED         LED_0603_1608Metric                      60.2125   -42.0000    0.0000  top
+D3        LED         LED_0603_1608Metric                      60.2125   -46.0000    0.0000  top
+D4        LED         LED_0603_1608Metric                      60.2125   -49.8490    0.0000  top
+Driver1   DRV8804DW   DW20                                     51.3137   -44.7150  180.0000  top
+Hall1     Conn_01x03  PinSocket_1x03_P2.54mm_Vertical          64.0000   -57.0000    0.0000  top
+Motor1    Conn_01x05  JST_XH_B5B-XH-A_1x05_P2.50mm_Vertical    66.3982   -39.8490  -90.0000  top
+PISO1     SN74HC165D  D16                                      51.5550   -62.0000   90.0000  top
+Peri1     Conn_01x09  JST_XH_B9B-XH-A_1x09_P2.50mm_Vertical    33.5000   -60.0000   90.0000  top
+R1        1K          R_0603_1608Metric                        60.1750   -40.0000    0.0000  top
+R2        1K          R_0603_1608Metric                        60.1750   -44.0000    0.0000  top
+R3        1K          R_0603_1608Metric                        60.1750   -48.0000    0.0000  top
+R4        1K          R_0603_1608Metric                        60.1750   -52.0000    0.0000  top
+R5        10K         R_0603_1608Metric                        47.0000   -53.0000    0.0000  top
+## End

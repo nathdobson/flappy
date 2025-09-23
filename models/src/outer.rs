@@ -43,6 +43,8 @@ pub struct DrumBuilder {
     screw_x: f64,
     mount_width: f64,
     mount_rise: f64,
+    seam_cut_depth: f64,
+    seam_cut_width: f64,
 }
 
 impl DrumBuilder {
@@ -128,6 +130,19 @@ impl DrumBuilder {
                 .as_sdf(),
             )
         }
+        sdf = sdf.difference(
+            &Polygon2::new(vec![
+                Vec2::from_rad(f64::consts::PI / 4.0) * (self.inner_radius + self.seam_cut_depth),
+                Vec2::from_rad(
+                    f64::consts::PI / 4.0 - self.seam_cut_width / (2.0 * self.inner_radius),
+                ) * self.inner_radius,
+                Vec2::from_rad(
+                    f64::consts::PI / 4.0 + self.seam_cut_width / (2.0 * self.inner_radius),
+                ) * self.inner_radius,
+            ])
+            .as_sdf()
+            .extrude_z(0.0..self.height),
+        );
         sdf
     }
     fn guide(&self, axis1: Vec3, axis2: Vec3) -> Sdf3 {
@@ -202,6 +217,8 @@ async fn main() -> anyhow::Result<()> {
         screw_y: 4.0,
         mount_width: 7.0,
         mount_rise: 5.0,
+        seam_cut_depth: 0.3,
+        seam_cut_width: 2.0,
     }
     .build()
     .await?;

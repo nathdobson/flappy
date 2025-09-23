@@ -139,8 +139,8 @@ async fn build_output() -> anyhow::Result<()> {
             font,
             flap_separation: 3.0,
             wall_separation: 0.01,
-            letter_scale: 80.0,
-            shift_letter: Vec2::new(0.0, -4.0),
+            letter_scale: 78.0,
+            shift_letter: Vec2::new(0.0, -6.3),
             wedge_width: 5.0,
             wedge_height: 0.5,
             flap_grid_width: 3,
@@ -163,7 +163,7 @@ async fn build_output() -> anyhow::Result<()> {
     });
     bambu.add_filament({
         let mut filament = BambuFilament::new();
-        filament.color(Some(Color::new(85, 140, 76)));
+        filament.color(Some(Color::new(90, 68, 177)));
         filament.support(Some(false));
         filament.settings_id(Some(pla_basic.clone()));
         filament.diameter(Some(1.75));
