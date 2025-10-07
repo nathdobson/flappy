@@ -1,6 +1,0 @@
-(sym_lib_table
-  (version 7)
-  (lib (name "DRV8806")(type "KiCad")(uri "${KIPRJMOD}/DRV8806/2025-09-02_17-06-50.kicad_sym")(options "")(descr ""))
-  (lib (name "SN74HCS165")(type "KiCad")(uri "${KIPRJMOD}/SN74HCS165/2025-09-02_18-00-23.kicad_sym")(options "")(descr ""))
-  (lib (name "DRV8804")(type "KiCad")(uri "${KIPRJMOD}/DRV8804DW/2025-09-02_21-59-16.kicad_sym")(options "")(descr ""))
-)

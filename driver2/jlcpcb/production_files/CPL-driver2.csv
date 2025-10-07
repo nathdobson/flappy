@@ -1,0 +1,20 @@
+Designator,Val,Package,Mid X,Mid Y,Rotation,Layer
+C1,100nF,C_0402,44.0,-47.5,180.0,top
+C2,100nF,C_0402,43.525,-38.375,180.0,top
+C3,10uF,CP_Radial_D5.0mm_P2.00mm,41.5,-26.5,180.0,top
+D1,Red,D_0603,57.29,-39.0,0.0,top
+D2,Red,D_0603,57.29,-36.5,0.0,top
+D3,Red,D_0603,57.29,-34.0,0.0,top
+D4,Red,D_0603,57.29,-31.5,0.0,top
+Driver1,DRV8804PWP,HTSSOP-16-1EP_4.4x5mm_P0.65mm_EP3.4x5mm,41.5,-34.875,90.0,top
+Hall1,Conn_01x03,PinHeader_1x03_P2.54mm_Vertical,48.5,-50.04,270.0,top
+Motor1,Conn_01x05,JST_XH_B5B-XH-A_1x05_P2.50mm_Vertical,48.5,-34.0,270.0,top
+R1,4.7kΩ,R_0603,54.29,-39.0,180.0,top
+R2,4.7kΩ,R_0603,54.29,-36.5,180.0,top
+R3,4.7kΩ,R_0603,54.29,-34.0,180.0,top
+R4,4.7kΩ,R_0603,54.29,-31.5,180.0,top
+R5,10kΩ,R_0402,41.0,-47.5,180.0,top
+R6,10kΩ,R_0402,45.5,-55.0,180.0,top
+Ser1,Conn_01x10,JST_XA_B10B-XASK-1_1x10_P2.50mm_Vertical,24.5,-40.0,270.0,top
+Ser2,Conn_01x10,JST_XA_B10B-XASK-1_1x10_P2.50mm_Vertical,32.5,-40.0,270.0,top
+U1,SN74HC165PW,PW16,42.0,-51.42,270.0,top
