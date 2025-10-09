@@ -782,6 +782,7 @@ dependencies = [
  "itertools",
  "serde",
  "serde-xml-rs",
+ "serde_cow",
  "serde_json",
  "serde_with",
  "xml",
@@ -795,8 +796,13 @@ dependencies = [
  "anyhow",
  "itertools",
  "patina-3mf",
+ "patina-geo",
  "patina-mesh",
+ "patina-sdf",
+ "patina-threads",
  "patina-vec",
+ "serde",
+ "serde-xml-rs",
  "tokio",
 ]
 
@@ -1161,6 +1167,15 @@ dependencies = [
  "serde",
  "thiserror",
  "xml-rs",
+]
+
+[[package]]
+name = "serde_cow"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e7bbbec7196bfde255ab54b65e34087c0849629280028238e67ee25d6a4b7da"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

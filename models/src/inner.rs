@@ -2,9 +2,8 @@
 #![allow(unused_mut)]
 #![allow(dead_code)]
 
-mod encode_sdf;
 
-use crate::encode_sdf::encode_sdf;
+use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo3::cylinder::Cylinder;
 use patina_mesh::mesh::Mesh;
@@ -18,6 +17,7 @@ use patina_vec::vec3::Vec3;
 use std::f64;
 use std::path::Path;
 use std::time::Instant;
+use housing::encode_sdf::encode_model;
 
 pub struct DrumBuilder {
     eps: f64,
@@ -51,8 +51,8 @@ pub struct DrumBuilder {
 }
 
 impl DrumBuilder {
-    pub fn screw(&self, x: f64, y: f64, mut sdf: Sdf3) -> Sdf3 {
-        sdf = sdf.union(
+    pub fn screw(&self, x: f64, y: f64, sdf: &mut SdfModel) {
+        sdf.add_sdf(
             &Cylinder::new(
                 Vec3::new(x * 0.96, y, self.flange_height),
                 Vec3::axis_z() * self.screw_hole_height,
@@ -60,7 +60,7 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(x, y, 0.0),
                 Vec3::axis_z() * self.post_height,
@@ -68,7 +68,7 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(x, y, 0.0),
                 Vec3::axis_z() * self.screw_threads.countersink_depth,
@@ -76,17 +76,19 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf
     }
 
-    pub fn build_sdf(&self) -> Sdf3 {
-        let mut sdf = Cylinder::new(
-            Vec3::zero(),
-            Vec3::axis_z() * self.drum_height,
-            self.drum_outer_radius,
-        )
-        .as_sdf();
-        sdf = sdf.union(
+    pub fn build_sdf(&self) -> SdfModel {
+        let mut sdf = SdfModel::new();
+        sdf.add_sdf(
+            &Cylinder::new(
+                Vec3::zero(),
+                Vec3::axis_z() * self.drum_height,
+                self.drum_outer_radius,
+            )
+            .as_sdf(),
+        );
+        sdf.add_sdf(
             &Cylinder::new(
                 Vec3::zero(),
                 Vec3::axis_z() * self.flange_height,
@@ -94,7 +96,7 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::axis_z() * self.flange_height,
                 Vec3::axis_z() * self.drum_height,
@@ -102,7 +104,7 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.union(
+        sdf.add_sdf(
             &TruncatedCone::new(
                 Vec3::axis_z() * self.flange_height,
                 Vec3::axis_z() * self.post_height,
@@ -111,7 +113,7 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.union(
+        sdf.add_sdf(
             &Aabb::new(
                 Vec3::new(
                     -self.strut_radius,
@@ -126,7 +128,7 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.union(
+        sdf.add_sdf(
             &Aabb::new(
                 Vec3::new(
                     -self.strut_thickness / 2.0,
@@ -141,9 +143,9 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = self.screw(-self.screw_off_x, self.screw_off_y, sdf);
-        sdf = self.screw(self.screw_off_x, self.screw_off_y, sdf);
-        sdf = sdf.difference(
+        self.screw(-self.screw_off_x, self.screw_off_y, &mut sdf);
+        self.screw(self.screw_off_x, self.screw_off_y, &mut sdf);
+        sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(0.0, 0.0, self.flange_height + self.post_height),
                 -Vec3::axis_z() * self.axle_length,
@@ -185,7 +187,7 @@ impl DrumBuilder {
             let pos =
                 Vec2::from_rad(2.0 * f64::consts::PI * (i as f64) / (self.letter_count as f64))
                     * self.flap_pos_radius;
-            sdf = sdf.difference(
+            sdf.subtract_sdf(
                 &Cylinder::new(
                     Vec3::new(pos.x(), pos.y(), 0.0),
                     Vec3::axis_z() * self.flange_height,
@@ -194,7 +196,7 @@ impl DrumBuilder {
                 .as_sdf(),
             )
         }
-        sdf = sdf.union(
+        sdf.add_sdf(
             &Cylinder::new(
                 Vec3::zero(),
                 Vec3::axis_z() * self.magnet_height,
@@ -210,7 +212,7 @@ impl DrumBuilder {
                 .as_sdf(),
             ),
         );
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(
                     (self.magnet_ring_inner_radius + self.magnet_ring_outer_radius) / 2.0,
@@ -225,10 +227,10 @@ impl DrumBuilder {
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
-        encode_sdf(
+        encode_model(
             "inner",
             self.build_sdf(),
-            Aabb::new(
+            &Aabb::new(
                 Vec3::new(
                     -self.flange_radius - self.eps,
                     -self.flange_radius - self.eps,
@@ -289,7 +291,8 @@ async fn main() -> anyhow::Result<()> {
         magnet_radius: 1.2,
         magnet_height: 16.4,
     }
-    .build().await?;
+    .build()
+    .await?;
     // println!("{:?}", mesh.check_manifold());
     // println!("Built mesh in {:?}", start.elapsed());
     // encode_file(&mesh, Path::new("draft/inner.stl")).await?;

@@ -21,10 +21,9 @@ use patina_3mf::model::resources::{
 };
 use patina_3mf::model::{Model, ModelMetadata, ModelUnit};
 use patina_3mf::model_settings::{
-    Assemble, AssembleItem, ModelInstance, ModelSettings, ObjectSettings, Part, Plate,
-    SettingsMetadata,
+    Assemble, AssembleItem,  ModelSettings,
+
 };
-use patina_3mf::project_settings::ProjectSettings;
 use patina_3mf::project_settings::color::Color;
 use patina_3mf::project_settings::support_interface_pattern::SupportInterfacePattern;
 use patina_3mf::project_settings::support_style::SupportStyle;

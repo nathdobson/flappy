@@ -2,10 +2,9 @@
 #![allow(unused_imports)]
 #![deny(unused_must_use)]
 
-mod encode_sdf;
-
-use crate::encode_sdf::encode_sdf;
 use anyhow::Context;
+use housing::encode_sdf::encode_model;
+use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo2::polygon2::Polygon2;
 use patina_geo::geo2::triangle2::Triangle2;
@@ -138,16 +137,19 @@ struct HousingBuilder {
 }
 
 impl HousingBuilder {
-    fn main_body(&self) -> Sdf3 {
-        let mut sdf = self.aabb.as_sdf().difference(
-            &Cylinder::new(
-                Vec3::new(0.0, 0.0, self.back_thickness),
-                Vec3::axis_z() * self.inf,
-                self.drum_bounding_radius,
-            )
-            .as_sdf(),
+    fn main_body(&self) -> SdfModel {
+        let mut sdf = SdfModel::new();
+        sdf.add_sdf(
+            &self.aabb.as_sdf().difference(
+                &Cylinder::new(
+                    Vec3::new(0.0, 0.0, self.back_thickness),
+                    Vec3::axis_z() * self.inf,
+                    self.drum_bounding_radius,
+                )
+                .as_sdf(),
+            ),
         );
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Aabb::new(
                 Vec3::new(
                     -self.inf,
@@ -160,9 +162,8 @@ impl HousingBuilder {
         );
         sdf
     }
-    fn mount(&self, y: f64) -> Sdf3 {
-        let mut sdf = Sdf::empty();
-        sdf = sdf.union(
+    fn mount(&self, sdf: &mut SdfModel, y: f64) {
+        sdf.add_sdf(
             &TruncatedCone::new(
                 Vec3::new(self.mount.off_x, y, self.back_thickness),
                 Vec3::new(0.0, 0.0, self.mount.length),
@@ -171,19 +172,12 @@ impl HousingBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.difference(
-            &Cylinder::new(
-                Vec3::new(
-                    self.mount.off_x,
-                    y,
-                    self.back_thickness + self.mount.length - THREAD_M3.ruthex_depth,
-                ),
-                Vec3::new(0.0, 0.0, THREAD_M3.ruthex_depth),
-                THREAD_M3.ruthex_radius,
-            )
-            .as_sdf(),
+        sdf.drill_ruthex(
+            Vec3::new(self.mount.off_x, y, self.back_thickness + self.mount.length),
+            -Vec3::axis_z(),
+            &THREAD_M3,
         );
-        sdf = sdf.union(
+        sdf.add_sdf(
             &Cylinder::new(
                 Vec3::new(self.mount.off_x, 0.0, self.back_thickness),
                 Vec3::new(0.0, 0.0, self.mount.extra_back),
@@ -191,7 +185,6 @@ impl HousingBuilder {
             )
             .as_sdf(),
         );
-        sdf
     }
     fn brace_x(&self, y: f64, dy: f64) -> Sdf3 {
         let mut sdf = Sdf::empty();
@@ -241,17 +234,9 @@ impl HousingBuilder {
         );
         sdf
     }
-    fn mounts(&self) -> Sdf3 {
-        let mut sdf = Sdf::empty();
-        sdf = sdf.union(&self.mount(self.mount.off_y));
-        sdf = sdf.union(&self.mount(-self.mount.off_y));
-        // sdf = sdf.union(&self.brace_x(self.mount.off_y, 1.0));
-        // sdf = sdf.union(&self.brace_x(-self.mount.off_y, -1.0));
-        // sdf = sdf.union(&self.brace_y(self.mount.off_y, 1.0));
-        // sdf = sdf.union(&self.brace_y(self.mount.off_y, -1.0));
-        // sdf = sdf.union(&self.brace_y(-self.mount.off_y, 1.0));
-        // sdf = sdf.union(&self.brace_y(-self.mount.off_y, -1.0));
-        sdf
+    fn mounts(&self, sdf: &mut SdfModel) {
+        self.mount(sdf, self.mount.off_y);
+        self.mount(sdf, -self.mount.off_y);
     }
     fn wiring_pos(&self) -> Sdf3 {
         let mut sdf = Sdf::empty();
@@ -335,10 +320,10 @@ impl HousingBuilder {
         );
         sdf
     }
-    fn tab(&self, mut sdf: Sdf3, origin: Vec2, axis: Vec3) -> Sdf3 {
+    fn tab(&self, sdf: &mut SdfModel, origin: Vec2, axis: Vec3) {
         let axis2 = Vec3::axis_z();
         let axis1 = -axis.cross(axis2);
-        sdf = sdf.union(
+        sdf.add_sdf(
             &Polygon2::new(vec![
                 Vec2::new(-self.tab.size, 0.0),
                 Vec2::new(self.tab.size, 0.0),
@@ -352,7 +337,7 @@ impl HousingBuilder {
                 self.tab.thickness,
             ),
         );
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Polygon2::new(vec![
                 Vec2::new(-self.tab.size - self.tab.tab_fitment, 0.0),
                 Vec2::new(self.tab.size + self.tab.tab_fitment, 0.0),
@@ -367,7 +352,7 @@ impl HousingBuilder {
             ),
         );
 
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(
                     origin.x(),
@@ -379,7 +364,7 @@ impl HousingBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.difference(
+        sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(
                     origin.x(),
@@ -391,23 +376,20 @@ impl HousingBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.difference(
-            &Cylinder::new(
-                Vec3::new(
-                    origin.x(),
-                    origin.y(),
-                    self.tab.wall_size - self.tab.housing_fitment,
-                ),
-                axis * (self.tab.thickness + THREAD_M3.ruthex_depth),
-                THREAD_M3.ruthex_radius,
-            )
-            .as_sdf(),
+        sdf.drill_ruthex(
+            Vec3::new(
+                origin.x(),
+                origin.y(),
+                self.tab.wall_size - self.tab.housing_fitment,
+            ) + axis * self.tab.thickness,
+            axis,
+            &THREAD_M3,
         );
-        sdf
     }
-    fn hall_mount(&self) -> Sdf3 {
-        let mut sdf = Sdf::empty();
-        sdf = sdf.union(
+    fn hall_mount(&self, sdf: &mut SdfModel) {
+        let norm = Vec2::from_deg(self.hall_mount.tilt_deg);
+        let norm = Vec3::new(0.0, norm.x(), norm.y());
+        sdf.add_sdf(
             &Aabb::new(
                 Vec3::new(
                     self.hall_mount.hole1_x
@@ -422,73 +404,64 @@ impl HousingBuilder {
                     self.back_thickness + self.hall_mount.length,
                 ),
             )
-            .as_sdf(),
-        );
-        sdf = sdf.union(
-            &TruncatedCone::new(
-                Vec3::new(
-                    self.hall_mount.hole1_x,
-                    self.hall_mount.off_y,
-                    self.back_thickness,
-                ),
-                Vec3::axis_z() * (self.hall_mount.length + self.hall_mount.extra_cone),
-                self.hall_mount.rad1,
-                self.hall_mount.rad2,
+            .as_sdf()
+            .union(
+                &TruncatedCone::new(
+                    Vec3::new(
+                        self.hall_mount.hole1_x,
+                        self.hall_mount.off_y,
+                        self.back_thickness,
+                    ),
+                    Vec3::axis_z() * (self.hall_mount.length + self.hall_mount.extra_cone),
+                    self.hall_mount.rad1,
+                    self.hall_mount.rad2,
+                )
+                .as_sdf(),
             )
-            .as_sdf(),
-        );
-        sdf = sdf.union(
-            &TruncatedCone::new(
-                Vec3::new(
-                    self.hall_mount.hole1_x - self.hall_mount.width,
-                    self.hall_mount.off_y,
-                    self.back_thickness,
-                ),
-                Vec3::axis_z() * (self.hall_mount.length + self.hall_mount.extra_cone),
-                self.hall_mount.rad1,
-                self.hall_mount.rad2,
+            .union(
+                &TruncatedCone::new(
+                    Vec3::new(
+                        self.hall_mount.hole1_x - self.hall_mount.width,
+                        self.hall_mount.off_y,
+                        self.back_thickness,
+                    ),
+                    Vec3::axis_z() * (self.hall_mount.length + self.hall_mount.extra_cone),
+                    self.hall_mount.rad1,
+                    self.hall_mount.rad2,
+                )
+                .as_sdf(),
             )
-            .as_sdf(),
-        );
-        let norm = Vec2::from_deg(self.hall_mount.tilt_deg);
-        let norm = Vec3::new(0.0, norm.x(), norm.y());
-        sdf = sdf.difference(
-            &Plane::new(
-                Vec3::new(
-                    0.0,
-                    self.hall_mount.off_y + self.hall_mount.hole_bias,
-                    self.back_thickness + self.hall_mount.length,
-                ),
-                -norm,
-            )
-            .as_sdf(),
+            .difference(
+                &Plane::new(
+                    Vec3::new(
+                        0.0,
+                        self.hall_mount.off_y + self.hall_mount.hole_bias,
+                        self.back_thickness + self.hall_mount.length,
+                    ),
+                    -norm,
+                )
+                .as_sdf(),
+            ),
         );
 
-        sdf = sdf.difference(
-            &Cylinder::new(
-                Vec3::new(
-                    self.hall_mount.hole1_x - self.hall_mount.width,
-                    self.hall_mount.off_y + self.hall_mount.hole_bias,
-                    self.back_thickness + self.hall_mount.length,
-                ),
-                -norm * THREAD_M2.ruthex_depth,
-                THREAD_M2.ruthex_radius,
-            )
-            .as_sdf(),
+        sdf.drill_ruthex(
+            Vec3::new(
+                self.hall_mount.hole1_x - self.hall_mount.width,
+                self.hall_mount.off_y + self.hall_mount.hole_bias,
+                self.back_thickness + self.hall_mount.length,
+            ),
+            -norm,
+            &THREAD_M2,
         );
-        sdf = sdf.difference(
-            &Cylinder::new(
-                Vec3::new(
-                    self.hall_mount.hole1_x,
-                    self.hall_mount.off_y + self.hall_mount.hole_bias,
-                    self.back_thickness + self.hall_mount.length,
-                ),
-                -norm * THREAD_M2.ruthex_depth,
-                THREAD_M2.ruthex_radius,
-            )
-            .as_sdf(),
+        sdf.drill_ruthex(
+            Vec3::new(
+                self.hall_mount.hole1_x,
+                self.hall_mount.off_y + self.hall_mount.hole_bias,
+                self.back_thickness + self.hall_mount.length,
+            ),
+            -norm,
+            &THREAD_M2,
         );
-        sdf
     }
     fn motor_clearance(&self) -> Sdf3 {
         Cylinder::new(
@@ -573,25 +546,22 @@ impl HousingBuilder {
         )
         .as_sdf()
     }
-    fn board_mount(&self, pos: Vec2, sdf: Sdf3) -> Sdf3 {
+    fn board_mount(&self, pos: Vec2, sdf: &mut SdfModel) {
         let origin = Vec3::new(self.aabb.max().x(), pos.y(), pos.x());
-        sdf.union(
+        sdf.add_sdf(
             &Cylinder::new(
                 origin,
                 Vec3::axis_x() * self.board_mounts.standoff,
                 self.board_mounts.thread.ruthex_outer_radius(),
             )
             .as_sdf(),
-        )
-        .difference(
-            &Cylinder::new(
-                origin + Vec3::axis_x() * self.board_mounts.standoff,
-                Vec3::axis_x() * -self.board_mounts.thread.ruthex_depth,
-                self.board_mounts.thread.ruthex_radius,
-            )
-            .as_sdf(),
-        )
-        .union(
+        );
+        sdf.drill_ruthex(
+            origin + Vec3::axis_x() * self.board_mounts.standoff,
+            -Vec3::axis_x(),
+            self.board_mounts.thread,
+        );
+        sdf.add_sdf(
             &Polygon2::new(vec![
                 Vec2::new(0.00001, 0.00001),
                 Vec2::new(0.0000001, -self.board_mounts.standoff),
@@ -610,25 +580,25 @@ impl HousingBuilder {
                 Vec3::axis_z(),
                 self.board_mounts.brace_width,
             ),
-        )
+        );
     }
-    fn board_mounts(&self, mut sdf: Sdf3) -> Sdf3 {
+    fn board_mounts(&self, mut sdf: &mut SdfModel) {
         let center_x = self.aabb.center().z();
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x - self.board_mounts.board1_width / 2.0,
                 self.aabb.max().y() - self.board_mounts.board1_vertical,
             ),
             sdf,
         );
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x + self.board_mounts.board1_width / 2.0,
                 self.aabb.max().y() - self.board_mounts.board1_vertical,
             ),
             sdf,
         );
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x - self.board_mounts.board1_width / 2.0,
                 self.aabb.max().y()
@@ -637,7 +607,7 @@ impl HousingBuilder {
             ),
             sdf,
         );
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x + self.board_mounts.board1_width / 2.0,
                 self.aabb.max().y()
@@ -646,21 +616,21 @@ impl HousingBuilder {
             ),
             sdf,
         );
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x + self.board_mounts.board2_width / 2.0,
                 self.aabb.min().y() + self.board_mounts.board2_vertical,
             ),
             sdf,
         );
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x - self.board_mounts.board2_width / 2.0,
                 self.aabb.min().y() + self.board_mounts.board2_vertical,
             ),
             sdf,
         );
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x + self.board_mounts.board2_width / 2.0,
                 self.aabb.min().y()
@@ -669,7 +639,7 @@ impl HousingBuilder {
             ),
             sdf,
         );
-        sdf = self.board_mount(
+        self.board_mount(
             Vec2::new(
                 center_x - self.board_mounts.board2_width / 2.0,
                 self.aabb.min().y()
@@ -678,34 +648,33 @@ impl HousingBuilder {
             ),
             sdf,
         );
-        sdf
     }
-    fn build_sdf(&self) -> Sdf3 {
+    fn build_sdf(&self) -> SdfModel {
         let mut sdf = self.main_body();
-        sdf = sdf.union(&self.top_catch());
-        sdf = sdf.union(&self.mounts());
-        sdf = sdf.difference(&self.wiring_neg());
-        sdf = sdf.union(&self.wiring_pos());
-        sdf = self.tab(
-            sdf,
+        sdf.add_sdf(&self.top_catch());
+        self.mounts(&mut sdf);
+        sdf.subtract_sdf(&self.wiring_neg());
+        sdf.add_sdf(&self.wiring_pos());
+        self.tab(
+            &mut sdf,
             Vec2::new(self.tab.bottom_x, self.aabb.min().y()),
             Vec3::axis_y(),
         );
-        sdf = self.tab(
-            sdf,
+        self.tab(
+            &mut sdf,
             Vec2::new(self.tab.top_x, self.aabb.max().y()),
             -Vec3::axis_y(),
         );
-        sdf = self.tab(
-            sdf,
+        self.tab(
+            &mut sdf,
             Vec2::new(self.aabb.max().x(), self.tab.right_y),
             -Vec3::axis_x(),
         );
-        sdf = sdf.union(&self.hall_mount());
-        sdf = sdf.difference(&self.motor_clearance());
-        sdf = sdf.union(&self.drum_guide());
-        sdf = sdf.difference(&self.drillium());
-        sdf = self.board_mounts(sdf);
+        self.hall_mount(&mut sdf);
+        sdf.subtract_sdf(&self.motor_clearance());
+        sdf.add_sdf(&self.drum_guide());
+        sdf.subtract_sdf(&self.drillium());
+        self.board_mounts(&mut sdf);
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
@@ -714,7 +683,7 @@ impl HousingBuilder {
             self.aabb.min() + Vec3::splat(-0.1),
             self.aabb.max() + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tab.size + 0.1),
         );
-        encode_sdf("housing", sdf, aabb).await?;
+        encode_model("housing", sdf, &aabb).await?;
         Ok(())
     }
 }

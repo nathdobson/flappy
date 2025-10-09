@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use patina_bambu::{BambuObject, BambuPart, BambuPlate};
+use patina_bambu::{BambuObject, BambuPart, BambuPartType, BambuPlate};
 use patina_extrude::ExtrusionBuilder;
 use patina_font::PolygonOutlineBuilder;
 use patina_mesh::bimesh2::Bimesh2;
@@ -194,7 +194,7 @@ impl StackBuilder {
         body.material(Some(3));
         body.name(Some(format!("part({})", index)));
         body.transform(Some(transform));
-        body.subtype(Some("support_blocker".to_string()));
+        body.typ(BambuPartType::SupportBlocker);
         body
     }
     async fn body_part(

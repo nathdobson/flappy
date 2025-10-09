@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use crate::encode_sdf::encode_sdf;
+use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo2::polygon2::Polygon2;
 use patina_geo::geo3::cylinder::Cylinder;
@@ -18,8 +18,8 @@ use patina_vec::vec3::Vec3;
 use std::f64;
 use std::path::Path;
 use std::time::Instant;
+use housing::encode_sdf::encode_model;
 
-mod encode_sdf;
 pub struct DrumBuilder {
     eps: f64,
     flange_radius: f64,
@@ -48,14 +48,17 @@ pub struct DrumBuilder {
 }
 
 impl DrumBuilder {
-    pub fn build_sdf(&self) -> Sdf3 {
-        let mut sdf = Cylinder::new(
-            Vec3::zero(),
-            Vec3::axis_z() * self.flange_height,
-            self.flange_radius,
-        )
-        .as_sdf();
-        sdf = sdf.union(
+    pub fn build_sdf(&self) -> SdfModel {
+        let mut model = SdfModel::new();
+        model.add_sdf(
+            &Cylinder::new(
+                Vec3::zero(),
+                Vec3::axis_z() * self.flange_height,
+                self.flange_radius,
+            )
+            .as_sdf(),
+        );
+        model.add_sdf(
             &Cylinder::new(
                 Vec3::zero(),
                 Vec3::axis_z() * self.height,
@@ -63,7 +66,7 @@ impl DrumBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.difference(
+        model.subtract_sdf(
             &Cylinder::new(
                 Vec3::zero(),
                 Vec3::axis_z() * self.height,
@@ -72,12 +75,12 @@ impl DrumBuilder {
             .as_sdf(),
         );
 
-        sdf = sdf.union(&self.guide(Vec3::axis_x(), Vec3::axis_y()));
-        sdf = sdf.union(&self.guide(-Vec3::axis_x(), -Vec3::axis_y()));
-        sdf = sdf.union(&self.guide(Vec3::axis_y(), -Vec3::axis_x()));
-        sdf = sdf.union(&self.guide(-Vec3::axis_y(), Vec3::axis_x()));
+        model.add_sdf(&self.guide(Vec3::axis_x(), Vec3::axis_y()));
+        model.add_sdf(&self.guide(-Vec3::axis_x(), -Vec3::axis_y()));
+        model.add_sdf(&self.guide(Vec3::axis_y(), -Vec3::axis_x()));
+        model.add_sdf(&self.guide(-Vec3::axis_y(), Vec3::axis_x()));
         for side in [-1.0, 1.0] {
-            sdf = sdf.union(
+            model.add_sdf(
                 &Polygon2::new(vec![
                     Vec2::new(side * -self.mount_outer, self.guide_z_min + self.mount_rise),
                     Vec2::new(side * -self.mount_outer, self.guide_z_max),
@@ -99,16 +102,13 @@ impl DrumBuilder {
                     self.mount_width,
                 ),
             );
-            sdf = sdf.difference(
-                &Cylinder::new(
-                    Vec3::new(side * self.screw_x, self.screw_y, self.guide_z_max),
-                    -Vec3::axis_z() * THREAD_M2.ruthex_depth,
-                    THREAD_M2.ruthex_radius,
-                )
-                .as_sdf(),
+            model.drill_ruthex(
+                Vec3::new(side * self.screw_x, self.screw_y, self.guide_z_max),
+                -Vec3::axis_z(),
+                &THREAD_M2,
             );
         }
-        sdf = sdf.difference(
+        model.subtract_sdf(
             &Cylinder::new(
                 Vec3::zero(),
                 Vec3::axis_z() * self.height,
@@ -121,7 +121,7 @@ impl DrumBuilder {
             let pos =
                 Vec2::from_rad(2.0 * f64::consts::PI * (i as f64) / (self.letter_count as f64))
                     * self.flap_pos_radius;
-            sdf = sdf.difference(
+            model.subtract_sdf(
                 &Cylinder::new(
                     Vec3::new(pos.x(), pos.y(), 0.0),
                     Vec3::axis_z() * self.flange_height,
@@ -130,7 +130,7 @@ impl DrumBuilder {
                 .as_sdf(),
             )
         }
-        sdf = sdf.difference(
+        model.subtract_sdf(
             &Polygon2::new(vec![
                 Vec2::from_rad(f64::consts::PI / 4.0) * (self.inner_radius + self.seam_cut_depth),
                 Vec2::from_rad(
@@ -143,7 +143,7 @@ impl DrumBuilder {
             .as_sdf()
             .extrude_z(0.0..self.height),
         );
-        sdf
+        model
     }
     fn guide(&self, axis1: Vec3, axis2: Vec3) -> Sdf3 {
         let guide_poly = Polygon2::new(vec![
@@ -171,10 +171,10 @@ impl DrumBuilder {
             ))
     }
     pub async fn build(&self) -> anyhow::Result<()> {
-        encode_sdf(
+        encode_model(
             "outer",
             self.build_sdf(),
-            Aabb::new(
+            &Aabb::new(
                 Vec3::new(
                     -self.flange_radius - self.eps,
                     -self.flange_radius - self.eps,
