@@ -1,4 +1,10 @@
-use crate::settings::{SETTINGS_NOZZLE, SETTINGS_PRINTER, settings_machine, settings_primary_filament, settings_process, SETTINGS_PLATE_WIDTH, SETTINGS_PLATE_HEIGHT};
+#![deny(unused_must_use)]
+#![allow(unused_imports)]
+
+use crate::settings::{
+    SETTINGS_NOZZLE, SETTINGS_PLATE_HEIGHT, SETTINGS_PLATE_WIDTH, SETTINGS_PRINTER,
+    settings_machine, settings_primary_filament, settings_process,
+};
 use patina_3mf::project_settings::color::Color;
 use patina_3mf::settings_id::filament_settings_id::{
     FilamentBrand, FilamentMaterial, FilamentSettingsId,
@@ -30,10 +36,10 @@ pub async fn encode_files(
     prefix: &str,
     name: &str,
     model: &MeshModel,
+    mut bambu: BambuBuilder,
     aabb: &Aabb3,
 ) -> anyhow::Result<()> {
     encode_file(&model.mesh, Path::new(&format!("{}/{}.stl", prefix, name))).await?;
-    let mut bambu = BambuBuilder::new();
     bambu.add_filament(settings_primary_filament());
     bambu.printer_settings_id(Some(settings_machine()));
     bambu.print_settings_id(Some(settings_process()));
@@ -71,7 +77,12 @@ pub async fn build_model(model: &SdfModel, marching: MarchingMesh) -> anyhow::Re
     Ok(model)
 }
 
-pub async fn encode_model(name: &str, model: SdfModel, aabb: &Aabb3) -> anyhow::Result<()> {
+pub async fn encode_model(
+    name: &str,
+    model: SdfModel,
+    bambu: BambuBuilder,
+    aabb: &Aabb3,
+) -> anyhow::Result<()> {
     let draft;
     let full;
     {
@@ -85,7 +96,7 @@ pub async fn encode_model(name: &str, model: SdfModel, aabb: &Aabb3) -> anyhow::
             marching
         })
         .await?;
-        encode_files(start, "draft", name, &draft, aabb).await?;
+        encode_files(start, "draft", name, &draft, bambu.clone(), aabb).await?;
     }
     {
         let start = Instant::now();
@@ -98,7 +109,7 @@ pub async fn encode_model(name: &str, model: SdfModel, aabb: &Aabb3) -> anyhow::
             marching
         })
         .await?;
-        encode_files(start, "full", name, &full, aabb).await?;
+        encode_files(start, "full", name, &full, bambu.clone(), aabb).await?;
     }
     let start = Instant::now();
     let simplified = spawn_blocking(move || {
@@ -118,6 +129,7 @@ pub async fn encode_model(name: &str, model: SdfModel, aabb: &Aabb3) -> anyhow::
             mesh: simplified,
             metadata: model.metadata.clone(),
         },
+        bambu.clone(),
         aabb,
     )
     .await?;

@@ -1,9 +1,11 @@
+#![deny(unused_must_use)]
+#![allow(unused_mut)]
 #![allow(dead_code)]
 #![allow(unused_imports)]
-#![deny(unused_must_use)]
 
 use anyhow::Context;
 use housing::encode_sdf::encode_model;
+use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo2::polygon2::Polygon2;
@@ -683,7 +685,7 @@ impl HousingBuilder {
             self.aabb.min() + Vec3::splat(-0.1),
             self.aabb.max() + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tab.size + 0.1),
         );
-        encode_model("housing", sdf, &aabb).await?;
+        encode_model("housing", sdf, BambuBuilder::new(), &aabb).await?;
         Ok(())
     }
 }

@@ -3,6 +3,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+use housing::encode_sdf::encode_model;
+use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo2::polygon2::Polygon2;
@@ -18,7 +20,6 @@ use patina_vec::vec3::Vec3;
 use std::f64;
 use std::path::Path;
 use std::time::Instant;
-use housing::encode_sdf::encode_model;
 
 pub struct DrumBuilder {
     eps: f64,
@@ -171,9 +172,12 @@ impl DrumBuilder {
             ))
     }
     pub async fn build(&self) -> anyhow::Result<()> {
+        let mut bambu = BambuBuilder::new();
+        bambu.elefant_foot_compensation(0.1);
         encode_model(
             "outer",
             self.build_sdf(),
+            bambu,
             &Aabb::new(
                 Vec3::new(
                     -self.flange_radius - self.eps,

@@ -1,6 +1,7 @@
 #![deny(unused_must_use)]
 #![allow(unused_mut)]
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 
 use patina_bambu::model::SdfModel;
@@ -17,6 +18,7 @@ use patina_vec::vec3::Vec3;
 use std::f64;
 use std::path::Path;
 use std::time::Instant;
+use patina_bambu::BambuBuilder;
 use housing::encode_sdf::encode_model;
 
 pub struct DrumBuilder {
@@ -230,6 +232,7 @@ impl DrumBuilder {
         encode_model(
             "inner",
             self.build_sdf(),
+            BambuBuilder::new(),
             &Aabb::new(
                 Vec3::new(
                     -self.flange_radius - self.eps,
