@@ -68,15 +68,16 @@ impl<'a, const N: usize, R: OutputRegister, S: Stepper, HO: DigitalOutputPin, HI
             flap.set_target(*c);
         }
         let start_micros = micros();
-        let mut prev_sensor = usize::MAX;
+        let mut prev_sensor_step = 0;
+        let mut current_sensor = 0;
         for step in 0u64.. {
             check_terminate()?;
-            let current_sensor = ((step / self.hall_ticks) % (N as u64)) as usize;
-            if current_sensor != prev_sensor {
-                if prev_sensor < N {
-                    self.flaps[prev_sensor].set_hall_value(self.hall_input.digital_read());
-                }
-                prev_sensor = current_sensor;
+            let sensor_step = step / self.hall_ticks;
+            if sensor_step != prev_sensor_step {
+                prev_sensor_step = sensor_step;
+                let value = self.hall_input.digital_read();
+                self.flaps[current_sensor].set_hall_value(value);
+                current_sensor = (sensor_step % (N as u64)) as usize;
             }
             let mut done = true;
             for (index, flap) in self.flaps.iter_mut().enumerate() {

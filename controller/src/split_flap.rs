@@ -76,7 +76,7 @@ impl<S: Stepper, HO: DigitalOutputPin> SplitFlap<S, HO> {
         );
         self.slips += 1;
         if self.slips >= self.max_slips {
-            self.position = 0;
+            // self.position = 0;
             self.homed = false;
             self.slips = 0;
         }
@@ -86,10 +86,10 @@ impl<S: Stepper, HO: DigitalOutputPin> SplitFlap<S, HO> {
     }
     pub fn set_hall_value(&mut self, value: bool) {
         if self.previous_hall == Some(true) && !value {
+            sprintln!("homed {} at position {}", self.index,self.position as isize - 2048);
             self.slips = 0;
             self.homed = true;
             self.position = 0;
-            sprintln!("homed {}", self.index);
         }
         self.previous_hall = Some(value);
     }

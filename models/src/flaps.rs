@@ -176,7 +176,7 @@ async fn build_output() -> anyhow::Result<()> {
         filament.settings_id(Some(pla_support.clone()));
         filament.diameter(Some(1.75));
         filament.shrink(Some("100%".to_string()));
-        filament.filament_flow_ratio(Some(1.15));
+        filament.filament_flow_ratio(Some(1.05));
         filament
     });
     tokio::fs::write("flaps.3mf", bambu.build()?).await?;
