@@ -10,6 +10,7 @@ extern crate alloc;
 mod split_flap;
 mod split_flap_display;
 mod terminate;
+mod secrets;
 
 use crate::split_flap::SplitFlap;
 use crate::split_flap_display::SplitFlapDisplay;
@@ -29,11 +30,12 @@ use arduino_stepper::{
 use arrayvec::{ArrayString, ArrayVec};
 use common::LETTERS;
 use core::iter::repeat_n;
+use arduino_wifi::wifi_begin_wpa;
 
 #[arduino_core::entry]
 fn main() {
     Serial::begin(112500);
-    main_impl_uln2003a().ok();
+    main_impl_wifi();
     sprintln!("\n\n\nterminating...\n\n\n");
 }
 
@@ -42,8 +44,14 @@ fn wait_for_start() {
     Serial::read(&mut [0u8; 1]);
     sprintln!("Hello, world!");
 }
+
+fn main_impl_wifi()-> TerminateResult<()>{
+    wifi_begin_wpa();
+}
+
 fn main_impl_uln2003a() -> TerminateResult<()> {
     const MODULE_COUNT: usize = 4;
+    const ACTIVE_COUNT: usize = 4;
 
     let data = NativeDigitalOutputPin::new(2);
     let latch = NativeDigitalOutputPin::new(3);
@@ -52,9 +60,9 @@ fn main_impl_uln2003a() -> TerminateResult<()> {
     let register = SpiOutputRegister::<{ MODULE_COUNT * 8 }, _, _, _>::new(data, clock, latch);
     register.update();
     wait_for_start();
-    let mut steppers = ArrayVec::<_, MODULE_COUNT>::new();
-    let mut hall_outputs = ArrayVec::<_, MODULE_COUNT>::new();
-    for module in 0u16..MODULE_COUNT as u16 {
+    let mut steppers = ArrayVec::<_, ACTIVE_COUNT>::new();
+    let mut hall_outputs = ArrayVec::<_, ACTIVE_COUNT>::new();
+    for module in 0u16..ACTIVE_COUNT as u16 {
         hall_outputs.push(register.pin(module * 8 + 1));
         steppers.push(UnipolarStepper::new(
             [
@@ -67,13 +75,29 @@ fn main_impl_uln2003a() -> TerminateResult<()> {
         ));
     }
     register.update();
+    let mut display = SplitFlapDisplay::new(
+        &register,
+        steppers.into_inner().ok().unwrap(),
+        hall_outputs.into_inner().ok().unwrap(),
+        hall_input,
+        LETTERS,
+        2048,
+        // [1830, 1740],
+        [1760, 1825, 1750, 1740]
+            .into_iter()
+            .take(ACTIVE_COUNT)
+            .collect::<ArrayVec<_, ACTIVE_COUNT>>()
+            .into_inner()
+            .unwrap(),
+        4,
+        4000,
+    );
+
     loop {
-        check_terminate()?;
-        for stepper in &mut steppers {
-            stepper.step(StepperDirection::Reverse);
+        for x in LETTERS.chars().step_by(1) {
+            display.run(&format!("{}{}{}{}", x, x, x, x))?;
+            delay(100);
         }
-        register.update();
-        delay(10);
     }
     Ok(())
 }

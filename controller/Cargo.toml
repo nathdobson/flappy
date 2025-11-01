@@ -10,5 +10,6 @@ crate-type = ["staticlib"]
 arduino-core = { path = "../../arduino-rs/arduino-core" }
 arduino-shift-output = { path = "../../arduino-rs/arduino-shift-output" }
 arduino-stepper = { path = "../../arduino-rs/arduino-stepper" }
+arduino-wifi = { path="../../arduino-rs/arduino-wifi"}
 arrayvec = {version="0.7.6",default-features = false}
 common  = {path ="../common"}

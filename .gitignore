@@ -6,3 +6,4 @@ arduino_secrets.h
 **/~*.lck
 **/fp-info-cache
 **/.idea
+secrets.rs

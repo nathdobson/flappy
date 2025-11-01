@@ -34,6 +34,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "arduino-wifi"
+version = "0.1.0"
+
+[[package]]
 name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -50,6 +54,7 @@ dependencies = [
  "arduino-core",
  "arduino-shift-output",
  "arduino-stepper",
+ "arduino-wifi",
  "arrayvec",
  "common",
 ]
