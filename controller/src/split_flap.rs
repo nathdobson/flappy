@@ -100,8 +100,9 @@ impl<S: Stepper, HO: DigitalOutputPin> SplitFlap<S, HO> {
         false
     }
     pub fn set_target(&mut self, c: char) {
+        let c = c.to_ascii_uppercase();
         self.step_countdown = 0;
-        let target = (LETTERS.chars().position(|x| c == x).unwrap() * self.steps_per_rotation
+        let target = (LETTERS.chars().position(|x| c == x).unwrap_or(0) * self.steps_per_rotation
             / LETTERS.chars().count()
             + self.offset)
             % self.steps_per_rotation;

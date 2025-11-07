@@ -5,48 +5,59 @@
 #![allow(unused_variables)]
 #![feature(never_type)]
 #![allow(unused_imports)]
+#![allow(unused_mut)]
 extern crate alloc;
 
+mod ble_connector;
+mod eeprom;
+mod irc;
+mod secrets;
 mod split_flap;
 mod split_flap_display;
 mod terminate;
-mod secrets;
+mod wifi;
 
+use crate::ble_connector::BLEConnector;
+use crate::eeprom::EepromState;
+use crate::irc::{IrcClient, IrcStatus};
+use crate::secrets::{WIFI_PASS, WIFI_SSID};
 use crate::split_flap::SplitFlap;
 use crate::split_flap_display::SplitFlapDisplay;
 use crate::terminate::{TerminateResult, check_terminate};
-use alloc::format;
+use crate::wifi::{WiFiConnector, WiFiStatus};
+use alloc::string::ToString;
+use alloc::{format, vec};
+use arduino_ble::ble_begin;
 use arduino_core::delay::{delay, delay_microseconds};
 use arduino_core::pins::{
     AnalogInputPin, DigitalInputPin, DigitalOutputPin, NativeAnalogInputPin, NativeDigitalInputPin,
     NativeDigitalOutputPin,
 };
+use arduino_core::random::random;
 use arduino_core::serial::Serial;
 use arduino_core::{sprint, sprintln};
 use arduino_shift_output::{OutputRegister, SpiOutputRegister};
 use arduino_stepper::{
     FOUR_PHASE_FULL, FOUR_PHASE_HALF, Stepper, StepperDirection, UnipolarStepper,
 };
+use arduino_wifi::wifi::{WlStatus, wifi_begin_wpa, wifi_local_ip, wifi_status};
+use arduino_wifi::wifi_client::WiFiClient;
+use arduino_wifi::wifi_ssl_client::WiFiSSLClient;
 use arrayvec::{ArrayString, ArrayVec};
 use common::LETTERS;
 use core::iter::repeat_n;
-use arduino_wifi::wifi_begin_wpa;
 
 #[arduino_core::entry]
 fn main() {
     Serial::begin(112500);
-    main_impl_wifi();
+    // main_impl_wifi().ok();
+    main_impl_uln2003a().ok();
     sprintln!("\n\n\nterminating...\n\n\n");
 }
 
 fn wait_for_start() {
-    while Serial::available() == 0 {}
-    Serial::read(&mut [0u8; 1]);
+    delay(10000);
     sprintln!("Hello, world!");
-}
-
-fn main_impl_wifi()-> TerminateResult<()>{
-    wifi_begin_wpa();
 }
 
 fn main_impl_uln2003a() -> TerminateResult<()> {
@@ -92,12 +103,66 @@ fn main_impl_uln2003a() -> TerminateResult<()> {
         4,
         4000,
     );
-
+    display.run("")?;
+    let mut eeprom = EepromState::load();
+    eeprom.print_debug();
+    let mut ble = BLEConnector::new(&eeprom);
+    let mut wifi: Option<WiFiConnector> = None;
+    let mut irc: Option<IrcClient> = None;
     loop {
-        for x in LETTERS.chars().step_by(1) {
-            display.run(&format!("{}{}{}{}", x, x, x, x))?;
-            delay(100);
+        ble.step();
+        if ble.wifi_changed() {
+            eeprom.wifi_ssid = ble.wifi_ssid();
+            eeprom.wifi_password = ble.wifi_password();
+            eeprom.save();
+            wifi = None;
         }
+        if ble.irc_changed() {
+            eeprom.irc_hostname = ble.irc_hostname();
+            eeprom.irc_port = ble.irc_port();
+            eeprom.irc_nickname = ble.irc_nickname();
+            eeprom.irc_channel = ble.irc_channel();
+            eeprom.save();
+            irc = None;
+        }
+        if let Some(wifi) = &mut wifi {
+            wifi.step();
+            ble.set_wifi_status(wifi.status());
+        } else {
+            ble.set_wifi_status(WiFiStatus::Unconfigured);
+            if !eeprom.wifi_ssid.is_empty() && !eeprom.wifi_password.is_empty() {
+                wifi = Some(WiFiConnector::new(
+                    eeprom.wifi_ssid.clone(),
+                    eeprom.wifi_password.clone(),
+                ));
+            }
+        }
+        if let Some(irc) = &mut irc {
+            ble.set_irc_status(irc.status());
+            if wifi.is_some() && wifi.as_mut().unwrap().connected() {
+                irc.step();
+            }
+        } else {
+            ble.set_irc_status(IrcStatus::Unconfigured);
+            if !eeprom.irc_hostname.is_empty()
+                && eeprom.irc_port > 0
+                && !eeprom.irc_nickname.is_empty()
+                && !eeprom.irc_channel.is_empty()
+            {
+                irc = Some(IrcClient::new(
+                    eeprom.irc_hostname.clone(),
+                    eeprom.irc_port,
+                    eeprom.irc_nickname.clone(),
+                    eeprom.irc_channel.clone(),
+                ));
+            }
+        }
+        if let Some(irc) = &mut irc {
+            if let Some(message) = irc.take_message() {
+                display.run(&message)?;
+            }
+        }
+        delay(1);
     }
     Ok(())
 }
