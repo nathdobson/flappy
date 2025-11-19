@@ -1,0 +1,33 @@
+[package]
+edition = "2021"
+name = "controller-pico"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+embassy-sync = { version = "0.7.2",features = [] }
+embassy-executor = { version = "0.9.1", features = [ "arch-cortex-m", "executor-thread"] }
+embassy-time = { version = "0.5.0", features = [] }
+embassy-rp = {version = "0.8.0", features =["rp235xa","time-driver"]}
+embassy-net = { version = "0.7.1", features = [ "icmp", "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns", "proto-ipv4", "proto-ipv6", "multicast"] }
+reqwless = "0.13.0"
+cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
+cortex-m-rt = {version="0.7.5",features = []}
+log="0.4.28"
+embassy-usb-logger = "0.5.1"
+panic-halt = "1.0.0"
+cyw43={version="0.5.0",features = ["bluetooth"]}
+cyw43-pio="0.8.0"
+cyw43-firmware = { version = "0.1.0", features = ["wifi", "bluetooth"] }
+static_cell = "2.1.1"
+serde = { version = "1.0.228", features = ["derive"],default-features = false }
+serde-json-core = "0.6.0"
+trouble-host = { git = "https://github.com/embassy-rs/trouble.git", rev = "26ec6794d0a976dd91cd694b631c72b16ddf651b" }
+embassy-futures = "0.1.2"
+trouble-example-apps ={git= "https://github.com/embassy-rs/trouble.git",features = ["log"], rev = "26ec6794d0a976dd91cd694b631c72b16ddf651b"}
+rand_core = "0.9.3"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true

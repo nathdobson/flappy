@@ -8,7 +8,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 arduino-core = { path = "../../arduino-rs/arduino-core" }
-arduino-shift-output = { path = "../../arduino-rs/arduino-shift-output" }
+arduino-shift = { path = "../../arduino-rs/arduino-shift" }
 arduino-stepper = { path = "../../arduino-rs/arduino-stepper" }
 arduino-wifi = { path="../../arduino-rs/arduino-wifi"}
 arrayvec = {version="0.7.6",default-features = false}
@@ -18,3 +18,7 @@ arduino-ble= {path="../../arduino-rs/arduino-ble"}
 arduino-eeprom = {path = "../../arduino-rs/arduino-eeprom"}
 serde={ version = "1.0.228", default-features = false, features = ["derive","alloc"] }
 postcard={version="1.1.3",features=["alloc"]}
+arduino-spi = {path="../../arduino-rs/arduino-spi"}
+
+[package.metadata.arduino]
+sketch = "sketch/"

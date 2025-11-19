@@ -3,7 +3,7 @@ use crate::terminate::{TerminateResult, check_terminate};
 use arduino_core::delay::{delay, delay_microseconds, micros};
 use arduino_core::pins::{DigitalInputPin, DigitalOutputPin};
 use arduino_core::sprintln;
-use arduino_shift_output::OutputRegister;
+use arduino_shift::OutputRegister;
 use arduino_stepper::Stepper;
 use arrayvec::ArrayVec;
 

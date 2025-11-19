@@ -180,6 +180,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+
+[[package]]
 name = "console"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -447,6 +451,7 @@ name = "housing"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "common",
  "itertools",
  "patina-3mf",
  "patina-bambu",

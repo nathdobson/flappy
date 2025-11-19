@@ -30,12 +30,17 @@ name = "arduino-eeprom"
 version = "0.1.0"
 
 [[package]]
-name = "arduino-shift-output"
+name = "arduino-shift"
 version = "0.1.0"
 dependencies = [
  "arduino-core",
+ "arduino-spi",
  "arrayvec",
 ]
+
+[[package]]
+name = "arduino-spi"
+version = "0.1.0"
 
 [[package]]
 name = "arduino-stepper"
@@ -89,7 +94,8 @@ dependencies = [
  "arduino-ble",
  "arduino-core",
  "arduino-eeprom",
- "arduino-shift-output",
+ "arduino-shift",
+ "arduino-spi",
  "arduino-stepper",
  "arduino-wifi",
  "arrayvec",

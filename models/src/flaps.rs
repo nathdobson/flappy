@@ -60,6 +60,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
+use common::LETTERS;
 use tokio::fs;
 use zip::write::{FileOptions, SimpleFileOptions};
 use zip::{ZipArchive, ZipWriter};
@@ -132,7 +133,7 @@ async fn build_output() -> anyhow::Result<()> {
             axle_diameter: 1.2,
             drum_diameter: 18.0,
             letter_thickness: 0.4,
-            letters: " ABCDEFGHIJKLMNOPQRSTUVWXYZ$&#0123456789:.-?!"
+            letters: LETTERS
                 .chars()
                 .collect(),
             font,
@@ -176,7 +177,7 @@ async fn build_output() -> anyhow::Result<()> {
         filament.settings_id(Some(pla_support.clone()));
         filament.diameter(Some(1.75));
         filament.shrink(Some("100%".to_string()));
-        filament.filament_flow_ratio(Some(1.05));
+        filament.filament_flow_ratio(Some(1.00));
         filament
     });
     tokio::fs::write("flaps.3mf", bambu.build()?).await?;
