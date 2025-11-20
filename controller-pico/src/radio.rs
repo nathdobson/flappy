@@ -7,6 +7,7 @@ use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
 use embassy_rp::{bind_interrupts, Peri};
 use static_cell::StaticCell;
+use crate::error::Result;
 
 bind_interrupts!(struct PioIrqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
@@ -37,7 +38,7 @@ pub struct RadioModule {
 
 impl RadioModuleBuilder {
     #[must_use]
-    pub async fn build(self) -> RadioModule {
+    pub async fn build(self) -> Result<RadioModule> {
         let pwr = Output::new(self.pin23, Level::Low);
         let cs = Output::new(self.pin25, Level::High);
         let mut pio = Pio::new(self.pio0, PioIrqs);
@@ -64,17 +65,17 @@ impl RadioModuleBuilder {
             cyw43_firmware::CYW43_43439A0_BTFW,
         )
         .await;
-        self.spawner.spawn(cyw43_task(runner)).unwrap();
+        self.spawner.spawn(cyw43_task(runner)?);
 
         control.init(cyw43_firmware::CYW43_43439A0_CLM).await;
         control
             .set_power_management(cyw43::PowerManagementMode::None)
             .await;
 
-        return RadioModule {
+        Ok(RadioModule {
             bt_device,
             net_device,
             control,
-        };
+        })
     }
 }

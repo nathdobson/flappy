@@ -1,0 +1,6 @@
+[submodule "embassy"]
+	path = embassy
+	url = https://github.com/nathdobson/embassy.git
+[submodule "trouble"]
+	path = trouble
+	url = https://github.com/nathdobson/trouble.git

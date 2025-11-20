@@ -5,29 +5,35 @@ version = "0.1.0"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-embassy-sync = { version = "0.7.2",features = [] }
-embassy-executor = { version = "0.9.1", features = [ "arch-cortex-m", "executor-thread"] }
-embassy-time = { version = "0.5.0", features = [] }
-embassy-rp = {version = "0.8.0", features =["rp235xa","time-driver"]}
-embassy-net = { version = "0.7.1", features = [ "icmp", "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns", "proto-ipv4", "proto-ipv6", "multicast"] }
+
+embassy-rp = { path = "../embassy/embassy-rp", features =["rp235xa","time-driver"]}
+embassy-time = { path = "../embassy/embassy-time", features = []}
+embassy-usb = { path = "../embassy/embassy-usb" }
+embassy-net = { path = "../embassy/embassy-net", features = [ "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns", "proto-ipv4", "proto-ipv6"] }
+embassy-futures = { path = "../embassy/embassy-futures" }
+embassy-executor = { path = "../embassy/embassy-executor", features = [ "arch-cortex-m", "executor-thread"] }
+embassy-sync = { path = "../embassy/embassy-sync", features = [] }
+embassy-usb-logger = { path = "../embassy/embassy-usb-logger"}
+cyw43={path = "../embassy/cyw43",features = ["bluetooth"]}
+cyw43-pio={path = "../embassy/cyw43-pio"}
+trouble-host = { path= "../trouble/host" }
+
 reqwless = "0.13.0"
 cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
 cortex-m-rt = {version="0.7.5",features = []}
 log="0.4.28"
-embassy-usb-logger = "0.5.1"
-panic-halt = "1.0.0"
-cyw43={version="0.5.0",features = ["bluetooth"]}
-cyw43-pio="0.8.0"
 cyw43-firmware = { version = "0.1.0", features = ["wifi", "bluetooth"] }
 static_cell = "2.1.1"
 serde = { version = "1.0.228", features = ["derive"],default-features = false }
 serde-json-core = "0.6.0"
-trouble-host = { git = "https://github.com/embassy-rs/trouble.git", rev = "26ec6794d0a976dd91cd694b631c72b16ddf651b" }
-embassy-futures = "0.1.2"
-trouble-example-apps ={git= "https://github.com/embassy-rs/trouble.git",features = ["log"], rev = "26ec6794d0a976dd91cd694b631c72b16ddf651b"}
 rand_core = "0.9.3"
+uuid={version = "1.18.1",default-features = false}
 
 [profile.release]
 opt-level = "z"
 lto = true
 strip = true
+
+[patch.crates-io]
+embassy-time = {path="../embassy/embassy-time"}
+embassy-sync = {path="../embassy/embassy-sync"}

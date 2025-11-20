@@ -13,6 +13,7 @@ use reqwless::request::Method;
 use serde::Deserialize;
 use serde_json_core::from_slice;
 use static_cell::StaticCell;
+use crate::error::Result;
 
 pub struct WifiModuleBuilder<'build, R> {
     spawner: Spawner,
@@ -30,7 +31,7 @@ pub struct WifiModule {}
 
 impl<'build, R: RngCore> WifiModuleBuilder<'build, R> {
     #[must_use]
-    pub async fn build(mut self) -> WifiModule {
+    pub async fn build(mut self) -> Result<WifiModule> {
         let config = Config::dhcpv4(Default::default());
         let seed = self.rng.next_u64();
 
@@ -43,7 +44,7 @@ impl<'build, R: RngCore> WifiModuleBuilder<'build, R> {
             seed,
         );
 
-        self.spawner.spawn(net_task(runner)).unwrap();
+        self.spawner.spawn(net_task(runner)?);
 
         while let Err(err) = self
             .control
