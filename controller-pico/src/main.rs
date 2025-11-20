@@ -17,23 +17,24 @@
 #![feature(never_type)]
 #![feature(try_blocks)]
 
-use crate::ble::BleModuleBuilder;
+use crate::ble::{BleModule, BleModuleBuilder};
 use crate::error::Error;
-use crate::led::LedModuleBuilder;
+use crate::led::{LedModule, LedModuleBuilder};
 use crate::psram::PsramModuleBuilder;
-use crate::radio::RadioModuleBuilder;
+use crate::radio::{RadioModule, RadioModuleBuilder};
 use crate::usb::UsbModuleBuilder;
 use core::future::pending;
 use core::intrinsics::catch_unwind;
 use embassy_executor::Spawner;
+use embassy_futures::yield_now;
 use embassy_rp::clocks::RoscRng;
 use embassy_time::{Duration, Timer};
 use log::{error, info};
 
 mod ble;
+mod ble_gatt;
 mod error;
 mod led;
-mod ble_gatt;
 mod psram;
 mod radio;
 mod runtime;
@@ -57,7 +58,7 @@ async fn main(spawner: Spawner) {
 
     let foo: Result<(), Error> = try {
         let mut rng = RoscRng;
-        let mut radio = RadioModuleBuilder {
+        let mut radio: RadioModule = RadioModuleBuilder {
             spawner,
             pin23: p.PIN_23,
             pin24: p.PIN_24,
@@ -68,18 +69,24 @@ async fn main(spawner: Spawner) {
         }
         .build()
         .await?;
-        let ble = BleModuleBuilder {
+        let ble: BleModule = BleModuleBuilder {
             spawner,
             bt_device: radio.bt_device,
         }
         .build()
-        .await;
+        .await?;
 
-        let led = LedModuleBuilder {
+        let led: LedModule = LedModuleBuilder {
             spawner,
             control: radio.control,
         }
-        .build();
+        .build().await?;
+
+        loop {
+            let service = &ble.server().flappy_service;
+            ble.listen(&service.wifi_ssid).await;
+            Timer::after(Duration::from_secs(1)).await;
+        }
     };
     if let Err(e) = foo {
         error!("Uncaught error: {}", e);

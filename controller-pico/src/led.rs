@@ -1,6 +1,7 @@
 use crate::error::Result;
 use cyw43::Control;
 use embassy_executor::Spawner;
+use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
 const INCREMENTS: u64 = 20;
@@ -33,8 +34,12 @@ pub struct LedModuleBuilder {
 pub struct LedModule {}
 
 impl LedModuleBuilder {
-    pub fn build(self) -> Result<LedModule> {
+    pub async fn build(self) -> Result<LedModule> {
+        info!("Starting LED");
+        yield_now().await;
         self.spawner.spawn(led_task(self.control)?);
+        info!("Started LED");
+        yield_now().await;
         Ok(LedModule {})
     }
 }

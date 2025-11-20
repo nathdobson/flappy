@@ -1,13 +1,15 @@
+use crate::error::Result;
 use cyw43::bluetooth::BtDriver;
 use cyw43::{Control, NetDriver};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use embassy_executor::Spawner;
+use embassy_futures::yield_now;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
 use embassy_rp::{bind_interrupts, Peri};
+use log::info;
 use static_cell::StaticCell;
-use crate::error::Result;
 
 bind_interrupts!(struct PioIrqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
@@ -39,6 +41,7 @@ pub struct RadioModule {
 impl RadioModuleBuilder {
     #[must_use]
     pub async fn build(self) -> Result<RadioModule> {
+        info!("Starting Radio");
         let pwr = Output::new(self.pin23, Level::Low);
         let cs = Output::new(self.pin25, Level::High);
         let mut pio = Pio::new(self.pio0, PioIrqs);
@@ -71,7 +74,8 @@ impl RadioModuleBuilder {
         control
             .set_power_management(cyw43::PowerManagementMode::None)
             .await;
-
+        info!("Started radio");
+        yield_now().await;
         Ok(RadioModule {
             bt_device,
             net_device,

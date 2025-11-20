@@ -9,6 +9,7 @@ pub enum Error {
     TroubleError(trouble_host::Error),
     TroubleCodecError(codec::Error),
     BleHostError(BleHostError<cyw43::bluetooth::Error>),
+    StrError(&'static str),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -21,6 +22,7 @@ impl Display for Error {
             Error::TroubleError(error) => write!(f, "Trouble error: {:?}", error),
             Error::TroubleCodecError(error) => write!(f, "Trouble codec error: {:?}", error),
             Error::BleHostError(error) => write!(f, "Ble host error: {:?}", error),
+            Error::StrError(error) => write!(f, "Str error: {}", error),
         }
     }
 }
@@ -52,5 +54,11 @@ impl From<codec::Error> for Error {
 impl From<BleHostError<cyw43::bluetooth::Error>> for Error {
     fn from(error: BleHostError<cyw43::bluetooth::Error>) -> Self {
         Error::BleHostError(error)
+    }
+}
+
+impl From<&'static str> for Error {
+    fn from(value: &'static str) -> Self {
+        Self::StrError(value)
     }
 }
