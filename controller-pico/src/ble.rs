@@ -49,6 +49,10 @@ pub struct BleModule {
     conn: RefCell<Option<MyConnection>>,
 }
 
+pub trait BleHandler {
+    fn handle_write(&self, id: u16);
+}
+
 type MyPacketPool = DefaultPacketPool;
 type MyDriver = BtDriver<'static>;
 pub type MyController = ExternalController<MyDriver, SLOTS>;
@@ -76,12 +80,13 @@ async fn advertise_task(
     server: &'static MyServer,
     stack: &'static MyStack,
     module: &'static BleModule,
+    handler: &'static dyn BleHandler,
 ) {
     loop {
         match advertise("Flappy", &mut peripheral, &server).await {
             Ok(conn) => {
                 module.conn.borrow_mut().replace(conn);
-                match gatt_events_task(&server, module.conn.borrow().as_ref().unwrap(), module)
+                match gatt_events_task(&server, module.conn.borrow().as_ref().unwrap(), module,handler)
                     .await
                 {
                     Ok(_) => {}
@@ -100,6 +105,7 @@ async fn gatt_events_task(
     server: &MyServer,
     conn: &MyConnection,
     inner: &BleModule,
+    handler: &'static dyn BleHandler,
 ) -> Result<(), Error> {
     let reason = loop {
         match conn.next().await {
@@ -128,6 +134,7 @@ async fn gatt_events_task(
                         // }
                     }
                     GattEvent::Write(event) => {
+                        handler.handle_write(event.handle());
                         // if let Some(signal) = inner.writes.get(event.handle() as usize) {
                         //     signal.signal(());
                         // } else {
@@ -227,7 +234,7 @@ impl BleModuleBuilder {
         static SERVER: StaticCell<Server> = StaticCell::new();
         let server: &'static Server = SERVER.init(server);
 
-        static MODULE: StaticCell<BleModule> = StaticCell::new();;
+        static MODULE: StaticCell<BleModule> = StaticCell::new();
         let module = MODULE.init(BleModule {
             server,
             conn: RefCell::new(None),
@@ -249,12 +256,13 @@ impl BleModuleBuilder {
 }
 
 impl BleTask {
-    pub fn spawn(self, spawner: Spawner) -> Result<(), Error> {
+    pub fn spawn(self, spawner: Spawner, handler: &'static dyn BleHandler) -> Result<(), Error> {
         spawner.clone().spawn(advertise_task(
             self.peripheral,
             self.server,
             self.stack,
             self.module,
+            handler,
         )?);
         Ok(())
     }

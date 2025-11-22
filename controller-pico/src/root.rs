@@ -1,17 +1,21 @@
-use crate::ble::{BleModule, BleModuleBuilder, BleTask};
+use crate::ble::{BleHandler, BleModule, BleModuleBuilder, BleTask};
 use crate::error::Error;
 use crate::flash::{FlashModule, FlashModuleBuilder, FlashTask};
 use crate::led::{LedModule, LedModuleBuilder, LedTask};
+use crate::mqtt::{MqttHandler, MqttModule, MqttModuleBuilder, MqttTask};
 use crate::radio::{RadioModule, RadioModuleBuilder, RadioTask};
 use crate::usb::{UsbModule, UsbModuleBuilder};
-use crate::wifi::{WifiModule, WifiModuleBuilder};
+use crate::wifi::{WifiHandler, WifiModule, WifiModuleBuilder, WifiTask};
+use core::any::Any;
 use embassy_executor::Spawner;
 use embassy_futures::yield_now;
 use embassy_rp::clocks::RoscRng;
 use log::info;
 use static_cell::StaticCell;
 
-pub struct RootModuleBuilder {}
+pub struct RootModuleBuilder {
+    pub spawner: Spawner,
+}
 
 pub struct RootModule {
     pub usb: &'static UsbModule,
@@ -19,31 +23,39 @@ pub struct RootModule {
     pub ble: &'static BleModule,
     pub led: &'static LedModule,
     pub wifi: &'static WifiModule,
+    pub mqtt: &'static MqttModule,
 }
 
 pub struct RootTask {
     ble_task: BleTask,
+    wifi_task: WifiTask,
     flash_task: FlashTask,
     led_task: LedTask,
     radio_task: RadioTask,
+    mqtt_task: MqttTask,
 }
 
+pub trait RootHandler: BleHandler + WifiHandler + MqttHandler {}
+impl<T: BleHandler + WifiHandler + MqttHandler> RootHandler for T {}
+
 impl RootTask {
-    pub fn spawn(self, spawner: Spawner) -> Result<(), Error> {
-        self.ble_task.spawn(spawner)?;
+    pub fn spawn(self, spawner: Spawner, module: &'static dyn RootHandler) -> Result<(), Error> {
+        self.ble_task.spawn(spawner, module)?;
+        self.wifi_task.spawn(spawner, module)?;
         self.flash_task.spawn(spawner)?;
         self.led_task.spawn(spawner)?;
         self.radio_task.spawn(spawner)?;
+        self.mqtt_task.spawn(spawner, module)?;
         Ok(())
     }
 }
 
 impl RootModuleBuilder {
-    pub async fn build(self, spawner: Spawner) -> Result<(RootTask, &'static RootModule), Error> {
+    pub async fn build(self) -> Result<(RootTask, &'static RootModule), Error> {
         let p = embassy_rp::init(Default::default());
 
         let usb: &'static UsbModule = match (UsbModuleBuilder {
-            spawner,
+            spawner: self.spawner,
             usb: p.USB,
         }
         .build())
@@ -65,7 +77,7 @@ impl RootModuleBuilder {
         .build()
         .await?;
         let (radio_task, bt_device, net_device, radio) = RadioModuleBuilder {
-            spawner,
+            spawner: self.spawner,
             pin23: p.PIN_23,
             pin24: p.PIN_24,
             pin25: p.PIN_25,
@@ -76,15 +88,32 @@ impl RootModuleBuilder {
         .build()
         .await?;
 
-        let (ble_task, ble) = BleModuleBuilder { spawner, bt_device }.build().await?;
+        let (ble_task, ble) = BleModuleBuilder {
+            spawner: self.spawner,
+            bt_device,
+        }
+        .build()
+        .await?;
 
-        let (led_task, led) = LedModuleBuilder { spawner, radio }.build().await?;
+        let (led_task, led) = LedModuleBuilder {
+            spawner: self.spawner,
+            radio,
+        }
+        .build()
+        .await?;
 
-        let wifi = WifiModuleBuilder {
-            spawner,
+        let (wifi_task, wifi) = WifiModuleBuilder {
+            spawner: self.spawner,
             rng: &mut rng,
             net_device,
             radio,
+        }
+        .build()
+        .await?;
+
+        let (mqtt_task, mqtt) = MqttModuleBuilder {
+            spawner: self.spawner,
+            stack: &wifi.stack,
         }
         .build()
         .await?;
@@ -96,13 +125,16 @@ impl RootModuleBuilder {
             ble,
             wifi,
             led,
+            mqtt,
         });
         Ok((
             RootTask {
                 ble_task,
+                wifi_task,
                 flash_task,
                 led_task,
                 radio_task,
+                mqtt_task,
             },
             module,
         ))

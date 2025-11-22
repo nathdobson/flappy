@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::led::LedModule;
 use crate::radio::RadioModule;
 use crate::secrets::{WIFI_NETWORK, WIFI_PASSWORD};
@@ -35,14 +35,51 @@ pub struct WifiModule {
     pub stack: Stack<'static>,
 }
 
+pub struct WifiTask {
+    module: &'static WifiModule,
+}
+
+pub trait WifiHandler {
+    fn handle_link_status(&self, state: bool);
+    fn handle_dhcp_status(&self, state: bool);
+}
+
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct WifiSettings {
     pub ssid: HeaplessString<32>,
     pub password: HeaplessString<63>,
 }
 
+impl WifiTask {
+    pub fn spawn(&self, spawner: Spawner, handler: &'static dyn WifiHandler) -> Result<()> {
+        spawner.spawn(update_link_status(self.module, handler)?);
+        spawner.spawn(update_dhcp_status(self.module, handler)?);
+        Ok(())
+    }
+}
+
+#[embassy_executor::task]
+async fn update_link_status(module: &'static WifiModule, handler: &'static dyn WifiHandler) {
+    loop {
+        module.stack.wait_link_up().await;
+        handler.handle_link_status(true);
+        module.stack.wait_link_down().await;
+        handler.handle_link_status(false);
+    }
+}
+
+#[embassy_executor::task]
+async fn update_dhcp_status(module: &'static WifiModule, handler: &'static dyn WifiHandler) {
+    loop {
+        module.stack.wait_config_up().await;
+        handler.handle_dhcp_status(true);
+        module.stack.wait_config_down().await;
+        handler.handle_dhcp_status(false);
+    }
+}
+
 impl<'build, R: RngCore> WifiModuleBuilder<'build, R> {
-    pub async fn build(mut self) -> Result<&'static WifiModule> {
+    pub async fn build(mut self) -> Result<(WifiTask, &'static WifiModule)> {
         let config = Config::dhcpv4(Default::default());
         let seed = self.rng.next_u64();
 
@@ -68,109 +105,8 @@ impl<'build, R: RngCore> WifiModuleBuilder<'build, R> {
             warn!("[WIFI] join failed with status={}", err.status);
         }
 
-        info!("[WIFI] waiting for link...");
-        stack.wait_link_up().await;
-
-        info!("[WIFI] waiting for DHCP...");
-        stack.wait_config_up().await;
-
-        // And now we can use it!
-        info!("[WIFI] Stack is up!");
-
-        // And now we can use it!
-
-        // loop {
-        //     let mut rx_buffer = [0; 4096];
-        //     // Uncomment these for TLS requests:
-        //     // let mut tls_read_buffer = [0; 16640];
-        //     // let mut tls_write_buffer = [0; 16640];
-        //
-        //     let client_state = TcpClientState::<1, 4096, 4096>::new();
-        //     let tcp_client = TcpClient::new(stack, &client_state);
-        //     let dns_client = DnsSocket::new(stack);
-        //     // Uncomment these for TLS requests:
-        //     // let tls_config = TlsConfig::new(seed, &mut tls_read_buffer, &mut tls_write_buffer, TlsVerify::None);
-        //
-        //     // Using non-TLS HTTP for this example
-        //     let mut http_client = HttpClient::new(&tcp_client, &dns_client);
-        //     let url = "http://httpbin.org/json";
-        //     // For TLS requests, use this instead:
-        //     // let mut http_client = HttpClient::new_with_tls(&tcp_client, &dns_client, tls_config);
-        //     // let url = "https://httpbin.org/json";
-        //
-        //     info!("connecting to {}", &url);
-        //
-        //     let mut request = match http_client.request(Method::GET, url).await {
-        //         Ok(req) => req,
-        //         Err(e) => {
-        //             error!("Failed to make HTTP request: {:?}", e);
-        //             Timer::after(Duration::from_secs(5)).await;
-        //             continue;
-        //         }
-        //     };
-        //
-        //     let response = match request.send(&mut rx_buffer).await {
-        //         Ok(resp) => resp,
-        //         Err(e) => {
-        //             error!("Failed to send HTTP request: {:?}", e);
-        //             Timer::after(Duration::from_secs(5)).await;
-        //             continue;
-        //         }
-        //     };
-        //
-        //     info!("Response status: {}", response.status.0);
-        //
-        //     let body_bytes = match response.body().read_to_end().await {
-        //         Ok(b) => b,
-        //         Err(_e) => {
-        //             error!("Failed to read response body");
-        //             Timer::after(Duration::from_secs(5)).await;
-        //             continue;
-        //         }
-        //     };
-        //
-        //     let body = match from_utf8(body_bytes) {
-        //         Ok(b) => b,
-        //         Err(_e) => {
-        //             error!("Failed to parse response body as UTF-8");
-        //             Timer::after(Duration::from_secs(5)).await;
-        //             continue;
-        //         }
-        //     };
-        //     info!("Response body length: {} bytes", body.len());
-        //
-        //     // Parse the JSON response from httpbin.org/json
-        //     #[derive(Deserialize)]
-        //     struct SlideShow<'a> {
-        //         author: &'a str,
-        //         title: &'a str,
-        //     }
-        //
-        //     #[derive(Deserialize)]
-        //     struct HttpBinResponse<'a> {
-        //         #[serde(borrow)]
-        //         slideshow: SlideShow<'a>,
-        //     }
-        //
-        //     let bytes = body.as_bytes();
-        //     match from_slice::<HttpBinResponse>(bytes) {
-        //         Ok((output, _used)) => {
-        //             info!("Successfully parsed JSON response!");
-        //             info!("Slideshow title: {:?}", output.slideshow.title);
-        //             info!("Slideshow author: {:?}", output.slideshow.author);
-        //         }
-        //         Err(e) => {
-        //             error!("Failed to parse JSON response: {:?}", e);
-        //             // Log preview of response for debugging
-        //             let preview = if body.len() > 200 { &body[..200] } else { body };
-        //             info!("Response preview: {:?}", preview);
-        //         }
-        //     }
-        //
-        //     Timer::after(Duration::from_secs(1000)).await;
-        // }
         static MODULE: StaticCell<WifiModule> = StaticCell::new();
         let module = MODULE.init(WifiModule { stack });
-        Ok(module)
+        Ok((WifiTask { module }, module))
     }
 }

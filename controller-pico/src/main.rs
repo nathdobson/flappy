@@ -17,16 +17,17 @@
 #![feature(never_type)]
 #![feature(try_blocks)]
 
-use crate::ble::{BleModule, BleModuleBuilder, BleTask};
+use crate::ble::{BleHandler, BleModule, BleModuleBuilder, BleTask};
 use crate::error::Error;
 use crate::flash::{FlashModule, FlashModuleBuilder, FlashSettings};
 use crate::led::{LedModule, LedModuleBuilder};
+use crate::mqtt::{MqttHandler, MqttSettings};
 use crate::psram::PsramModuleBuilder;
 use crate::radio::{RadioModule, RadioModuleBuilder};
-use crate::root::RootModuleBuilder;
+use crate::root::{RootModule, RootModuleBuilder};
 use crate::secrets::{MQTT_PASSWORD, MQTT_USERNAME};
 use crate::usb::{UsbModule, UsbModuleBuilder};
-use crate::wifi::{WifiModule, WifiModuleBuilder};
+use crate::wifi::{WifiHandler, WifiModule, WifiModuleBuilder};
 use core::future::pending;
 use core::intrinsics::catch_unwind;
 use core::str::from_utf8;
@@ -49,6 +50,7 @@ use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 use rust_mqtt::utils::rng_generator::CountingRng;
 use serde::Deserialize;
 use serde_json_core::from_slice;
+use static_cell::StaticCell;
 use trouble_host::prelude::HeaplessString;
 
 mod ble;
@@ -71,85 +73,57 @@ async fn main(spawner: Spawner) {
         error!("Uncaught error: {:?}", e);
     }
 }
-async fn main_impl(spawner: Spawner) -> Result<(), Error> {
-    let (root_task, root) = RootModuleBuilder {}.build(spawner).await?;
-    root_task.spawn(spawner)?;
-    loop {
-        info!("Hello");
-        Timer::after(Duration::from_secs(1)).await;
+
+pub struct Application {
+    root: &'static RootModule,
+}
+
+impl MqttHandler for Application {
+    fn handle(&self, topic: &str, message: &[u8]) {
+        if let Ok(message) = str::from_utf8(message) {
+            info!("[ROOT] Received topic {} message {}", topic, message);
+        }
     }
-    // let mut rx_buffer = [0; 4096];
-    // let mut tx_buffer = [0; 4096];
-    // loop {
-    //     let mut socket = TcpSocket::new(root.wifi.stack, &mut rx_buffer, &mut tx_buffer);
-    //     // socket.set_timeout(Some(Duration::from_secs(10)));
-    //     let dns = "u8c6afc1.ala.us-east-1.emqxsl.com";
-    //     let port = 8883;
-    //     let address = root.wifi.stack.dns_query(dns, DnsQueryType::A).await?[0];
-    //
-    //     let remote_endpoint = (address, port);
-    //     info!("[MQTT] Connecting to address {:?}", remote_endpoint);
-    //     socket.connect(remote_endpoint).await?;
-    //     info!("[MQTT] Connected to TCP");
-    //
-    //     let mut read_record_buffer = [0; 16384];
-    //     let mut write_record_buffer = [0; 16384];
-    //     let config = TlsConfig::<Aes128GcmSha256>::new()
-    //         .with_server_name(dns)
-    //         .enable_rsa_signatures();
-    //     let mut tls = TlsConnection::new(socket, &mut read_record_buffer, &mut write_record_buffer);
-    //
-    //     tls.open::<_, NoVerify>(TlsContext::new(&config, &mut RoscRng))
-    //         .await?;
-    //     info!("[MQTT] Connected to TLS");
-    //
-    //     let mut config = ClientConfig::new(
-    //         rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-    //         CountingRng(20000),
-    //     );
-    //     // config.add_max_subscribe_qos(QualityOfService::QoS1);
-    //     config.add_client_id("flappy");
-    //     config.max_packet_size = 100;
-    //     config.add_username(MQTT_USERNAME);
-    //     config.add_password(MQTT_PASSWORD);
-    //     let mut recv_buffer = [0; 80];
-    //     let mut write_buffer = [0; 80];
-    //
-    //     let mut client =
-    //         MqttClient::<_, 5, _>::new(tls, &mut write_buffer, 80, &mut recv_buffer, 80, config);
-    //
-    //     client.connect_to_broker().await?;
-    //     info!("[MQTT] Connected to MQTT Server");
-    //
-    //     client.subscribe_to_topic("testtopic/#").await?;
-    //
-    //     loop {
-    //         let (a, b) = client.receive_message().await?;
-    //         info!("[MQTT] a={}", a);
-    //         yield_now().await;
-    //         info!("[MQTT] b={:?}", b);
-    //     }
-    //
-    //     Timer::after(Duration::from_secs(10000)).await;
-    // }
-    pending::<!>().await;
-    // let state = root.flash.load().await?;
-    // let flappy_service = &root.ble.server().flappy_service;
-    // root.ble.set(&flappy_service.wifi_ssid, &state.wifi_ssid);
-    // root.ble
-    //     .set(&flappy_service.wifi_password, &state.wifi_password);
-    //
-    // loop {
-    //     let service = &root.ble.server().flappy_service;
-    //     root.ble.listen(&service.wifi_password).await;
-    //     let mut state = FlashState::default();
-    //     state.wifi_ssid = root.ble.get(&flappy_service.wifi_ssid)?;
-    //     state.wifi_password = root.ble.get(&flappy_service.wifi_password)?;
-    //     root.flash.save(&state)?;
-    //     info!("Updated flash");
-    //     Timer::after(Duration::from_secs(1)).await;
-    //     info!("New state: {:?}", root.flash.load().await?);
-    //
-    //     Timer::after(Duration::from_secs(1)).await;
-    // }
+}
+
+impl BleHandler for Application {
+    fn handle_write(&self, id: u16) {
+        info!("[ROOT] Received BLE write {}", id);
+    }
+}
+
+impl WifiHandler for Application {
+    fn handle_link_status(&self, state: bool) {
+        if state {
+            info!("[ROOT] Link up");
+        } else {
+            info!("[ROOT] Link down");
+        }
+    }
+
+    fn handle_dhcp_status(&self, state: bool) {
+        if state {
+            info!("[ROOT] DHCP up");
+        } else {
+            info!("[ROOT] DHCP down");
+        }
+    }
+}
+
+async fn main_impl(spawner: Spawner) -> Result<(), Error> {
+    let (root_task, root) = RootModuleBuilder { spawner }.build().await?;
+    static APPLICATION: StaticCell<Application> = StaticCell::new();
+    let application = APPLICATION.init(Application { root });
+    root_task.spawn(spawner, application)?;
+    root.mqtt.set_settings(MqttSettings {
+        hostname: "u8c6afc1.ala.us-east-1.emqxsl.com".try_into().unwrap(),
+        port: 8883,
+        username: MQTT_USERNAME.try_into().unwrap(),
+        password: MQTT_PASSWORD.try_into().unwrap(),
+        topic: "testtopic/#".try_into().unwrap(),
+    });
+    loop {
+        info!("Heartbeat");
+        Timer::after(Duration::from_secs(5)).await;
+    }
 }

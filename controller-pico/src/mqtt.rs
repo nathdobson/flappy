@@ -2,17 +2,19 @@ use crate::error::Error;
 use crate::secrets::{MQTT_PASSWORD, MQTT_USERNAME};
 use crate::wifi::WifiModule;
 use embassy_executor::Spawner;
+use embassy_futures::select::{select, Either};
 use embassy_futures::yield_now;
 use embassy_net::dns::DnsQueryType;
 use embassy_net::tcp::TcpSocket;
 use embassy_rp::clocks::RoscRng;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
-use embassy_time::{Duration, Timer};
+use embassy_time::{with_timeout, Duration, TimeoutError, Timer};
 use embedded_tls::{Aes128GcmSha256, NoVerify, TlsConfig, TlsConnection, TlsContext};
-use log::info;
+use log::{error, info};
 use rust_mqtt::client::client::MqttClient;
 use rust_mqtt::client::client_config::ClientConfig;
+use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 use rust_mqtt::utils::rng_generator::CountingRng;
 use serde::{Deserialize, Serialize};
 use static_cell::StaticCell;
@@ -28,6 +30,10 @@ pub struct MqttModule {
     signal: Signal<NoopRawMutex, MqttSettings>,
 }
 
+pub struct MqttTask {
+    module: &'static MqttModule,
+}
+
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct MqttSettings {
     pub hostname: HeaplessString<256>,
@@ -37,14 +43,49 @@ pub struct MqttSettings {
     pub topic: HeaplessString<128>,
 }
 
-#[embassy_executor::task]
-async fn mqtt_task(module: &'static MqttModule) {}
+impl MqttTask {
+    pub fn spawn(self, spawner: Spawner, handler: &'static dyn MqttHandler) -> Result<(), Error> {
+        spawner.spawn(mqtt_task(self.module, handler)?);
+        Ok(())
+    }
+}
 
-async fn mqtt_runner(module: &'static MqttModule, settings: MqttSettings) -> Result<(), Error> {
+pub trait MqttHandler {
+    fn handle(&self, topic: &str, message: &[u8]);
+}
+
+#[embassy_executor::task]
+async fn mqtt_task(module: &'static MqttModule, handler: &'static dyn MqttHandler) {
+    let mut settings = module.signal.wait().await;
+    loop {
+        // Cancel the MQTT connection every time the settings change.
+        match select(
+            mqtt_runner(module, &settings, handler),
+            module.signal.wait(),
+        )
+        .await
+        {
+            Either::First(Ok(x)) => match x {},
+            Either::First(Err(e)) => {
+                error!("[MQTT] error: {:?}", e);
+                Timer::after(Duration::from_secs(10)).await;
+            }
+            Either::Second(s) => settings = s,
+        }
+    }
+}
+
+async fn mqtt_runner(
+    module: &'static MqttModule,
+    settings: &MqttSettings,
+    handler: &'static dyn MqttHandler,
+) -> Result<!, Error> {
+    module.stack.wait_link_up().await;
+    module.stack.wait_config_up().await;
     let mut rx_buffer = [0; 4096];
     let mut tx_buffer = [0; 4096];
     let mut socket = TcpSocket::new(*module.stack, &mut rx_buffer, &mut tx_buffer);
-    // socket.set_timeout(Some(Duration::from_secs(10)));
+    socket.set_timeout(Some(Duration::from_secs(20)));
     let dns = &*settings.hostname;
     let port = settings.port;
     info!("[MQTT] Looking up DNS {:?}", dns);
@@ -87,23 +128,33 @@ async fn mqtt_runner(module: &'static MqttModule, settings: MqttSettings) -> Res
     client.subscribe_to_topic(&settings.topic).await?;
 
     loop {
-        let (a, b) = client.receive_message().await?;
-        info!("[MQTT] a={}", a);
-        yield_now().await;
-        info!("[MQTT] b={:?}", b);
+        // Use timeout because receive_message and send_ping take &mut self.
+        match with_timeout(Duration::from_secs(10), client.receive_message()).await {
+            Ok(Ok((topic, body))) => {
+                handler.handle(topic, body);
+            }
+            Ok(Err(e)) => return Err(e.into()),
+            Err(TimeoutError) => {
+                client.send_ping().await?;
+            }
+        }
     }
-
-    Timer::after(Duration::from_secs(10000)).await;
 }
 
 impl MqttModuleBuilder {
-    pub async fn build(self) -> Result<&'static MqttModule, Error> {
+    pub async fn build(self) -> Result<(MqttTask, &'static MqttModule), Error> {
         static MODULE: StaticCell<MqttModule> = StaticCell::new();
         let module = MODULE.init(MqttModule {
             stack: self.stack,
             signal: Signal::new(),
         });
-        self.spawner.spawn(mqtt_task(module)?);
-        Ok(module)
+
+        Ok((MqttTask { module }, module))
+    }
+}
+
+impl MqttModule {
+    pub fn set_settings(&self, settings: MqttSettings) {
+        self.signal.signal(settings);
     }
 }
