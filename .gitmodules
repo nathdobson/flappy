@@ -4,3 +4,6 @@
 [submodule "trouble"]
 	path = trouble
 	url = https://github.com/nathdobson/trouble.git
+[submodule "rust-mqtt"]
+	path = rust-mqtt
+	url = https://github.com/nathdobson/rust-mqtt.git

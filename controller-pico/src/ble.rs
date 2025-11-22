@@ -1,4 +1,4 @@
-use crate::ble_gatt::{Server, FLAPPY_SERVICE_UUID, HANDLE_LIMIT};
+use crate::ble_gatt::{Server, FLAPPY_SERVICE_UUID};
 use crate::error::Error;
 use core::cell::RefCell;
 use core::future::{join, pending};
@@ -37,13 +37,16 @@ pub struct BleModuleBuilder {
     pub bt_device: BtDriver<'static>,
 }
 
-struct BleModuleInner {
-    conn: RefCell<Option<MyConnection>>,
-    writes: [Signal<NoopRawMutex, ()>; HANDLE_LIMIT],
+pub struct BleTask {
+    peripheral: MyPeripheral,
+    server: &'static MyServer,
+    stack: &'static MyStack,
+    module: &'static BleModule,
 }
+
 pub struct BleModule {
     server: &'static MyServer,
-    inner: &'static BleModuleInner,
+    conn: RefCell<Option<MyConnection>>,
 }
 
 type MyPacketPool = DefaultPacketPool;
@@ -72,21 +75,22 @@ async fn advertise_task(
     mut peripheral: MyPeripheral,
     server: &'static MyServer,
     stack: &'static MyStack,
-    inner: &'static BleModuleInner,
+    module: &'static BleModule,
 ) {
     loop {
         match advertise("Flappy", &mut peripheral, &server).await {
             Ok(conn) => {
-                inner.conn.borrow_mut().replace(conn);
-                match gatt_events_task(&server, inner.conn.borrow().as_ref().unwrap(), inner).await
+                module.conn.borrow_mut().replace(conn);
+                match gatt_events_task(&server, module.conn.borrow().as_ref().unwrap(), module)
+                    .await
                 {
                     Ok(_) => {}
                     Err(e) => error!("[gatt_events_task] error: {}", e),
                 } //
-                inner.conn.borrow_mut().take();
+                module.conn.borrow_mut().take();
             }
             Err(e) => {
-                error!("[adv] error: {}", e);
+                error!("[BLE] error: {}", e);
             }
         }
     }
@@ -95,7 +99,7 @@ async fn advertise_task(
 async fn gatt_events_task(
     server: &MyServer,
     conn: &MyConnection,
-    inner: &BleModuleInner,
+    inner: &BleModule,
 ) -> Result<(), Error> {
     let reason = loop {
         match conn.next().await {
@@ -103,51 +107,51 @@ async fn gatt_events_task(
             GattConnectionEvent::Gatt { event } => {
                 match &event {
                     GattEvent::Read(event) => {
-                        if event.handle() == server.flappy_service.wifi_ssid.handle {
-                            info!("[gatt] read wifi ssid");
-                        } else if event.handle() == server.flappy_service.wifi_password.handle {
-                            info!("[gatt] read wifi password");
-                        } else if event.handle() == server.flappy_service.wifi_status.handle {
-                            info!("[gatt] read wifi status");
-                        } else if event.handle() == server.flappy_service.irc_hostname.handle {
-                            info!("[gatt] read wifi irc hostname");
-                        } else if event.handle() == server.flappy_service.irc_port.handle {
-                            info!("[gatt] read wifi irc port");
-                        } else if event.handle() == server.flappy_service.irc_nickname.handle {
-                            info!("[gatt] read wifi irc nickname");
-                        } else if event.handle() == server.flappy_service.irc_channel.handle {
-                            info!("[gatt] read wifi irc channel");
-                        } else if event.handle() == server.flappy_service.irc_status.handle {
-                            info!("[gatt] read wifi irc status");
-                        } else {
-                            info!("[gatt] unknown read")
-                        }
+                        // if event.handle() == server.flappy_service.wifi_ssid.handle {
+                        //     info!("[gatt] read wifi ssid");
+                        // } else if event.handle() == server.flappy_service.wifi_password.handle {
+                        //     info!("[gatt] read wifi password");
+                        // } else if event.handle() == server.flappy_service.wifi_status.handle {
+                        //     info!("[gatt] read wifi status");
+                        // } else if event.handle() == server.flappy_service.irc_hostname.handle {
+                        //     info!("[gatt] read wifi irc hostname");
+                        // } else if event.handle() == server.flappy_service.irc_port.handle {
+                        //     info!("[gatt] read wifi irc port");
+                        // } else if event.handle() == server.flappy_service.irc_nickname.handle {
+                        //     info!("[gatt] read wifi irc nickname");
+                        // } else if event.handle() == server.flappy_service.irc_channel.handle {
+                        //     info!("[gatt] read wifi irc channel");
+                        // } else if event.handle() == server.flappy_service.irc_status.handle {
+                        //     info!("[gatt] read wifi irc status");
+                        // } else {
+                        //     info!("[gatt] unknown read")
+                        // }
                     }
                     GattEvent::Write(event) => {
-                        if let Some(signal) = inner.writes.get(event.handle() as usize) {
-                            signal.signal(());
-                        } else {
-                            error!("bad id received {:?}", event.handle());
-                        }
-                        if event.handle() == server.flappy_service.wifi_ssid.handle {
-                            info!("[gatt] write wifi ssid");
-                        } else if event.handle() == server.flappy_service.wifi_password.handle {
-                            info!("[gatt] write wifi password");
-                        } else if event.handle() == server.flappy_service.wifi_status.handle {
-                            info!("[gatt] write wifi status");
-                        } else if event.handle() == server.flappy_service.irc_hostname.handle {
-                            info!("[gatt] write wifi irc hostname");
-                        } else if event.handle() == server.flappy_service.irc_port.handle {
-                            info!("[gatt] write wifi irc port");
-                        } else if event.handle() == server.flappy_service.irc_nickname.handle {
-                            info!("[gatt] write wifi irc nickname");
-                        } else if event.handle() == server.flappy_service.irc_channel.handle {
-                            info!("[gatt] write wifi irc channel");
-                        } else if event.handle() == server.flappy_service.irc_status.handle {
-                            info!("[gatt] write wifi irc status");
-                        } else {
-                            info!("[gatt] unknown write")
-                        }
+                        // if let Some(signal) = inner.writes.get(event.handle() as usize) {
+                        //     signal.signal(());
+                        // } else {
+                        //     error!("bad id received {:?}", event.handle());
+                        // }
+                        // if event.handle() == server.flappy_service.wifi_ssid.handle {
+                        //     info!("[gatt] write wifi ssid");
+                        // } else if event.handle() == server.flappy_service.wifi_password.handle {
+                        //     info!("[gatt] write wifi password");
+                        // } else if event.handle() == server.flappy_service.wifi_status.handle {
+                        //     info!("[gatt] write wifi status");
+                        // } else if event.handle() == server.flappy_service.irc_hostname.handle {
+                        //     info!("[gatt] write wifi irc hostname");
+                        // } else if event.handle() == server.flappy_service.irc_port.handle {
+                        //     info!("[gatt] write wifi irc port");
+                        // } else if event.handle() == server.flappy_service.irc_nickname.handle {
+                        //     info!("[gatt] write wifi irc nickname");
+                        // } else if event.handle() == server.flappy_service.irc_channel.handle {
+                        //     info!("[gatt] write wifi irc channel");
+                        // } else if event.handle() == server.flappy_service.irc_status.handle {
+                        //     info!("[gatt] write wifi irc status");
+                        // } else {
+                        //     info!("[gatt] unknown write")
+                        // }
                     }
                     _ => {}
                 };
@@ -165,11 +169,11 @@ async fn gatt_events_task(
     Ok(())
 }
 
-pub async fn advertise<'values, 'server>(
+pub async fn advertise(
     name: &'static str,
     peripheral: &mut MyPeripheral,
-    server: &'server Server<'static>,
-) -> Result<GattConnection<'static, 'server, DefaultPacketPool>, Error> {
+    server: &'static Server<'static>,
+) -> Result<GattConnection<'static, 'static, DefaultPacketPool>, Error> {
     Timer::after_millis(1000).await;
     let mut advertiser_data = [0; 128];
     const FLAPPY_SERVICE_UUID_BYTES: [u8; 16] = {
@@ -198,15 +202,14 @@ pub async fn advertise<'values, 'server>(
             },
         )
         .await?;
-    info!("[adv] advertising");
     let conn = advertiser.accept().await?.with_attribute_server(server)?;
-    info!("[adv] connection established");
+    info!("[BLE] connection established");
     Ok(conn)
 }
 
 impl BleModuleBuilder {
-    pub async fn build(self) -> Result<BleModule, Error> {
-        info!("Starting BLE");
+    pub async fn build(self) -> Result<(BleTask, &'static BleModule), Error> {
+        info!("[BLE] starting");
         yield_now().await;
         let bt = MyController::new(self.bt_device);
         static RESOURCES: StaticCell<MyResources> = StaticCell::new();
@@ -214,8 +217,8 @@ impl BleModuleBuilder {
         static STACK: StaticCell<MyStack> = StaticCell::new();
         let stack: &'static MyStack = STACK.init_with(|| trouble_host::new(bt, resources));
         let mut host = stack.build();
-
-        info!("Starting advertising and GATT service");
+        self.spawner.clone().spawn(ble_task(host.runner)?);
+        info!("[BLE] beginning advertisement");
         yield_now().await;
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
             name: "Flappy",
@@ -223,20 +226,37 @@ impl BleModuleBuilder {
         }))?;
         static SERVER: StaticCell<Server> = StaticCell::new();
         let server: &'static Server = SERVER.init(server);
-        static INNER: StaticCell<BleModuleInner> = StaticCell::new();
-        let inner = INNER.init_with(|| BleModuleInner {
+
+        static MODULE: StaticCell<BleModule> = StaticCell::new();;
+        let module = MODULE.init(BleModule {
+            server,
             conn: RefCell::new(None),
-            writes: [const { Signal::new() }; HANDLE_LIMIT],
         });
 
-        self.spawner.clone().spawn(ble_task(host.runner)?);
-        self.spawner
-            .clone()
-            .spawn(advertise_task(host.peripheral, server, &stack, inner)?);
-        info!("Started BLE");
+        info!("[BLE] started");
         yield_now().await;
 
-        Ok(BleModule { server, inner })
+        Ok((
+            BleTask {
+                peripheral: host.peripheral,
+                server,
+                stack,
+                module,
+            },
+            module,
+        ))
+    }
+}
+
+impl BleTask {
+    pub fn spawn(self, spawner: Spawner) -> Result<(), Error> {
+        spawner.clone().spawn(advertise_task(
+            self.peripheral,
+            self.server,
+            self.stack,
+            self.module,
+        )?);
+        Ok(())
     }
 }
 
@@ -244,24 +264,29 @@ impl BleModule {
     pub fn server(&self) -> &MyServer {
         self.server
     }
-    pub async fn set<T: AsGatt + FromGatt>(&self, c: &Characteristic<T>, v: &T) {
+    pub async fn set_and_notify<T: AsGatt + FromGatt>(&self, c: &Characteristic<T>, v: &T) {
         if let Err(e) = c.set(self.server, v) {
             warn!("Set error: {:?}", e);
         }
-        if let Some(conn) = self.inner.conn.borrow().as_ref() {
+        if let Some(conn) = self.conn.borrow().as_ref() {
             if let Err(e) = c.notify::<MyPacketPool>(conn, v).await {
                 warn!("Notify error: {:?}", e);
             }
         }
     }
+    pub fn set<T: AsGatt + FromGatt>(&self, c: &Characteristic<T>, v: &T) {
+        if let Err(e) = c.set(self.server, v) {
+            warn!("Set error: {:?}", e);
+        }
+    }
     pub fn get<T: FromGatt>(&self, c: &Characteristic<T>) -> Result<T, Error> {
         Ok(c.get(self.server)?)
     }
-    pub async fn listen<T: FromGatt>(&self, c: &Characteristic<T>) {
-        if let Some(signal) = self.inner.writes.get(c.handle as usize) {
-            signal.wait().await;
-        } else {
-            error!("bad handle listened {:?}", c.handle);
-        }
-    }
+    // pub async fn listen<T: FromGatt>(&self, c: &Characteristic<T>) {
+    //     if let Some(signal) = self.writes.get(c.handle as usize) {
+    //         signal.wait().await;
+    //     } else {
+    //         error!("bad handle listened {:?}", c.handle);
+    //     }
+    // }
 }

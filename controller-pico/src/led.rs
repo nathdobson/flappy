@@ -1,14 +1,18 @@
-use crate::error::Result;
+use crate::error::{Error, Result};
+use crate::radio::RadioModule;
+use core::cell::RefCell;
 use cyw43::Control;
 use embassy_executor::Spawner;
 use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
+use static_cell::StaticCell;
+
 const INCREMENTS: u64 = 20;
 const DELAY_NANOS: f32 = 10000000f32;
 
 #[embassy_executor::task]
-async fn led_task(mut control: Control<'static>) {
+async fn led_task(mut radio: &'static RadioModule) {
     let total = INCREMENTS;
     for i in 0u64.. {
         let intensity =
@@ -19,27 +23,40 @@ async fn led_task(mut control: Control<'static>) {
         let wait2 = (DELAY_NANOS * (1.0 - duty)) as u64;
         let wait1 = Duration::from_nanos(wait1);
         let wait2 = Duration::from_nanos(wait2);
-        control.gpio_set(0, true).await;
+        radio.control.lock().await.gpio_set(0, true).await;
         Timer::after(wait1).await;
-        control.gpio_set(0, false).await;
+        radio.control.lock().await.gpio_set(0, false).await;
         Timer::after(wait2).await;
     }
 }
 
 pub struct LedModuleBuilder {
     pub spawner: Spawner,
-    pub control: Control<'static>,
+    pub radio: &'static RadioModule,
 }
 
 pub struct LedModule {}
 
+pub struct LedTask {
+    radio: &'static RadioModule,
+}
+
+impl LedTask {
+    pub fn spawn(self, spawner: Spawner) -> Result<()> {
+        spawner.spawn(led_task(self.radio)?);
+        Ok(())
+    }
+}
+
 impl LedModuleBuilder {
-    pub async fn build(self) -> Result<LedModule> {
-        info!("Starting LED");
-        yield_now().await;
-        self.spawner.spawn(led_task(self.control)?);
-        info!("Started LED");
-        yield_now().await;
-        Ok(LedModule {})
+    pub async fn build(self) -> Result<(LedTask, &'static LedModule)> {
+        static MODULE: StaticCell<LedModule> = StaticCell::new();
+        let module = MODULE.init(LedModule {});
+        Ok((
+            LedTask {
+                radio: self.radio,
+            },
+            module,
+        ))
     }
 }
