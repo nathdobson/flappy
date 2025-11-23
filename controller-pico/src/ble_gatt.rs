@@ -31,7 +31,7 @@ pub struct FlappyService {
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "MQTT Hostname")]
     #[characteristic(uuid = "e789ca87-4fe2-4967-94ed-68f9d6cec087", read, write)]
-    pub mqtt_hostname: HeaplessString<256>,
+    pub mqtt_hostname: HeaplessString<128>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "MQTT Port")]
     #[characteristic(uuid = "2b02c87e-260f-47d2-8fe0-83c87979fd01", read, write)]
@@ -39,17 +39,17 @@ pub struct FlappyService {
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "MQTT Username")]
     #[characteristic(uuid = "7a9cfbb2-78fa-4222-be11-ab7d401d6f08", read, write)]
-    pub mqtt_username: HeaplessString<10>,
+    pub mqtt_username: HeaplessString<128>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "MQTT Password")]
     #[characteristic(uuid = "66629b6d-0c7f-45a4-aada-9dc5aea7341c", read, write)]
-    pub mqtt_password: HeaplessString<100>,
+    pub mqtt_password: HeaplessString<128>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "MQTT Topic")]
     #[characteristic(uuid = "a2e39581-34e8-4613-b993-a50a32820841", read, write)]
-    pub mqtt_topic: HeaplessString<100>,
+    pub mqtt_topic: HeaplessString<128>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "MQTT Status")]
     #[characteristic(uuid = "ffa3be06-af36-4896-b336-02124a4dc539", read, notify)]
-    pub mqtt_status: HeaplessString<100>,
+    pub mqtt_status: HeaplessString<128>,
 }

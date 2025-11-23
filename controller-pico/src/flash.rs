@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use static_cell::StaticCell;
 use trouble_host::prelude::HeaplessString;
 
-const ADDR_OFFSET: u32 = 0x100000;
+const ADDR_OFFSET: u32 = 0x110000;
 const FLASH_SIZE: usize = 2 * 1024 * 1024;
 
 pub struct FlashModuleBuilder {
@@ -22,7 +22,7 @@ pub struct FlashModuleBuilder {
     pub dma_ch: Peri<'static, AnyChannel>,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct FlashSettings {
     pub wifi: WifiSettings,
     pub mqtt: MqttSettings,
@@ -65,7 +65,7 @@ impl FlashModule {
             .borrow_mut()
             .read(ADDR_OFFSET, &mut buf.0)
             .await?;
-        info!("{:?}", buf.0);
+        // info!("{:?}", buf.0);
         yield_now().await;
         match serde_json_core::from_slice::<FlashSettings>(&buf.0) {
             Ok((state, _)) => Ok(state),
@@ -85,7 +85,7 @@ impl FlashModule {
         self.flash
             .borrow_mut()
             .blocking_erase(ADDR_OFFSET, ADDR_OFFSET + ERASE_SIZE as u32)?;
-        info!("writing {:?}", data.0);
+        // info!("writing {:?}", data.0);
         self.flash
             .borrow_mut()
             .blocking_write(ADDR_OFFSET, &data.0)?;

@@ -86,8 +86,13 @@ async fn advertise_task(
         match advertise("Flappy", &mut peripheral, &server).await {
             Ok(conn) => {
                 module.conn.borrow_mut().replace(conn);
-                match gatt_events_task(&server, module.conn.borrow().as_ref().unwrap(), module,handler)
-                    .await
+                match gatt_events_task(
+                    &server,
+                    module.conn.borrow().as_ref().unwrap(),
+                    module,
+                    handler,
+                )
+                .await
                 {
                     Ok(_) => {}
                     Err(e) => error!("[gatt_events_task] error: {}", e),
@@ -111,54 +116,13 @@ async fn gatt_events_task(
         match conn.next().await {
             GattConnectionEvent::Disconnected { reason } => break reason,
             GattConnectionEvent::Gatt { event } => {
+                let mut do_handle = None;
                 match &event {
-                    GattEvent::Read(event) => {
-                        // if event.handle() == server.flappy_service.wifi_ssid.handle {
-                        //     info!("[gatt] read wifi ssid");
-                        // } else if event.handle() == server.flappy_service.wifi_password.handle {
-                        //     info!("[gatt] read wifi password");
-                        // } else if event.handle() == server.flappy_service.wifi_status.handle {
-                        //     info!("[gatt] read wifi status");
-                        // } else if event.handle() == server.flappy_service.irc_hostname.handle {
-                        //     info!("[gatt] read wifi irc hostname");
-                        // } else if event.handle() == server.flappy_service.irc_port.handle {
-                        //     info!("[gatt] read wifi irc port");
-                        // } else if event.handle() == server.flappy_service.irc_nickname.handle {
-                        //     info!("[gatt] read wifi irc nickname");
-                        // } else if event.handle() == server.flappy_service.irc_channel.handle {
-                        //     info!("[gatt] read wifi irc channel");
-                        // } else if event.handle() == server.flappy_service.irc_status.handle {
-                        //     info!("[gatt] read wifi irc status");
-                        // } else {
-                        //     info!("[gatt] unknown read")
-                        // }
-                    }
+                    GattEvent::Read(event) => {}
                     GattEvent::Write(event) => {
-                        handler.handle_write(event.handle());
-                        // if let Some(signal) = inner.writes.get(event.handle() as usize) {
-                        //     signal.signal(());
-                        // } else {
-                        //     error!("bad id received {:?}", event.handle());
-                        // }
-                        // if event.handle() == server.flappy_service.wifi_ssid.handle {
-                        //     info!("[gatt] write wifi ssid");
-                        // } else if event.handle() == server.flappy_service.wifi_password.handle {
-                        //     info!("[gatt] write wifi password");
-                        // } else if event.handle() == server.flappy_service.wifi_status.handle {
-                        //     info!("[gatt] write wifi status");
-                        // } else if event.handle() == server.flappy_service.irc_hostname.handle {
-                        //     info!("[gatt] write wifi irc hostname");
-                        // } else if event.handle() == server.flappy_service.irc_port.handle {
-                        //     info!("[gatt] write wifi irc port");
-                        // } else if event.handle() == server.flappy_service.irc_nickname.handle {
-                        //     info!("[gatt] write wifi irc nickname");
-                        // } else if event.handle() == server.flappy_service.irc_channel.handle {
-                        //     info!("[gatt] write wifi irc channel");
-                        // } else if event.handle() == server.flappy_service.irc_status.handle {
-                        //     info!("[gatt] write wifi irc status");
-                        // } else {
-                        //     info!("[gatt] unknown write")
-                        // }
+                        info!("[gatt_events_task] write handle: {:?}", event.handle());
+                        info!("[gatt_events_task] write data: {:?}", event.data());
+                        do_handle = Some(event.handle());
                     }
                     _ => {}
                 };
@@ -168,6 +132,9 @@ async fn gatt_events_task(
                     Ok(reply) => reply.send().await,
                     Err(e) => warn!("[gatt] error sending response: {:?}", e),
                 };
+                if let Some(do_handle) = do_handle {
+                    handler.handle_write(do_handle);
+                }
             }
             _ => {} // ignore other Gatt Connection Events
         }
