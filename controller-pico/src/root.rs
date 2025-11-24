@@ -1,4 +1,5 @@
 use crate::ble::{BleHandler, BleModule, BleModuleBuilder, BleTask};
+use crate::driver::{DriverBuilder, DriverModule};
 use crate::error::Error;
 use crate::flash::{FlashModule, FlashModuleBuilder, FlashTask};
 use crate::led::{LedModule, LedModuleBuilder, LedTask};
@@ -10,6 +11,7 @@ use core::any::Any;
 use embassy_executor::Spawner;
 use embassy_futures::yield_now;
 use embassy_rp::clocks::RoscRng;
+use embassy_time::Timer;
 use log::info;
 use static_cell::StaticCell;
 
@@ -24,6 +26,7 @@ pub struct RootModule {
     pub led: &'static LedModule,
     pub wifi: &'static WifiModule,
     pub mqtt: &'static MqttModule,
+    pub driver: &'static DriverModule,
 }
 
 pub struct RootTask {
@@ -67,6 +70,20 @@ impl RootModuleBuilder {
         };
         info!("Welcome to the Split Flap Display!");
         yield_now().await;
+        Timer::after_millis(2000).await;
+
+        let driver = DriverBuilder {
+            cipo: p.PIN_0,
+            copi: p.PIN_3,
+            clock: p.PIN_2,
+            spi: p.SPI0,
+            latch: p.PIN_1,
+            load: p.PIN_4,
+            reset: p.PIN_5,
+            enable: p.PIN_6,
+        }
+        .build()
+        .await?;
 
         let mut rng = RoscRng;
 
@@ -126,6 +143,7 @@ impl RootModuleBuilder {
             wifi,
             led,
             mqtt,
+            driver,
         });
         Ok((
             RootTask {

@@ -20,6 +20,7 @@ pub enum Error {
     MqttError(ReasonCode),
     TlsError(TlsError),
     ConnectError(ConnectError),
+    SpiError(embassy_rp::spi::Error),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -40,6 +41,7 @@ impl Display for Error {
             Error::MqttError(error) => write!(f, "MQTT error: {}", error),
             Error::TlsError(error) => write!(f, "TLS error: {:?}", error),
             Error::ConnectError(error) => write!(f, "Connect error: {:?}", error),
+            Error::SpiError(error) => write!(f, "SPI error: {:?}", error),
         }
     }
 }
@@ -119,5 +121,11 @@ impl From<TlsError> for Error {
 impl From<ConnectError> for Error {
     fn from(error: ConnectError) -> Self {
         Error::ConnectError(error)
+    }
+}
+
+impl From<embassy_rp::spi::Error> for Error {
+    fn from(value: embassy_rp::spi::Error) -> Self {
+        Error::SpiError(value)
     }
 }

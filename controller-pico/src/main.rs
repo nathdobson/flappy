@@ -16,8 +16,10 @@
 #![feature(type_alias_impl_trait)]
 #![feature(never_type)]
 #![feature(try_blocks)]
+#![feature(debug_closure_helpers)]
 
 use crate::ble::{BleHandler, BleModule, BleModuleBuilder, BleTask};
+use crate::display::Display;
 use crate::error::Error;
 use crate::flash::{FlashModule, FlashModuleBuilder, FlashSettings};
 use crate::led::{LedModule, LedModuleBuilder};
@@ -44,19 +46,22 @@ use embassy_time::{Duration, Timer};
 use embedded_tls::{
     Aes128GcmSha256, Aes256GcmSha384, NoVerify, TlsConfig, TlsConnection, TlsContext,
 };
+use heapless::String;
 use log::{error, info};
 use rust_mqtt::client::client::MqttClient;
 use rust_mqtt::client::client_config::ClientConfig;
 use rust_mqtt::packet::v5::publish_packet::QualityOfService;
 use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 use rust_mqtt::utils::rng_generator::CountingRng;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json_core::from_slice;
 use static_cell::StaticCell;
 use trouble_host::prelude::HeaplessString;
 
 mod ble;
 mod ble_gatt;
+mod display;
+mod driver;
 mod error;
 mod flash;
 mod led;
@@ -80,6 +85,12 @@ pub struct Application {
     state: RefCell<FlashSettings>,
     wifi_status: Signal<NoopRawMutex, WifiStatus>,
     mqtt_status: Signal<NoopRawMutex, MqttStatus>,
+    display_message: Signal<NoopRawMutex, MqttRequest>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct MqttRequest {
+    msg: String<128>,
 }
 
 impl MqttHandler for Application {
@@ -90,6 +101,12 @@ impl MqttHandler for Application {
     fn handle(&self, topic: &str, message: &[u8]) {
         if let Ok(message) = str::from_utf8(message) {
             info!("[ROOT] Received topic {} message {}", topic, message);
+        }
+        match serde_json_core::from_slice::<MqttRequest>(message) {
+            Ok((message, _)) => {
+                self.display_message.signal(message);
+            }
+            Err(e) => error!("Cannot parse message {:?}", e),
         }
     }
 }
@@ -197,9 +214,19 @@ async fn notify_wifi_status(application: &'static Application) {
     }
 }
 
+#[embassy_executor::task]
+async fn display_message(application: &'static Application) {
+    let mut display = Display::new(application.root.driver);
+    loop {
+        let request = application.display_message.wait().await;
+        if let Err(e) = display.run(&request.msg).await {
+            error!("{:?}", e);
+        }
+    }
+}
+
 async fn main_impl(spawner: Spawner) -> Result<(), Error> {
     let (root_task, root) = RootModuleBuilder { spawner }.build().await?;
-    Timer::after(Duration::from_secs(5)).await;
     let state = root.flash.load().await?;
     static APPLICATION: StaticCell<Application> = StaticCell::new();
     let application = APPLICATION.init(Application {
@@ -207,6 +234,7 @@ async fn main_impl(spawner: Spawner) -> Result<(), Error> {
         state: RefCell::new(state.clone()),
         wifi_status: Signal::new(),
         mqtt_status: Signal::new(),
+        display_message: Signal::new(),
     });
     spawner.spawn(notify_mqtt_status(application)?);
     spawner.spawn(notify_wifi_status(application)?);
@@ -227,8 +255,6 @@ async fn main_impl(spawner: Spawner) -> Result<(), Error> {
     root.wifi.set_settings(state.wifi);
     root.mqtt.set_settings(state.mqtt);
     root_task.spawn(spawner, application)?;
-    loop {
-        info!("Heartbeat");
-        Timer::after(Duration::from_secs(5)).await;
-    }
+    spawner.spawn(display_message(application)?);
+    pending::<!>().await;
 }
