@@ -6,17 +6,17 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 
-embassy-rp = { path = "../embassy/embassy-rp", features =["rp235xa","time-driver"]}
-embassy-time = { path = "../embassy/embassy-time", features = []}
-embassy-usb = { path = "../embassy/embassy-usb" }
-embassy-net = { path = "../embassy/embassy-net", features = [ "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns", "proto-ipv4", "proto-ipv6"] }
-embassy-futures = { path = "../embassy/embassy-futures" }
-embassy-executor = { path = "../embassy/embassy-executor", features = [ "arch-cortex-m", "executor-thread"] }
-embassy-sync = { path = "../embassy/embassy-sync", features = [] }
-embassy-usb-logger = { path = "../embassy/embassy-usb-logger"}
-cyw43={path = "../embassy/cyw43",features = ["bluetooth"]}
-cyw43-pio={path = "../embassy/cyw43-pio"}
-trouble-host = { path= "../trouble/host" }
+embassy-rp = { path = "../submodules/embassy/embassy-rp", features =["rp235xa","time-driver"]}
+embassy-time = { path = "../submodules/embassy/embassy-time", features = []}
+embassy-usb = { path = "../submodules/embassy/embassy-usb" }
+embassy-net = { path = "../submodules/embassy/embassy-net", features = [ "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns", "proto-ipv4", "proto-ipv6"] }
+embassy-futures = { path = "../submodules/embassy/embassy-futures" }
+embassy-executor = { path = "../submodules/embassy/embassy-executor", features = [ "arch-cortex-m", "executor-thread"] }
+embassy-sync = { path = "../submodules/embassy/embassy-sync", features = [] }
+embassy-usb-logger = { path = "../submodules/embassy/embassy-usb-logger"}
+cyw43={path = "../submodules/embassy/cyw43",features = ["bluetooth"]}
+cyw43-pio={path = "../submodules/embassy/cyw43-pio"}
+trouble-host = { path= "../submodules/trouble/host" }
 
 #reqwless = "0.13.0"
 cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
@@ -29,16 +29,20 @@ serde-json-core = "0.6.0"
 rand_core = "0.9.3"
 uuid={version = "1.18.1",default-features = false}
 heapless = {version="0.9.2",features = ["serde"]}
-rust-mqtt = {path="../rust-mqtt", default-features = false}
+rust-mqtt = {path="../submodules/rust-mqtt", default-features = false}
 embedded-tls = {version="0.17.0",default-features = false}
 embedded-hal = "1.0.0"
 unicode-segmentation = {version = "1.12.0",default-features = false}
 common = {path="../common"}
+unidecode = {path="../submodules/rust-unidecode", default-features = false}
+unicode-normalization = {version="0.1.25",default-features = false}
+
+
 [profile.release]
 opt-level = "z"
 lto = true
 strip = true
 
 [patch.crates-io]
-embassy-time = {path="../embassy/embassy-time"}
-embassy-sync = {path="../embassy/embassy-sync"}
+embassy-time = {path="../submodules/embassy/embassy-time"}
+embassy-sync = {path="../submodules/embassy/embassy-sync"}

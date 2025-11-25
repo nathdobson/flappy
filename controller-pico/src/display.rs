@@ -3,9 +3,11 @@ use crate::error::Error;
 use core::default::Default;
 use core::{fmt, iter};
 use embassy_time::Timer;
-use heapless::Vec;
+use heapless::{String, Vec};
 use log::info;
+use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
+use unidecode::unidecode_char;
 
 const MAX_CHARS: usize = 12;
 const STEPS_PER_REV: usize = 2048;
@@ -50,6 +52,45 @@ impl Display {
                 })
                 .ok()
                 .unwrap();
+        }
+        let mut flaps = Vec::<usize, MAX_CHARS>::new();
+
+        // Attempt to assign each grapheme to one displayed character. This ensures diacritics
+        // are handled together with the base code point.
+        for grapheme_in in UnicodeSegmentation::graphemes(message, true) {
+            // Check for a matching grapheme with the same Unicode canonical normalization. This ensures
+            // graphemes with different code point sequences that should render identically are
+            // matched. For example, "\u00F1" (LATIN SMALL LETTER N WITH TILDE) and "\u006E\u0303"
+            // (LATIN SMALL LETTER N, COMBINING TILDE) should both use the same flap.
+            if let Some(matched) =
+                common::letters_iter().position(|g| g.nfd().eq(grapheme_in.nfd()))
+            {
+                flaps.push(matched).ok();
+                continue;
+            }
+            // If we failed to find a canonical match, look for a compatible match. This will handle
+            // imperfect matches like "\u0190" (LATIN CAPITAL LETTER OPEN E ) for "\u2107" (EULER CONSTANT).
+            if let Some(matched) =
+                common::letters_iter().position(|g| g.nfkd().eq(grapheme_in.nfkd()))
+            {
+                flaps.push(matched).ok();
+                continue;
+            }
+
+            // A
+            let success = false;
+            for c in grapheme_in.chars() {
+                for c in unidecode_char(c).chars() {
+                    if let Some(matched) = common::letters_iter()
+                        .position(|g| g.len() == 1 && g.chars().next().unwrap() == c)
+                    {
+                        flaps.push(matched).ok();
+                    }
+                }
+            }
+            if !success {
+                flaps.push(0).ok();
+            }
         }
         for (index, char) in UnicodeSegmentation::graphemes(message, true)
             .chain(iter::repeat(" "))

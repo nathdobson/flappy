@@ -256,5 +256,10 @@ async fn main_impl(spawner: Spawner) -> Result<(), Error> {
     root.mqtt.set_settings(state.mqtt);
     root_task.spawn(spawner, application)?;
     spawner.spawn(display_message(application)?);
+    // let data = [0; 1024];
+    loop {
+        // application.root.driver.write(&data)?;
+        yield_now().await;
+    }
     pending::<!>().await;
 }

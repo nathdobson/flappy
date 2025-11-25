@@ -1,9 +1,12 @@
 [submodule "embassy"]
-	path = embassy
+	path = submodules/embassy
 	url = https://github.com/nathdobson/embassy.git
 [submodule "trouble"]
-	path = trouble
+	path = submodules/trouble
 	url = https://github.com/nathdobson/trouble.git
 [submodule "rust-mqtt"]
-	path = rust-mqtt
+	path = submodules/rust-mqtt
 	url = https://github.com/nathdobson/rust-mqtt.git
+[submodule "submodules/rust-unidecode"]
+	path = submodules/rust-unidecode
+	url = https://github.com/nathdobson/rust-unidecode.git
