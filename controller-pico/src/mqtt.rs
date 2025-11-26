@@ -72,22 +72,25 @@ pub trait MqttHandler {
 async fn mqtt_task(module: &'static MqttModule, handler: &'static dyn MqttHandler) {
     let mut settings = module.signal.wait().await;
     loop {
+        if let Some(s) = module.signal.try_take() {
+            settings = s;
+        }
         // Cancel the MQTT connection every time the settings change.
         match select(
-            mqtt_runner(module, &settings, handler),
             module.signal.wait(),
+            mqtt_runner(module, &settings, handler),
         )
         .await
         {
-            Either::First(Ok(x)) => match x {},
-            Either::First(Err(e)) => {
+            Either::First(s) => {
+                info!("Updating MQTT settings");
+                settings = s
+            }
+            Either::Second(Ok(x)) => match x {},
+            Either::Second(Err(e)) => {
                 error!("[MQTT] error: {:?}", e);
                 handler.handle_status(MqttStatus::Error(e));
                 Timer::after(Duration::from_secs(10)).await;
-            }
-            Either::Second(s) => {
-                info!("Updating MQTT settings");
-                settings = s
             }
         }
     }
@@ -181,6 +184,7 @@ impl MqttModuleBuilder {
 
 impl MqttModule {
     pub fn set_settings(&self, settings: MqttSettings) {
+        info!("Signalling new mqtt settings");
         self.signal.signal(settings);
     }
 }

@@ -1,7 +1,10 @@
 use crate::error::Error;
 use core::cell::RefCell;
+use embassy_futures::yield_now;
+use embassy_net::tcp::ConnectError::TimedOut;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{PIN_0, PIN_1, PIN_2, PIN_3, PIN_4, PIN_5, PIN_6, SPI0};
+use embassy_rp::pwm::Pwm;
 use embassy_rp::spi::{Blocking, Spi};
 use embassy_rp::{spi, Peri};
 use embassy_time::{Delay, Timer};
@@ -94,17 +97,18 @@ impl DriverBuilder {
         //     latch.set_high();
         //     Timer::after_secs(1).await;
         // }
-        // for i in 0.. {
-        //     load.set_low();
-        //     Timer::after_micros(1000).await;
-        //     load.set_high();
-        //     Timer::after_micros(1000).await;
-        //     let mut data = [0u8; 10];
-        //     spi.blocking_read(&mut data)?;
-        //     if i % 100 == 0 {
-        //         info!("SPI read = {:?}", data);
-        //     }
-        // }
+        for i in 0.. {
+            load.set_low();
+            Timer::after_micros(1000).await;
+            load.set_high();
+            Timer::after_micros(1000).await;
+            let mut data = [0u8; 11];
+            spi.blocking_read(&mut data)?;
+            if i % 1000 == 0 {
+                info!("SPI read = {:?}", data);
+            }
+            yield_now().await;
+        }
         static MODULE: StaticCell<DriverModule> = StaticCell::new();
         let module = MODULE.init(DriverModule {
             inner: RefCell::new(DriverInner {

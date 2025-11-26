@@ -1,13 +1,14 @@
 use crate::driver::DriverModule;
 use crate::error::Error;
 use core::default::Default;
+use core::ops::Index;
 use core::{fmt, iter};
 use embassy_time::Timer;
 use heapless::{String, Vec};
-use log::info;
-use unicode_normalization::UnicodeNormalization;
+use log::{error, info};
+// use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
-use unidecode::unidecode_char;
+// use unidecode::unidecode_char;
 
 const MAX_CHARS: usize = 12;
 const STEPS_PER_REV: usize = 2048;
@@ -37,6 +38,7 @@ impl Display {
     pub async fn run(&mut self, message: &str) -> Result<(), Error> {
         self.driver.set_enabled(true);
         let count = self.driver.count()?.min(MAX_CHARS);
+        info!("Counted {}", count);
         while self.chars.len() > count {
             self.chars.pop();
         }
@@ -48,45 +50,57 @@ impl Display {
                     prev_hall: None,
                     homed: false,
                     position: None,
-                    calibration: [1858, 1848, 1848, 1868, 1868][self.chars.len()],
+                    calibration: *[1870, 1910, 1840, 1848, 1848, 1858, 1840, 1860, 1868, 1870]
+                        .get(self.chars.len())
+                        .unwrap_or(&0),
                 })
                 .ok()
                 .unwrap();
+        }
+        for char in self.chars.iter_mut() {
+            char.homed = false;
+            char.position = None;
         }
         let mut flaps = Vec::<usize, MAX_CHARS>::new();
 
         // Attempt to assign each grapheme to one displayed character. This ensures diacritics
         // are handled together with the base code point.
         for grapheme_in in UnicodeSegmentation::graphemes(message, true) {
-            // Check for a matching grapheme with the same Unicode canonical normalization. This ensures
-            // graphemes with different code point sequences that should render identically are
-            // matched. For example, "\u00F1" (LATIN SMALL LETTER N WITH TILDE) and "\u006E\u0303"
-            // (LATIN SMALL LETTER N, COMBINING TILDE) should both use the same flap.
-            if let Some(matched) =
-                common::letters_iter().position(|g| g.nfd().eq(grapheme_in.nfd()))
-            {
-                flaps.push(matched).ok();
-                continue;
-            }
-            // If we failed to find a canonical match, look for a compatible match. This will handle
-            // imperfect matches like "\u0190" (LATIN CAPITAL LETTER OPEN E ) for "\u2107" (EULER CONSTANT).
-            if let Some(matched) =
-                common::letters_iter().position(|g| g.nfkd().eq(grapheme_in.nfkd()))
-            {
-                flaps.push(matched).ok();
-                continue;
-            }
+            // TODO: do this without allocation.
+            // // Check for a matching grapheme with the same Unicode canonical normalization. This ensures
+            // // graphemes with different code point sequences that should render identically are
+            // // matched. For example, "\u00F1" (LATIN SMALL LETTER N WITH TILDE) and "\u006E\u0303"
+            // // (LATIN SMALL LETTER N, COMBINING TILDE) should both use the same flap.
+            // if let Some(matched) =
+            //     common::letters_iter().position(|g| g.nfd().eq(grapheme_in.nfd()))
+            // {
+            //     flaps.push(matched).ok();
+            //     continue;
+            // }
+            // // If we failed to find a canonical match, look for a compatible match. This will handle
+            // // imperfect matches like "\u0190" (LATIN CAPITAL LETTER OPEN E ) for "\u2107" (EULER CONSTANT).
+            // if let Some(matched) =
+            //     common::letters_iter().position(|g| g.nfkd().eq(grapheme_in.nfkd()))
+            // {
+            //     flaps.push(matched).ok();
+            //     continue;
+            // }
 
             // A
             let success = false;
             for c in grapheme_in.chars() {
-                for c in unidecode_char(c).chars() {
-                    if let Some(matched) = common::letters_iter()
-                        .position(|g| g.len() == 1 && g.chars().next().unwrap() == c)
-                    {
-                        flaps.push(matched).ok();
-                    }
+                if let Some(matched) = common::letters_iter()
+                    .position(|g| g.len() == 1 && g.chars().next().unwrap() == c)
+                {
+                    flaps.push(matched).ok();
                 }
+                // for c in unidecode_char(c).chars() {
+                //     if let Some(matched) = common::letters_iter()
+                //         .position(|g| g.len() == 1 && g.chars().next().unwrap() == c)
+                //     {
+                //         flaps.push(matched).ok();
+                //     }
+                // }
             }
             if !success {
                 flaps.push(0).ok();
@@ -113,7 +127,7 @@ impl Display {
             for char in &mut self.chars {
                 if let Some(target) = char.target {
                     if let Some(position) = &mut char.position {
-                        if *position == target {
+                        if false && *position == target {
                             continue;
                         } else {
                             *position = (*position + 1) % STEPS_PER_REV;
@@ -140,13 +154,24 @@ impl Display {
             output_buffer.reverse();
             self.driver.write(&output_buffer)?;
             let mut input_buffer = Vec::<u8, MAX_CHARS>::new();
-            input_buffer.resize(count, 0).unwrap();
+            input_buffer.resize(count + 1, 0).unwrap();
             self.driver.read(&mut input_buffer)?;
+            if input_buffer[count] != 0xFF {
+                error!("Read error: bad terminator {}", input_buffer[count]);
+            }
             for i in 0..count {
+                let fault = input_buffer[i] & 1 == 1;
                 let hall = input_buffer[i] & 2 == 2;
+                let zeros = input_buffer[i] & !0b11;
+                if zeros != 0 {
+                    error!("Read error: bad bits {}", i);
+                }
+                if !fault {
+                    error!("Motor fault {}", i);
+                }
                 if Some(hall) != self.chars[i].prev_hall {
                     if let Some(prev_hall) = self.chars[i].prev_hall {
-                        if prev_hall {
+                        if !prev_hall {
                             self.chars[i].homed = true;
                             info!("homed {} at {:?}", i, self.chars[i].position);
                             self.chars[i].position = Some(0);

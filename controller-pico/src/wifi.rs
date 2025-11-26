@@ -145,6 +145,7 @@ impl WifiModule {
 
 impl<'build, R: RngCore> WifiModuleBuilder<'build, R> {
     pub async fn build(mut self) -> Result<(WifiTask, &'static WifiModule)> {
+        info!("[WIFI] Starting");
         let config = Config::dhcpv4(Default::default());
         let seed = self.rng.next_u64();
 
@@ -169,6 +170,7 @@ impl<'build, R: RngCore> WifiModuleBuilder<'build, R> {
                 dhcp_up: false,
             }),
         });
+        info!("[WIFI] Started");
         Ok((WifiTask { module }, module))
     }
 }

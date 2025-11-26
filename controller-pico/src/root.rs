@@ -8,10 +8,14 @@ use crate::radio::{RadioModule, RadioModuleBuilder, RadioTask};
 use crate::usb::{UsbModule, UsbModuleBuilder};
 use crate::wifi::{WifiHandler, WifiModule, WifiModuleBuilder, WifiTask};
 use core::any::Any;
+use core::future::pending;
 use embassy_executor::Spawner;
 use embassy_futures::yield_now;
 use embassy_rp::clocks::RoscRng;
+use embassy_rp::pwm;
+use embassy_rp::pwm::Pwm;
 use embassy_time::Timer;
+use embedded_hal::pwm::SetDutyCycle;
 use log::info;
 use static_cell::StaticCell;
 
@@ -71,6 +75,14 @@ impl RootModuleBuilder {
         info!("Welcome to the Split Flap Display!");
         yield_now().await;
         Timer::after_millis(2000).await;
+
+        // let mut config = pwm::Config::default();
+        // config.top = 128;
+        // config.divider = 1.into();
+        // let mut pwm = Pwm::new_output_a(p.PWM_SLICE1, p.PIN_2, config);
+        // pwm.set_duty_cycle_percent(50).unwrap();
+        // pending::<!>().await;
+
 
         let driver = DriverBuilder {
             cipo: p.PIN_0,

@@ -20,18 +20,18 @@ name = "flaps"
 path = "src/flaps.rs"
 
 [dependencies]
-patina-geo={path="../../patina/patina-geo"}
-patina-mesh ={path="../../patina/patina-mesh"}
-patina-vec={path="../../patina/patina-vec"}
+patina-geo={path="../submodules/patina-rs/patina-geo"}
+patina-mesh ={path="../submodules/patina-rs/patina-mesh"}
+patina-vec={path="../submodules/patina-rs/patina-vec"}
 tokio = {version="1.46.1",features=["rt","macros","rt-multi-thread"]}
 anyhow = "1.0.98"
-patina-sdf= {path="../../patina/patina-sdf"}
-patina-threads={path="../../patina/patina-threads"}
+patina-sdf= {path="../submodules/patina-rs/patina-sdf"}
+patina-threads={path="../submodules/patina-rs/patina-threads"}
 itertools = "0.14.0"
-patina-bambu = {path="../../patina/patina-bambu"}
-patina-extrude = {path="../../patina/patina-extrude"}
-patina-font = {path="../../patina/patina-font"}
-patina-3mf = {path="../../patina/patina-3mf"}
+patina-bambu = {path="../submodules/patina-rs/patina-bambu"}
+patina-extrude = {path="../submodules/patina-rs/patina-extrude"}
+patina-font = {path="../submodules/patina-rs/patina-font"}
+patina-3mf = {path="../submodules/patina-rs/patina-3mf"}
 common = {path="../common"}
 
 rusttype = "0.9.3"

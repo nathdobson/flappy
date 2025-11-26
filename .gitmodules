@@ -13,3 +13,6 @@
 [submodule "submodules/unicode-normalization"]
 	path = submodules/unicode-normalization
 	url = https://github.com/nathdobson/unicode-normalization.git
+[submodule "submodules/patina-rs"]
+	path = submodules/patina-rs
+	url = https://github.com/nathdobson/patina-rs.git

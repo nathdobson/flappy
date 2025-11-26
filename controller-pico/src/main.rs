@@ -217,6 +217,9 @@ async fn notify_wifi_status(application: &'static Application) {
 #[embassy_executor::task]
 async fn display_message(application: &'static Application) {
     let mut display = Display::new(application.root.driver);
+    if let Err(e) = display.run("").await {
+        error!("empty message flap error: {}", e);
+    }
     loop {
         let request = application.display_message.wait().await;
         if let Err(e) = display.run(&request.msg).await {
@@ -256,10 +259,5 @@ async fn main_impl(spawner: Spawner) -> Result<(), Error> {
     root.mqtt.set_settings(state.mqtt);
     root_task.spawn(spawner, application)?;
     spawner.spawn(display_message(application)?);
-    // let data = [0; 1024];
-    loop {
-        // application.root.driver.write(&data)?;
-        yield_now().await;
-    }
     pending::<!>().await;
 }
