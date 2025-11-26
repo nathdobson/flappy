@@ -10,3 +10,6 @@
 [submodule "submodules/rust-unidecode"]
 	path = submodules/rust-unidecode
 	url = https://github.com/nathdobson/rust-unidecode.git
+[submodule "submodules/unicode-normalization"]
+	path = submodules/unicode-normalization
+	url = https://github.com/nathdobson/unicode-normalization.git
