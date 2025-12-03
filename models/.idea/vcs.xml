@@ -2,5 +2,11 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$/.." vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../submodules/embassy" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../submodules/patina-rs" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../submodules/rust-mqtt" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../submodules/rust-unidecode" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../submodules/trouble" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../submodules/unicode-normalization" vcs="Git" />
   </component>
 </project>

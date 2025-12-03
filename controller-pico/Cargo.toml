@@ -1,5 +1,5 @@
 [package]
-edition = "2021"
+edition = "2024"
 name = "controller-pico"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
@@ -11,9 +11,10 @@ embassy-time = { path = "../submodules/embassy/embassy-time", features = []}
 embassy-usb = { path = "../submodules/embassy/embassy-usb" }
 embassy-net = { path = "../submodules/embassy/embassy-net", features = [ "tcp", "udp", "raw", "dhcpv4", "medium-ethernet", "dns", "proto-ipv4", "proto-ipv6"] }
 embassy-futures = { path = "../submodules/embassy/embassy-futures" }
-embassy-executor = { path = "../submodules/embassy/embassy-executor", features = [ "arch-cortex-m", "executor-thread"] }
+embassy-executor = { path = "../submodules/embassy/embassy-executor", features = [ "arch-cortex-m", "executor-thread","executor-interrupt"] }
 embassy-sync = { path = "../submodules/embassy/embassy-sync", features = [] }
 embassy-usb-logger = { path = "../submodules/embassy/embassy-usb-logger"}
+#embassy-usb-dfu = {path ="../submodules/embassy/embassy-usb-dfu",features = ["application"]}
 cyw43={path = "../submodules/embassy/cyw43",features = ["bluetooth"]}
 cyw43-pio={path = "../submodules/embassy/cyw43-pio"}
 trouble-host = { path= "../submodules/trouble/host" }

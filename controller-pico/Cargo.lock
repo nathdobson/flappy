@@ -726,7 +726,9 @@ version = "0.5.1"
 dependencies = [
  "embassy-futures 0.1.2",
  "embassy-sync",
+ "embassy-time",
  "embassy-usb",
+ "heapless 0.9.2",
  "log",
 ]
 

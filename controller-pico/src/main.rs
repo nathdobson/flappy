@@ -18,26 +18,28 @@
 #![feature(try_blocks)]
 #![feature(debug_closure_helpers)]
 
+use crate::application::main_task;
 use crate::ble::{BleHandler, BleModule, BleModuleBuilder, BleTask};
 use crate::display::Display;
 use crate::error::Error;
 use crate::flash::{FlashModule, FlashModuleBuilder, FlashSettings};
 use crate::led::{LedModule, LedModuleBuilder};
 use crate::mqtt::{MqttHandler, MqttSettings, MqttStatus};
+use crate::peripherals::build_peripherals;
 use crate::psram::PsramModuleBuilder;
 use crate::radio::{RadioModule, RadioModuleBuilder};
 use crate::root::{RootModule, RootModuleBuilder};
-use crate::usb::{UsbModule, UsbModuleBuilder};
 use crate::wifi::{WifiHandler, WifiModule, WifiModuleBuilder, WifiSettings, WifiStatus};
 use core::cell::RefCell;
 use core::future::pending;
 use core::intrinsics::catch_unwind;
 use core::str::from_utf8;
+use cortex_m_rt::entry;
 use embassy_executor::Spawner;
 use embassy_futures::yield_now;
 use embassy_net::dns::{DnsQueryType, DnsSocket};
-use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::tcp::TcpSocket;
+use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::flash::Async;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
@@ -58,206 +60,30 @@ use serde_json_core::from_slice;
 use static_cell::StaticCell;
 use trouble_host::prelude::HeaplessString;
 
+mod application;
 mod ble;
 mod ble_gatt;
 mod display;
 mod driver;
 mod error;
+mod executor;
 mod flash;
 mod led;
 mod mqtt;
+mod peripherals;
 mod psram;
 mod radio;
 mod root;
 mod runtime;
 mod usb;
 mod wifi;
+mod product;
 
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
-    if let Err(e) = main_impl(spawner).await {
-        error!("Uncaught error: {:?}", e);
-    }
-}
-
-pub struct Application {
-    root: &'static RootModule,
-    state: RefCell<FlashSettings>,
-    wifi_status: Signal<NoopRawMutex, WifiStatus>,
-    mqtt_status: Signal<NoopRawMutex, MqttStatus>,
-    display_message: Signal<NoopRawMutex, MqttRequest>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct MqttRequest {
-    msg: String<128>,
-}
-
-impl MqttHandler for Application {
-    fn handle_status(&self, status: MqttStatus) {
-        self.mqtt_status.signal(status);
-    }
-
-    fn handle(&self, topic: &str, message: &[u8]) {
-        if let Ok(message) = str::from_utf8(message) {
-            info!("[ROOT] Received topic {} message {}", topic, message);
-        }
-        match serde_json_core::from_slice::<MqttRequest>(message) {
-            Ok((message, _)) => {
-                self.display_message.signal(message);
-            }
-            Err(e) => error!("Cannot parse message {:?}", e),
-        }
-    }
-}
-
-fn trim_null<const N: usize>(mut x: heapless::String<N>) -> heapless::String<N> {
-    if x.as_bytes().last() == Some(&b'\0') {
-        x.pop();
-    }
-    x
-}
-
-impl BleHandler for Application {
-    fn handle_write(&self, id: u16) {
-        let service = &self.root.ble.server().flappy_service;
-        let ref mut state = *self.state.borrow_mut();
-        let mut updated = false;
-        if id == service.wifi_password.handle {
-            updated = true;
-            state.wifi.ssid = trim_null(self.root.ble.get(&service.wifi_ssid).unwrap_or_default());
-            state.wifi.password = trim_null(
-                self.root
-                    .ble
-                    .get(&service.wifi_password)
-                    .unwrap_or_default(),
-            );
-            self.root.wifi.set_settings(state.wifi.clone());
-        } else if id == service.mqtt_topic.handle {
-            updated = true;
-            state.mqtt.hostname = trim_null(
-                self.root
-                    .ble
-                    .get(&service.mqtt_hostname)
-                    .unwrap_or_default(),
-            );
-            let port = trim_null(self.root.ble.get(&service.mqtt_port).unwrap_or_default());
-            let port = &port;
-            let port = port.strip_prefix("\"").unwrap_or(port);
-            let port = port.strip_suffix("\"").unwrap_or(port);
-            let port: u16 = port.parse().unwrap_or_default();
-            state.mqtt.port = port;
-            state.mqtt.username = trim_null(
-                self.root
-                    .ble
-                    .get(&service.mqtt_username)
-                    .unwrap_or_default(),
-            );
-            state.mqtt.password = trim_null(
-                self.root
-                    .ble
-                    .get(&service.mqtt_password)
-                    .unwrap_or_default(),
-            );
-            state.mqtt.topic =
-                trim_null(self.root.ble.get(&service.mqtt_topic).unwrap_or_default());
-            self.root.mqtt.set_settings(state.mqtt.clone());
-        }
-        info!("new state = {:?}", state);
-        if updated {
-            if let Err(e) = self.root.flash.save(state) {
-                error!("[ROOT] failed to update wifi settings in flash {}", e);
-            }
-        }
-    }
-}
-
-impl WifiHandler for Application {
-    fn handle_status(&self, status: WifiStatus) {
-        self.wifi_status.signal(status);
-    }
-}
-
-#[embassy_executor::task]
-async fn notify_mqtt_status(application: &'static Application) {
-    loop {
-        let status = application.mqtt_status.wait().await;
-        let mut formatted = heapless::String::new();
-        use core::fmt::Write;
-        write!(&mut formatted, "{}", status).ok();
-        application
-            .root
-            .ble
-            .set_and_notify(
-                &application.root.ble.server().flappy_service.mqtt_status,
-                &formatted,
-            )
-            .await;
-    }
-}
-
-#[embassy_executor::task]
-async fn notify_wifi_status(application: &'static Application) {
-    loop {
-        let status = application.wifi_status.wait().await;
-        let mut formatted = heapless::String::new();
-        use core::fmt::Write;
-        write!(&mut formatted, "{}", status).ok();
-        application
-            .root
-            .ble
-            .set_and_notify(
-                &application.root.ble.server().flappy_service.wifi_status,
-                &formatted,
-            )
-            .await;
-    }
-}
-
-#[embassy_executor::task]
-async fn display_message(application: &'static Application) {
-    let mut display = Display::new(application.root.driver);
-    if let Err(e) = display.run("").await {
-        error!("empty message flap error: {}", e);
-    }
-    loop {
-        let request = application.display_message.wait().await;
-        if let Err(e) = display.run(&request.msg).await {
-            error!("{:?}", e);
-        }
-    }
-}
-
-async fn main_impl(spawner: Spawner) -> Result<(), Error> {
-    let (root_task, root) = RootModuleBuilder { spawner }.build().await?;
-    let state = root.flash.load().await?;
-    static APPLICATION: StaticCell<Application> = StaticCell::new();
-    let application = APPLICATION.init(Application {
-        root,
-        state: RefCell::new(state.clone()),
-        wifi_status: Signal::new(),
-        mqtt_status: Signal::new(),
-        display_message: Signal::new(),
-    });
-    spawner.spawn(notify_mqtt_status(application)?);
-    spawner.spawn(notify_wifi_status(application)?);
-    info!("state = {:?}", state);
-    let service = &root.ble.server().flappy_service;
-    root.ble.set(&service.wifi_ssid, &state.wifi.ssid);
-    root.ble.set(&service.wifi_password, &state.wifi.password);
-    root.ble.set(&service.mqtt_hostname, &state.mqtt.hostname);
-    root.ble.set(&service.mqtt_port, &{
-        use core::fmt::Write;
-        let mut s = heapless::String::new();
-        write!(&mut s, "\"{}\"", &state.mqtt.port).ok();
-        s
-    });
-    root.ble.set(&service.mqtt_username, &state.mqtt.username);
-    root.ble.set(&service.mqtt_password, &state.mqtt.password);
-    root.ble.set(&service.mqtt_topic, &state.mqtt.topic);
-    root.wifi.set_settings(state.wifi);
-    root.mqtt.set_settings(state.mqtt);
-    root_task.spawn(spawner, application)?;
-    spawner.spawn(display_message(application)?);
-    pending::<!>().await;
+#[entry]
+unsafe fn main() -> ! {
+    let (rp, ap) = build_peripherals();
+    executor::run_program(
+        move |spawner| runtime::runtime(spawner, rp),
+        move |spawner| spawner.spawn(main_task(spawner, ap).unwrap()),
+    );
 }

@@ -9,7 +9,7 @@ use embassy_rp::dma::AnyChannel;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
-use embassy_rp::{bind_interrupts, Peri};
+use embassy_rp::{Peri, bind_interrupts};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use log::info;
@@ -19,7 +19,7 @@ bind_interrupts!(struct PioIrqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
 });
 
-type MyRunner = cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, AnyChannel>>;
+type MyRunner = cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>;
 
 #[embassy_executor::task]
 async fn cyw43_task(runner: MyRunner) -> ! {
@@ -28,12 +28,16 @@ async fn cyw43_task(runner: MyRunner) -> ! {
 
 pub struct RadioModuleBuilder {
     pub spawner: Spawner,
-    pub pin23: Peri<'static, PIN_23>,
-    pub pin24: Peri<'static, PIN_24>,
-    pub pin25: Peri<'static, PIN_25>,
-    pub pin29: Peri<'static, PIN_29>,
-    pub pio0: Peri<'static, PIO0>,
-    pub dma_ch0: Peri<'static, AnyChannel>,
+    pub peri: RadioPeripherals,
+}
+#[allow(non_snake_case)]
+pub struct RadioPeripherals {
+    pub PIN_23: Peri<'static, PIN_23>,
+    pub PIN_24: Peri<'static, PIN_24>,
+    pub PIN_25: Peri<'static, PIN_25>,
+    pub PIN_29: Peri<'static, PIN_29>,
+    pub PIO0: Peri<'static, PIO0>,
+    pub DMA_CH0: Peri<'static, DMA_CH0>,
 }
 
 pub struct RadioModule {
@@ -59,9 +63,9 @@ impl RadioModuleBuilder {
         &'static RadioModule,
     )> {
         info!("[Radio] starting");
-        let pwr = Output::new(self.pin23, Level::Low);
-        let cs = Output::new(self.pin25, Level::High);
-        let mut pio = Pio::new(self.pio0, PioIrqs);
+        let pwr = Output::new(self.peri.PIN_23, Level::Low);
+        let cs = Output::new(self.peri.PIN_25, Level::High);
+        let mut pio = Pio::new(self.peri.PIO0, PioIrqs);
         let spi = PioSpi::new(
             &mut pio.common,
             pio.sm0,
@@ -70,9 +74,9 @@ impl RadioModuleBuilder {
             RM2_CLOCK_DIVIDER,
             pio.irq0,
             cs,
-            self.pin24,
-            self.pin29,
-            self.dma_ch0,
+            self.peri.PIN_24,
+            self.peri.PIN_29,
+            self.peri.DMA_CH0,
         );
 
         static STATE: StaticCell<cyw43::State> = StaticCell::new();

@@ -1,8 +1,9 @@
 use crate::error::Error;
 use core::cell::RefCell;
+use cortex_m::asm::delay;
 use embassy_futures::yield_now;
 use embassy_net::tcp::ConnectError::TimedOut;
-use embassy_rp::gpio::{Level, Output};
+use embassy_rp::gpio::{Level, Output, SlewRate};
 use embassy_rp::peripherals::{PIN_0, PIN_1, PIN_2, PIN_3, PIN_4, PIN_5, PIN_6, SPI0};
 use embassy_rp::pwm::Pwm;
 use embassy_rp::spi::{Blocking, Spi};
@@ -87,8 +88,27 @@ impl DriverBuilder {
         let mut spi = Spi::new_blocking(self.spi, self.clock, self.copi, self.cipo, config);
         let mut load = Output::new(self.load, Level::High);
         let mut latch = Output::new(self.latch, Level::High);
-        let mut enable = Output::new(self.enable, Level::Low);
+        let mut enable = Output::new(self.enable, Level::High);
         let mut reset = Output::new(self.reset, Level::Low);
+        // let mut clock = Output::new(self.clock, Level::High);
+        // let mut copi = Output::new(self.copi, Level::High);
+        // clock.set_slew_rate(SlewRate::Slow);
+        // for count in 0u64.. {
+        //     load.set_low();
+        //     Delay.delay_ns(10);
+        //     load.set_high();
+        //     Delay.delay_ns(10);
+        //     for i in 0..160 {
+        //         clock.set_low();
+        //         // Delay.delay_ns(10);
+        //         clock.set_high();
+        //         // Delay.delay_ns(10);
+        //     }
+        //     if count % 1000 == 0 {
+        //         info!("SPI read");
+        //         Timer::after_millis(1).await;
+        //     }
+        // }
         // for i in 0.. {
         //     spi.blocking_write(&[if i % 2 == 0 { 0xFF } else { 0 }])?;
         //     Timer::after_micros(1000).await;
@@ -99,26 +119,25 @@ impl DriverBuilder {
         // }
         for i in 0.. {
             load.set_low();
-            Timer::after_micros(1000).await;
             load.set_high();
-            Timer::after_micros(1000).await;
             let mut data = [0u8; 11];
             spi.blocking_read(&mut data)?;
             if i % 1000 == 0 {
                 info!("SPI read = {:?}", data);
+                yield_now().await;
             }
-            yield_now().await;
         }
-        static MODULE: StaticCell<DriverModule> = StaticCell::new();
-        let module = MODULE.init(DriverModule {
-            inner: RefCell::new(DriverInner {
-                spi,
-                load,
-                latch,
-                enable,
-                reset,
-            }),
-        });
-        Ok(module)
+        todo!();
+        // static MODULE: StaticCell<DriverModule> = StaticCell::new();
+        // let module = MODULE.init(DriverModule {
+        //     inner: RefCell::new(DriverInner {
+        //         spi,
+        //         load,
+        //         latch,
+        //         enable,
+        //         reset,
+        //     }),
+        // });
+        // Ok(module)
     }
 }

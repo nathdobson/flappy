@@ -4,8 +4,7 @@ use crate::error::Error;
 use crate::flash::{FlashModule, FlashModuleBuilder, FlashTask};
 use crate::led::{LedModule, LedModuleBuilder, LedTask};
 use crate::mqtt::{MqttHandler, MqttModule, MqttModuleBuilder, MqttTask};
-use crate::radio::{RadioModule, RadioModuleBuilder, RadioTask};
-use crate::usb::{UsbModule, UsbModuleBuilder};
+use crate::radio::{RadioModule, RadioModuleBuilder, RadioPeripherals, RadioTask};
 use crate::wifi::{WifiHandler, WifiModule, WifiModuleBuilder, WifiTask};
 use core::any::Any;
 use core::future::pending;
@@ -24,7 +23,6 @@ pub struct RootModuleBuilder {
 }
 
 pub struct RootModule {
-    pub usb: &'static UsbModule,
     pub flash: &'static FlashModule,
     pub ble: &'static BleModule,
     pub led: &'static LedModule,
@@ -59,19 +57,10 @@ impl RootTask {
 
 impl RootModuleBuilder {
     pub async fn build(self) -> Result<(RootTask, &'static RootModule), Error> {
+        todo!();
         let p = embassy_rp::init(Default::default());
 
-        let usb: &'static UsbModule = match (UsbModuleBuilder {
-            spawner: self.spawner,
-            usb: p.USB,
-        }
-        .build())
-        {
-            Ok(usb) => usb,
-            Err(e) => {
-                panic!();
-            }
-        };
+
         info!("Welcome to the Split Flap Display!");
         yield_now().await;
         Timer::after_millis(2000).await;
@@ -82,7 +71,6 @@ impl RootModuleBuilder {
         // let mut pwm = Pwm::new_output_a(p.PWM_SLICE1, p.PIN_2, config);
         // pwm.set_duty_cycle_percent(50).unwrap();
         // pending::<!>().await;
-
 
         let driver = DriverBuilder {
             cipo: p.PIN_0,
@@ -107,12 +95,14 @@ impl RootModuleBuilder {
         .await?;
         let (radio_task, bt_device, net_device, radio) = RadioModuleBuilder {
             spawner: self.spawner,
-            pin23: p.PIN_23,
-            pin24: p.PIN_24,
-            pin25: p.PIN_25,
-            pin29: p.PIN_29,
-            pio0: p.PIO0,
-            dma_ch0: p.DMA_CH0.into(),
+            peri: RadioPeripherals {
+                PIN_23: p.PIN_23,
+                PIN_24: p.PIN_24,
+                PIN_25: p.PIN_25,
+                PIN_29: p.PIN_29,
+                PIO0: p.PIO0,
+                DMA_CH0: p.DMA_CH0,
+            },
         }
         .build()
         .await?;
@@ -149,7 +139,6 @@ impl RootModuleBuilder {
 
         static MODULE: StaticCell<RootModule> = StaticCell::new();
         let module = MODULE.init(RootModule {
-            usb,
             flash,
             ble,
             wifi,
