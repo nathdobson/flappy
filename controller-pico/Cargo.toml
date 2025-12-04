@@ -3,6 +3,7 @@ edition = "2024"
 name = "controller-pico"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
+build = "build.rs"
 
 [dependencies]
 
@@ -24,7 +25,7 @@ cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-sing
 cortex-m-rt = {version="0.7.5",features = []}
 log="0.4.28"
 cyw43-firmware = { version = "0.1.0", features = ["wifi", "bluetooth"] }
-static_cell = "2.1.1"
+static_cell = {version="2.1.1",features=["nightly"]}
 serde = { version = "1.0.228", features = ["derive"],default-features = false }
 serde-json-core = "0.6.0"
 rand_core = "0.9.3"
@@ -37,7 +38,10 @@ unicode-segmentation = {version = "1.12.0",default-features = false}
 common = {path="../common"}
 #unidecode = {path="../submodules/rust-unidecode", default-features = false}
 #unicode-normalization = {path="../submodules/unicode-normalization", default-features = false}
+smoltcp = {version="0.12.0",default-features = false}
 
+[build-dependencies]
+built = {version = "0.8.0", features = ["git2"]}
 
 [profile.release]
 opt-level = "z"

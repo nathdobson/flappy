@@ -10,6 +10,7 @@ use log::{error, info};
 use unicode_segmentation::UnicodeSegmentation;
 // use unidecode::unidecode_char;
 
+const MODULE: &'static str = "[DISPL]";
 const MAX_CHARS: usize = 12;
 const STEPS_PER_REV: usize = 2048;
 const FLAP_COUNT: usize = 45;
@@ -38,7 +39,6 @@ impl Display {
     pub async fn run(&mut self, message: &str) -> Result<(), Error> {
         self.driver.set_enabled(true);
         let count = self.driver.count()?.min(MAX_CHARS);
-        info!("Counted {}", count);
         while self.chars.len() > count {
             self.chars.pop();
         }
@@ -119,7 +119,7 @@ impl Display {
             self.chars[index].target = Some(
                 (self.chars[index].calibration + flap * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV,
             );
-            info!("Target = {:?}", self.chars[index].target);
+            info!("{MODULE} Flap {index} has target {:?}", self.chars[index].target);
         }
         for step in 0.. {
             Timer::after_micros(2000).await;
@@ -157,23 +157,23 @@ impl Display {
             input_buffer.resize(count + 1, 0).unwrap();
             self.driver.read(&mut input_buffer)?;
             if input_buffer[count] != 0xFF {
-                error!("Read error: bad terminator {}", input_buffer[count]);
+                error!("{MODULE} Hall sensor read error (Bad terminator {})", input_buffer[count]);
             }
             for i in 0..count {
                 let fault = input_buffer[i] & 1 == 1;
                 let hall = input_buffer[i] & 2 == 2;
                 let zeros = input_buffer[i] & !0b11;
                 if zeros != 0 {
-                    error!("Read error: bad bits {}", i);
+                    error!("{MODULE} Hall sensor read error (bad bits {})", i);
                 }
                 if !fault {
-                    error!("Motor fault {}", i);
+                    error!("{MODULE} Motor fault {}", i);
                 }
                 if Some(hall) != self.chars[i].prev_hall {
                     if let Some(prev_hall) = self.chars[i].prev_hall {
                         if !prev_hall {
                             self.chars[i].homed = true;
-                            info!("homed {} at {:?}", i, self.chars[i].position);
+                            info!("{MODULE} Flap {} homed at {:?}", i, self.chars[i].position);
                             self.chars[i].position = Some(0);
                         }
                     }

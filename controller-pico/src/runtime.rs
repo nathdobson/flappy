@@ -1,4 +1,4 @@
-use crate::product::{PRODUCT_MANUFACTURER, PRODUCT_NAME};
+use crate::product::{PRODUCT_MANUFACTURER, PRODUCT_NAME, serial_number};
 use core::fmt;
 use core::intrinsics::abort;
 use embassy_executor::{SendSpawner, Spawner};
@@ -15,8 +15,9 @@ use embassy_usb::{Builder, Config, UsbDevice};
 use embassy_usb_logger::{LoggerState, MAX_PACKET_SIZE, ReceiverHandler, UsbLogger};
 use heapless::String;
 use log::{Level, Record, error, info, set_logger, set_max_level};
-use static_cell::StaticCell;
+use static_cell::make_static;
 
+const MODULE: &'static str = "[RUN  ]";
 const LOG_BUFFER: usize = 1024;
 
 #[allow(non_snake_case)]
@@ -48,7 +49,7 @@ impl ReceiverHandler for UsbInputHandler {
             reboot();
             return;
         }
-        info!("Received data: {:?}", data);
+        info!("{MODULE} Received data: {:?}", data);
         if let Ok(data) = str::from_utf8(data) {
             let data = data.trim();
         }
@@ -83,7 +84,7 @@ fn custom_style(record: &Record, writer: &mut embassy_usb_logger::Writer<LOG_BUF
 async fn control_changed(control: ControlChanged<'static>) {
     loop {
         control.control_changed().await;
-        // All out-of-band reset of the device
+        // Allow out-of-band reset of the device
         if control.line_coding().data_rate() == 50 {
             reboot();
         }
@@ -125,17 +126,10 @@ async fn start_runtime(rp: RuntimePeripherals, logger: &'static MyLogger) {
     config.manufacturer = Some(PRODUCT_MANUFACTURER);
     config.product = Some(PRODUCT_NAME);
 
-    if let Ok(serial) = get_chipid() {
-        use core::fmt::Write;
-        static SERIAL_NUMBER: StaticCell<String<128>> = StaticCell::new();
-        let serial_number = SERIAL_NUMBER.init(String::new());
-        write!(serial_number, "{:016X}", serial).ok();
-        config.serial_number = Some(serial_number);
-    }
+    config.serial_number = serial_number();
     config.max_power = 100;
     config.max_packet_size_0 = MAX_PACKET_SIZE;
-    static RUNTIME_STATE: StaticCell<RuntimeState> = StaticCell::new();
-    let runtime_state = RUNTIME_STATE.init(RuntimeState {
+    let runtime_state = make_static!(RuntimeState {
         state: State::new(),
         config_descriptor: [0; 128],
         bos_descriptor: [0; 16],
@@ -163,8 +157,7 @@ async fn start_runtime(rp: RuntimePeripherals, logger: &'static MyLogger) {
 }
 
 pub fn runtime(spawner: SendSpawner, rp: RuntimePeripherals) {
-    static LOGGER: StaticCell<MyLogger> = StaticCell::new();
-    let logger = LOGGER.init(UsbLogger::with_custom_style(custom_style));
+    let logger = make_static!(UsbLogger::with_custom_style(custom_style));
     logger.with_handler(UsbInputHandler::new());
     let _ = set_logger(logger).map(|()| set_max_level(log::LevelFilter::Info));
     spawner.spawn(start_runtime(rp, logger).unwrap());

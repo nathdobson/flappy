@@ -5,10 +5,9 @@ use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::UART0;
 use embassy_rp::uart::InterruptHandler;
 use embassy_rp::{bind_interrupts, interrupt};
-use static_cell::StaticCell;
+use static_cell::make_static;
 
 static RUNTIME_EXECUTOR: InterruptExecutor = InterruptExecutor::new();
-static APPLICATION_EXECUTOR: StaticCell<Executor> = StaticCell::new();
 static RUNTIME_STARTED: AtomicBool = AtomicBool::new(false);
 
 #[interrupt]
@@ -23,6 +22,6 @@ pub fn run_program(runtime: impl FnOnce(SendSpawner), app: impl FnOnce(Spawner))
     let runtime_spawner = RUNTIME_EXECUTOR.start(interrupt::SWI_IRQ_0);
     RUNTIME_STARTED.store(true, Ordering::SeqCst);
     runtime(runtime_spawner);
-    let application_executor = APPLICATION_EXECUTOR.init(Executor::new());
+    let application_executor = make_static!(Executor::new());
     application_executor.run(app)
 }

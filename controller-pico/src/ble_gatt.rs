@@ -1,4 +1,3 @@
-use crate::ble::MyPeripheral;
 use crate::error::Error;
 use core::intrinsics::unreachable;
 use core::str::FromStr;

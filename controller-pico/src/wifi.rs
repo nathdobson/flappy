@@ -17,21 +17,10 @@ use log::{error, info, warn};
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json_core::from_slice;
-use static_cell::StaticCell;
+use static_cell::make_static;
 use trouble_host::prelude::HeaplessString;
 
-pub struct WifiModuleBuilder<'build, R> {
-    pub spawner: Spawner,
-    pub rng: &'build mut R,
-    pub net_device: NetDriver<'static>,
-    pub radio: &'static RadioModule,
-}
-
-#[embassy_executor::task]
-async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> ! {
-    runner.run().await
-}
-
+const MODULE: &'static str = "[WiFi ]";
 struct WifiStatusBuilder {
     link_up: bool,
     dhcp_up: bool,
@@ -44,33 +33,21 @@ pub enum WifiStatus {
 }
 
 pub struct WifiModule {
-    pub stack: Stack<'static>,
-    pub radio: &'static RadioModule,
+    spawner: Spawner,
+    stack: Stack<'static>,
+    radio: &'static RadioModule,
     settings: Signal<NoopRawMutex, WifiSettings>,
     status: RefCell<WifiStatusBuilder>,
 }
 
-pub struct WifiTask {
-    module: &'static WifiModule,
-}
-
 pub trait WifiHandler {
-    fn handle_status(&self, status: WifiStatus);
+    fn handle_wifi_status(&self, status: WifiStatus);
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct WifiSettings {
     pub ssid: HeaplessString<32>,
     pub password: HeaplessString<63>,
-}
-
-impl WifiTask {
-    pub fn spawn(&self, spawner: Spawner, handler: &'static dyn WifiHandler) -> Result<()> {
-        spawner.spawn(update_link_status(self.module, handler)?);
-        spawner.spawn(update_dhcp_status(self.module, handler)?);
-        spawner.spawn(connect_to_wifi(self.module)?);
-        Ok(())
-    }
 }
 
 impl WifiStatusBuilder {
@@ -87,91 +64,126 @@ impl WifiStatusBuilder {
     }
 }
 
-#[embassy_executor::task]
-async fn update_link_status(module: &'static WifiModule, handler: &'static dyn WifiHandler) {
-    loop {
-        module.stack.wait_link_up().await;
-        module.status.borrow_mut().link_up = true;
-        handler.handle_status(module.status.borrow().build());
-        module.stack.wait_link_down().await;
-        module.status.borrow_mut().link_up = false;
-        handler.handle_status(module.status.borrow().build());
-    }
-}
-
-#[embassy_executor::task]
-async fn update_dhcp_status(module: &'static WifiModule, handler: &'static dyn WifiHandler) {
-    loop {
-        module.stack.wait_config_up().await;
-        module.status.borrow_mut().dhcp_up = true;
-        handler.handle_status(module.status.borrow().build());
-        module.stack.wait_config_down().await;
-        module.status.borrow_mut().dhcp_up = true;
-        handler.handle_status(module.status.borrow().build());
-    }
-}
-
-#[embassy_executor::task]
-async fn connect_to_wifi(module: &'static WifiModule) {
-    let mut settings = module.settings.wait().await;
-    loop {
-        if let Some(new) = module.settings.try_take() {
-            settings = new;
-        }
-        info!("Connecting to wifi {:?}", settings);
-        while let Err(err) = module
-            .radio
-            .control
-            .lock()
-            .await
-            .join(
-                &settings.ssid,
-                JoinOptions::new(settings.password.as_bytes()),
-            )
-            .await
-        {
-            warn!("[WIFI] join failed with status={}", err.status);
-            continue;
-        }
-        settings = module.settings.wait().await;
-    }
-}
-
 impl WifiModule {
-    pub fn set_settings(&self, settings: WifiSettings) {
-        self.settings.signal(settings);
-    }
-}
-
-impl<'build, R: RngCore> WifiModuleBuilder<'build, R> {
-    pub async fn build(mut self) -> Result<(WifiTask, &'static WifiModule)> {
-        info!("[WIFI] Starting");
+    pub async fn new(
+        spawner: Spawner,
+        radio: &'static RadioModule,
+        net_device: NetDriver<'static>,
+        rng: &mut impl RngCore,
+    ) -> Result<&'static WifiModule> {
+        info!("{MODULE} Starting WiFi");
         let config = Config::dhcpv4(Default::default());
-        let seed = self.rng.next_u64();
-
-        // Init network stack
-        static RESOURCES: StaticCell<StackResources<5>> = StaticCell::new();
-        let (stack, runner) = embassy_net::new(
-            self.net_device,
-            config,
-            RESOURCES.init(StackResources::new()),
-            seed,
-        );
-
-        self.spawner.spawn(net_task(runner)?);
-
-        static MODULE: StaticCell<WifiModule> = StaticCell::new();
-        let module = MODULE.init(WifiModule {
+        let seed = rng.next_u64();
+        let resources = make_static!(StackResources::<5>::new());
+        let (stack, runner) = embassy_net::new(net_device, config, resources, seed);
+        spawner.spawn({
+            #[embassy_executor::task]
+            async fn run_runner(
+                mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>,
+            ) -> ! {
+                runner.run().await
+            }
+            run_runner(runner)?
+        });
+        let module = make_static!(WifiModule {
+            spawner,
             stack,
-            radio: self.radio,
+            radio,
             settings: Signal::new(),
             status: RefCell::new(WifiStatusBuilder {
                 link_up: false,
                 dhcp_up: false,
             }),
         });
-        info!("[WIFI] Started");
-        Ok((WifiTask { module }, module))
+        spawner.spawn({
+            #[embassy_executor::task]
+            async fn connect_to_wifi(module: &'static WifiModule) {
+                module.connect_to_wifi().await
+            }
+            connect_to_wifi(module)?
+        });
+        info!("{MODULE} Started");
+        Ok(module)
+    }
+    pub fn set_settings(&self, settings: WifiSettings) {
+        self.settings.signal(settings);
+    }
+    pub fn stack(&'static self) -> &'static Stack<'static> {
+        &self.stack
+    }
+    async fn update_link_status(&'static self, handler: &'static dyn WifiHandler) {
+        loop {
+            self.stack.wait_link_up().await;
+            self.status.borrow_mut().link_up = true;
+            handler.handle_wifi_status(self.status.borrow().build());
+            self.stack.wait_link_down().await;
+            self.status.borrow_mut().link_up = false;
+            handler.handle_wifi_status(self.status.borrow().build());
+        }
+    }
+
+    async fn update_dhcp_status(&'static self, handler: &'static dyn WifiHandler) {
+        loop {
+            self.stack.wait_config_up().await;
+            self.status.borrow_mut().dhcp_up = true;
+            handler.handle_wifi_status(self.status.borrow().build());
+            self.stack.wait_config_down().await;
+            self.status.borrow_mut().dhcp_up = true;
+            handler.handle_wifi_status(self.status.borrow().build());
+        }
+    }
+
+    async fn connect_to_wifi(&'static self) {
+        let mut settings = self.settings.wait().await;
+        loop {
+            if let Some(new) = self.settings.try_take() {
+                settings = new;
+            }
+            info!(
+                "{MODULE} Connecting to WiFi network with SSID {}",
+                settings.ssid
+            );
+            while let Err(err) = self
+                .radio
+                .control
+                .lock()
+                .await
+                .join(
+                    &settings.ssid,
+                    JoinOptions::new(settings.password.as_bytes()),
+                )
+                .await
+            {
+                warn!("{MODULE} Failed to join WiFi network ({})", err.status);
+                continue;
+            }
+            info!("{MODULE} Connected to WiFi network");
+            settings = self.settings.wait().await;
+        }
+    }
+
+    pub fn start(&'static self, handler: &'static dyn WifiHandler) -> Result<()> {
+        self.spawner.spawn({
+            #[embassy_executor::task]
+            async fn update_link_status(
+                module: &'static WifiModule,
+                handler: &'static dyn WifiHandler,
+            ) {
+                module.update_link_status(handler).await;
+            }
+            update_link_status(self, handler)?
+        });
+        self.spawner.spawn({
+            #[embassy_executor::task]
+            async fn update_dhcp_status(
+                module: &'static WifiModule,
+                handler: &'static dyn WifiHandler,
+            ) {
+                module.update_dhcp_status(handler).await;
+            }
+            update_dhcp_status(self, handler)?
+        });
+        Ok(())
     }
 }
 

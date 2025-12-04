@@ -5,21 +5,23 @@ use core::cell::RefCell;
 use cortex_m::prelude::_embedded_hal_blocking_spi_Write;
 use embassy_executor::Spawner;
 use embassy_futures::yield_now;
-use embassy_rp::dma::AnyChannel;
-use embassy_rp::flash::{Async, Flash, ERASE_SIZE};
-use embassy_rp::peripherals::{DMA_CH1, FLASH};
 use embassy_rp::Peri;
+use embassy_rp::dma::AnyChannel;
+use embassy_rp::flash::{Async, ERASE_SIZE, Flash};
+use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, FLASH};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use static_cell::StaticCell;
+use static_cell::make_static;
 use trouble_host::prelude::HeaplessString;
 
+const MODULE: &'static str = "[FLASH]";
 const ADDR_OFFSET: u32 = 0x110000;
 const FLASH_SIZE: usize = 2 * 1024 * 1024;
 
-pub struct FlashModuleBuilder {
-    pub flash: Peri<'static, FLASH>,
-    pub dma_ch: Peri<'static, AnyChannel>,
+#[allow(non_snake_case)]
+pub struct FlashPeripherals {
+    pub FLASH: Peri<'static, FLASH>,
+    pub DMA_CH1: Peri<'static, DMA_CH1>,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
@@ -35,26 +37,13 @@ pub struct FlashModule {
     flash: RefCell<Flash<'static, FLASH, Async, FLASH_SIZE>>,
 }
 
-pub struct FlashTask {}
-
-impl FlashTask {
-    pub fn spawn(self, spawner: Spawner) -> Result<(), Error> {
-        Ok(())
-    }
-}
-
-impl FlashModuleBuilder {
-    pub async fn build(self) -> Result<(FlashTask, &'static FlashModule), Error> {
-        let mut flash =
-            embassy_rp::flash::Flash::<_, Async, FLASH_SIZE>::new(self.flash, self.dma_ch);
-
-        static MODULE: StaticCell<FlashModule> = StaticCell::new();
-        Ok((
-            FlashTask {},
-            MODULE.init(FlashModule {
-                flash: RefCell::new(flash),
-            }),
-        ))
+impl FlashModule {
+    pub async fn new(peri: FlashPeripherals) -> Result<&'static FlashModule, Error> {
+        let mut flash = Flash::<_, Async, FLASH_SIZE>::new(peri.FLASH, peri.DMA_CH1);
+        let module = make_static!(FlashModule {
+            flash: RefCell::new(flash),
+        });
+        Ok(module)
     }
 }
 
@@ -65,12 +54,11 @@ impl FlashModule {
             .borrow_mut()
             .read(ADDR_OFFSET, &mut buf.0)
             .await?;
-        // info!("{:?}", buf.0);
         yield_now().await;
         match serde_json_core::from_slice::<FlashSettings>(&buf.0) {
             Ok((state, _)) => Ok(state),
             Err(x) => {
-                error!("Failed to deserialize state {:?}", x);
+                error!("{MODULE} Failed to deserialize state {:?}", x);
                 Ok(FlashSettings::default())
             }
         }

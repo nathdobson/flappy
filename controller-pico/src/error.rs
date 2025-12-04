@@ -1,9 +1,10 @@
+use core::fmt;
 use core::fmt::{Display, Formatter};
 use embassy_executor::SpawnError;
 use embassy_net::tcp::ConnectError;
 use embedded_tls::TlsError;
 use rust_mqtt::packet::v5::reason_codes::ReasonCode;
-use trouble_host::{codec, BleHostError};
+use trouble_host::{BleHostError, codec};
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,6 +22,7 @@ pub enum Error {
     TlsError(TlsError),
     ConnectError(ConnectError),
     SpiError(embassy_rp::spi::Error),
+    FmtError,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -42,6 +44,7 @@ impl Display for Error {
             Error::TlsError(error) => write!(f, "TLS error: {:?}", error),
             Error::ConnectError(error) => write!(f, "Connect error: {:?}", error),
             Error::SpiError(error) => write!(f, "SPI error: {:?}", error),
+            Error::FmtError => write!(f, "Format error"),
         }
     }
 }
@@ -127,5 +130,11 @@ impl From<ConnectError> for Error {
 impl From<embassy_rp::spi::Error> for Error {
     fn from(value: embassy_rp::spi::Error) -> Self {
         Error::SpiError(value)
+    }
+}
+
+impl From<fmt::Error> for Error {
+    fn from(value: fmt::Error) -> Self {
+        Error::FmtError
     }
 }

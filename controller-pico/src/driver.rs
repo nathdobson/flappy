@@ -7,24 +7,37 @@ use embassy_rp::gpio::{Level, Output, SlewRate};
 use embassy_rp::peripherals::{PIN_0, PIN_1, PIN_2, PIN_3, PIN_4, PIN_5, PIN_6, SPI0};
 use embassy_rp::pwm::Pwm;
 use embassy_rp::spi::{Blocking, Spi};
-use embassy_rp::{spi, Peri};
+use embassy_rp::{Peri, spi};
 use embassy_time::{Delay, Timer};
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
 use log::info;
-use static_cell::StaticCell;
-pub struct DriverBuilder {
-    pub cipo: Peri<'static, PIN_0>,
-    pub copi: Peri<'static, PIN_3>,
-    pub clock: Peri<'static, PIN_2>,
-    pub spi: Peri<'static, SPI0>,
+use static_cell::make_static;
+const MODULE: &str = "[DRIVE]";
 
-    pub latch: Peri<'static, PIN_1>,
-    pub load: Peri<'static, PIN_4>,
-    pub reset: Peri<'static, PIN_5>,
-    pub enable: Peri<'static, PIN_6>,
+#[allow(non_snake_case)]
+pub struct DriverPeripherals {
+    /// CIPO
+    pub PIN_0: Peri<'static, PIN_0>,
+    /// LATCH
+    pub PIN_1: Peri<'static, PIN_1>,
+    /// GND
+    pub GND1: (),
+    /// CLOCK
+    pub PIN_2: Peri<'static, PIN_2>,
+    /// COPI
+    pub PIN_3: Peri<'static, PIN_3>,
+    /// LOAD
+    pub PIN_4: Peri<'static, PIN_4>,
+    /// RESET
+    pub PIN_5: Peri<'static, PIN_5>,
+    /// ENABLE
+    pub PIN_6: Peri<'static, PIN_6>,
+    /// GND
+    pub GND2: (),
+    /// SPI
+    pub SPI0: Peri<'static, SPI0>,
 }
-
 struct DriverInner {
     spi: Spi<'static, SPI0, Blocking>,
     load: Output<'static>,
@@ -55,7 +68,7 @@ impl DriverModule {
             let mut data = [0u8];
             inner.spi.blocking_read(&mut data)?;
             if data[0] == 0xFF {
-                info!("Counted {}", count);
+                info!("{MODULE} Counted {} flaps", count);
                 return Ok(count);
             }
         }
@@ -81,63 +94,25 @@ impl DriverModule {
     }
 }
 
-impl DriverBuilder {
-    pub async fn build(self) -> Result<&'static DriverModule, Error> {
+impl DriverModule {
+    pub async fn new(peri: DriverPeripherals) -> Result<&'static DriverModule, Error> {
         let mut config = spi::Config::default();
         config.frequency = 1000000;
-        let mut spi = Spi::new_blocking(self.spi, self.clock, self.copi, self.cipo, config);
-        let mut load = Output::new(self.load, Level::High);
-        let mut latch = Output::new(self.latch, Level::High);
-        let mut enable = Output::new(self.enable, Level::High);
-        let mut reset = Output::new(self.reset, Level::Low);
-        // let mut clock = Output::new(self.clock, Level::High);
-        // let mut copi = Output::new(self.copi, Level::High);
-        // clock.set_slew_rate(SlewRate::Slow);
-        // for count in 0u64.. {
-        //     load.set_low();
-        //     Delay.delay_ns(10);
-        //     load.set_high();
-        //     Delay.delay_ns(10);
-        //     for i in 0..160 {
-        //         clock.set_low();
-        //         // Delay.delay_ns(10);
-        //         clock.set_high();
-        //         // Delay.delay_ns(10);
-        //     }
-        //     if count % 1000 == 0 {
-        //         info!("SPI read");
-        //         Timer::after_millis(1).await;
-        //     }
-        // }
-        // for i in 0.. {
-        //     spi.blocking_write(&[if i % 2 == 0 { 0xFF } else { 0 }])?;
-        //     Timer::after_micros(1000).await;
-        //     latch.set_low();
-        //     Timer::after_micros(1000).await;
-        //     latch.set_high();
-        //     Timer::after_secs(1).await;
-        // }
-        for i in 0.. {
-            load.set_low();
-            load.set_high();
-            let mut data = [0u8; 11];
-            spi.blocking_read(&mut data)?;
-            if i % 1000 == 0 {
-                info!("SPI read = {:?}", data);
-                yield_now().await;
-            }
-        }
-        todo!();
-        // static MODULE: StaticCell<DriverModule> = StaticCell::new();
-        // let module = MODULE.init(DriverModule {
-        //     inner: RefCell::new(DriverInner {
-        //         spi,
-        //         load,
-        //         latch,
-        //         enable,
-        //         reset,
-        //     }),
-        // });
-        // Ok(module)
+        let mut spi = Spi::new_blocking(peri.SPI0, peri.PIN_2, peri.PIN_3, peri.PIN_0, config);
+        let mut load = Output::new(peri.PIN_4, Level::High);
+        let mut latch = Output::new(peri.PIN_1, Level::High);
+        let mut enable = Output::new(peri.PIN_6, Level::High);
+        let mut reset = Output::new(peri.PIN_5, Level::Low);
+
+        let module = make_static!(DriverModule {
+            inner: RefCell::new(DriverInner {
+                spi,
+                load,
+                latch,
+                enable,
+                reset,
+            }),
+        });
+        Ok(module)
     }
 }

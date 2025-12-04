@@ -13,7 +13,8 @@ use embassy_rp::{Peri, bind_interrupts};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use log::info;
-use static_cell::StaticCell;
+use static_cell::make_static;
+const MODULE: &'static str = "[Radio]";
 
 bind_interrupts!(struct PioIrqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
@@ -21,15 +22,6 @@ bind_interrupts!(struct PioIrqs {
 
 type MyRunner = cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>;
 
-#[embassy_executor::task]
-async fn cyw43_task(runner: MyRunner) -> ! {
-    runner.run().await
-}
-
-pub struct RadioModuleBuilder {
-    pub spawner: Spawner,
-    pub peri: RadioPeripherals,
-}
 #[allow(non_snake_case)]
 pub struct RadioPeripherals {
     pub PIN_23: Peri<'static, PIN_23>,
@@ -44,28 +36,15 @@ pub struct RadioModule {
     pub control: Mutex<NoopRawMutex, Control<'static>>,
 }
 
-pub struct RadioTask {}
-
-impl RadioTask {
-    pub fn spawn(self, spawner: Spawner) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl RadioModuleBuilder {
-    #[must_use]
-    pub async fn build(
-        self,
-    ) -> Result<(
-        RadioTask,
-        BtDriver<'static>,
-        NetDriver<'static>,
-        &'static RadioModule,
-    )> {
-        info!("[Radio] starting");
-        let pwr = Output::new(self.peri.PIN_23, Level::Low);
-        let cs = Output::new(self.peri.PIN_25, Level::High);
-        let mut pio = Pio::new(self.peri.PIO0, PioIrqs);
+impl RadioModule {
+    pub async fn new(
+        spawner: Spawner,
+        peri: RadioPeripherals,
+    ) -> Result<(&'static RadioModule, BtDriver<'static>, NetDriver<'static>)> {
+        info!("[Radio] Connecting to CYW43 radio transceiver over PIO-SPI");
+        let pwr = Output::new(peri.PIN_23, Level::Low);
+        let cs = Output::new(peri.PIN_25, Level::High);
+        let mut pio = Pio::new(peri.PIO0, PioIrqs);
         let spi = PioSpi::new(
             &mut pio.common,
             pio.sm0,
@@ -74,13 +53,12 @@ impl RadioModuleBuilder {
             RM2_CLOCK_DIVIDER,
             pio.irq0,
             cs,
-            self.peri.PIN_24,
-            self.peri.PIN_29,
-            self.peri.DMA_CH0,
+            peri.PIN_24,
+            peri.PIN_29,
+            peri.DMA_CH0,
         );
 
-        static STATE: StaticCell<cyw43::State> = StaticCell::new();
-        let state = STATE.init(cyw43::State::new());
+        let state = make_static!(cyw43::State::new());
         let (net_device, bt_device, mut control, runner) = cyw43::new_with_bluetooth(
             state,
             pwr,
@@ -90,19 +68,24 @@ impl RadioModuleBuilder {
         )
         .await;
 
-        self.spawner.spawn(cyw43_task(runner)?);
+        spawner.spawn({
+            #[embassy_executor::task]
+            async fn cyw43_task(runner: MyRunner) -> ! {
+                runner.run().await
+            }
+            cyw43_task(runner)?
+        });
 
         control.init(cyw43_firmware::CYW43_43439A0_CLM).await;
         control
             .set_power_management(cyw43::PowerManagementMode::None)
             .await;
-        static MODULE: StaticCell<RadioModule> = StaticCell::new();
-        let module = MODULE.init(RadioModule {
+        let module = make_static!(RadioModule {
             control: Mutex::new(control),
         });
-        info!("[Radio] started");
+        info!("{MODULE} Connected");
         yield_now().await;
 
-        Ok((RadioTask {}, bt_device, net_device, module))
+        Ok((module, bt_device, net_device))
     }
 }

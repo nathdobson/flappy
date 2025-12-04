@@ -1,6 +1,5 @@
-//! This example shows how to use USB (Universal Serial Bus) in the RP2040 chip.
-//!
-//! This creates the possibility to send log::info/warn/error/debug! to USB serial port.
+#![no_std]
+#![no_main]
 #![deny(unused_must_use)]
 #![allow(
     unused_variables,
@@ -9,8 +8,6 @@
     internal_features,
     unused_imports
 )]
-#![no_std]
-#![no_main]
 #![feature(core_intrinsics)]
 #![feature(future_join)]
 #![feature(type_alias_impl_trait)]
@@ -19,17 +16,15 @@
 #![feature(debug_closure_helpers)]
 
 use crate::application::main_task;
-use crate::ble::{BleHandler, BleModule, BleModuleBuilder, BleTask};
+use crate::ble::BleModule;
 use crate::display::Display;
 use crate::error::Error;
-use crate::flash::{FlashModule, FlashModuleBuilder, FlashSettings};
-use crate::led::{LedModule, LedModuleBuilder};
+use crate::flash::{FlashModule, FlashSettings};
+use crate::led::LedModule;
 use crate::mqtt::{MqttHandler, MqttSettings, MqttStatus};
 use crate::peripherals::build_peripherals;
-use crate::psram::PsramModuleBuilder;
-use crate::radio::{RadioModule, RadioModuleBuilder};
-use crate::root::{RootModule, RootModuleBuilder};
-use crate::wifi::{WifiHandler, WifiModule, WifiModuleBuilder, WifiSettings, WifiStatus};
+use crate::radio::RadioModule;
+use crate::wifi::{WifiHandler, WifiModule, WifiSettings, WifiStatus};
 use core::cell::RefCell;
 use core::future::pending;
 use core::intrinsics::catch_unwind;
@@ -57,7 +52,6 @@ use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 use rust_mqtt::utils::rng_generator::CountingRng;
 use serde::{Deserialize, Serialize};
 use serde_json_core::from_slice;
-use static_cell::StaticCell;
 use trouble_host::prelude::HeaplessString;
 
 mod application;
@@ -71,13 +65,11 @@ mod flash;
 mod led;
 mod mqtt;
 mod peripherals;
-mod psram;
-mod radio;
-mod root;
-mod runtime;
-mod usb;
-mod wifi;
 mod product;
+mod radio;
+mod runtime;
+mod wifi;
+
 
 #[entry]
 unsafe fn main() -> ! {
