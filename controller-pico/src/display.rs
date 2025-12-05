@@ -38,7 +38,10 @@ impl Display {
     }
     pub async fn run(&mut self, message: &str) -> Result<(), Error> {
         self.driver.set_enabled(true);
-        let count = self.driver.count()?.min(MAX_CHARS);
+        let count = self.driver.count()?;
+        if count > MAX_CHARS {
+            return Err("Too many characters in series".into());
+        }
         while self.chars.len() > count {
             self.chars.pop();
         }
@@ -50,7 +53,7 @@ impl Display {
                     prev_hall: None,
                     homed: false,
                     position: None,
-                    calibration: *[1870, 1910, 1840, 1848, 1848, 1858, 1840, 1860, 1868, 1870]
+                    calibration: *[1870, 1910, 1850, 1855, 1860, 1830, 1840, 1850, 1850, 1840]
                         .get(self.chars.len())
                         .unwrap_or(&0),
                 })
@@ -119,7 +122,10 @@ impl Display {
             self.chars[index].target = Some(
                 (self.chars[index].calibration + flap * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV,
             );
-            info!("{MODULE} Flap {index} has target {:?}", self.chars[index].target);
+            info!(
+                "{MODULE} Flap {index} has target {:?}",
+                self.chars[index].target
+            );
         }
         for step in 0.. {
             Timer::after_micros(2000).await;
@@ -127,7 +133,7 @@ impl Display {
             for char in &mut self.chars {
                 if let Some(target) = char.target {
                     if let Some(position) = &mut char.position {
-                        if false && *position == target {
+                        if *position == target {
                             continue;
                         } else {
                             *position = (*position + 1) % STEPS_PER_REV;
@@ -137,7 +143,7 @@ impl Display {
                 done = false;
                 char.phase = (char.phase + 1) % 4;
             }
-            let mut output_buffer = Vec::<u8, { MAX_CHARS / 2 }>::new();
+            let mut output_buffer = Vec::<u8, { (MAX_CHARS + 1) / 2 }>::new();
             for cs in self.chars.chunks_mut(2) {
                 let mut b = 0;
                 for (i, c) in cs.iter_mut().enumerate() {
@@ -153,18 +159,21 @@ impl Display {
             }
             output_buffer.reverse();
             self.driver.write(&output_buffer)?;
-            let mut input_buffer = Vec::<u8, MAX_CHARS>::new();
+            let mut input_buffer = Vec::<u8, { MAX_CHARS + 1 }>::new();
             input_buffer.resize(count + 1, 0).unwrap();
             self.driver.read(&mut input_buffer)?;
             if input_buffer[count] != 0xFF {
-                error!("{MODULE} Hall sensor read error (Bad terminator {})", input_buffer[count]);
+                error!(
+                    "{MODULE} Hall sensor read error (Bad terminator {})",
+                    input_buffer[count]
+                );
             }
             for i in 0..count {
                 let fault = input_buffer[i] & 1 == 1;
                 let hall = input_buffer[i] & 2 == 2;
                 let zeros = input_buffer[i] & !0b11;
                 if zeros != 0 {
-                    error!("{MODULE} Hall sensor read error (bad bits {})", i);
+                    error!("{MODULE} Hall sensor read error (bad bits {}: {})", i, zeros);
                 }
                 if !fault {
                     error!("{MODULE} Motor fault {}", i);

@@ -117,13 +117,7 @@ impl WifiHandler for Application {
 impl Application {
     async fn new(spawner: Spawner, peri: AppPeripherals) -> Result<&'static Self, Error> {
         let driver = DriverModule::new(peri.driver_peri).await?;
-        for i in 0.. {
-            for _ in 0..100 {
-                driver.count().ok();
-            }
-            info!("{:?}", driver.count().ok());
-            Timer::after_millis(1000).await;
-        }
+        driver.write(&[0; 128])?;
         let mut rng = RoscRng;
         let flash = FlashModule::new(peri.flash_peri).await?;
         let (radio, bt_device, net_device) = RadioModule::new(spawner, peri.radio_peri).await?;

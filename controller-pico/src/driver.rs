@@ -64,7 +64,7 @@ impl DriverModule {
         Delay.delay_us(10);
         inner.load.set_high();
         Delay.delay_us(10);
-        for count in 0usize..1000 {
+        for count in 0usize..20 {
             let mut data = [0u8];
             inner.spi.blocking_read(&mut data)?;
             if data[0] == 0xFF {

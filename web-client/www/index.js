@@ -1,3 +1,3 @@
 import * as wasm from "web-client";
 
-wasm.greet();
+window.wasm = wasm

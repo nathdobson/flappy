@@ -18,7 +18,7 @@ use log::{Level, Record, error, info, set_logger, set_max_level};
 use static_cell::make_static;
 
 const MODULE: &'static str = "[RUN  ]";
-const LOG_BUFFER: usize = 1024;
+const LOG_BUFFER: usize = 4096;
 
 #[allow(non_snake_case)]
 pub struct RuntimePeripherals {
