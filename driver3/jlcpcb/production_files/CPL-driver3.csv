@@ -1,0 +1,20 @@
+Designator,Val,Package,Mid X,Mid Y,Rotation,Layer
+C1,100nF,C_0603,120.15,-62.0,180.0,top
+C2,4.7uF,C_1206,119.47,-60.0,180.0,top
+D1,1SMA4749A,D_DO-214AC(SMA),123.47,-57.0,180.0,top
+D2,Red,D_0603,127.55,-87.725,180.0,top
+D3,Red,D_0603,124.05,-87.725,180.0,top
+D4,Red,D_0603,120.55,-87.725,180.0,top
+D5,Red,D_0603,117.05,-87.725,180.0,top
+J1,Conn_02x08_Odd_Even_Male,PinHeader_2x08_P2.54mm_Horizontal,138.23,-65.86,90.0,top
+J2,Conn_02x08_Odd_Even_Female,PinSocket_2x08_P2.54mm_Horizontal,104.73,-65.89,270.0,top
+J3,Conn_01x05,JST_XH_B5B-XH-A_1x05_P2.50mm_Vertical,122.8,-82.725,0.0,top
+J4,Conn_01x03_Pin,PinHeader_1x03_P2.54mm_Vertical,112.2,-58.54,270.0,top
+R1,10kΩ,R_0402,128.84,-86.225,0.0,top
+R2,10kΩ,R_0402,125.34,-86.225,0.0,top
+R3,10kΩ,R_0402,121.84,-86.225,0.0,top
+R4,10kΩ,R_0402,118.34,-86.225,0.0,top
+R5,10kΩ,R_0402,114.8,-60.58,-90.0,top
+SW1,SW_DIP_x02,SW_DIP_SPSTx02_Slide_9.78x7.26mm_W7.62mm_P2.54mm,115.391192,-71.31,0.0,top
+SW2,SW_DIP_x02,SW_DIP_SPSTx02_Slide_9.78x7.26mm_W7.62mm_P2.54mm,129.77,-71.31,0.0,top
+U1,MP6605CGR-Z,QFN-24_MP6605C_MNP,122.5015,-65.75,-90.0,top

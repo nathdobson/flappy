@@ -68,8 +68,12 @@ impl DriverModule {
             let mut data = [0u8];
             inner.spi.blocking_read(&mut data)?;
             if data[0] == 0xFF {
-                info!("{MODULE} Counted {} flaps", count);
+                // info!("{MODULE} Counted {} flaps", count);
                 return Ok(count);
+            } else {
+                if data[0] != 0b01 && data[0] != 0b11 {
+                    info!("Bad data {:?}", data);
+                }
             }
         }
         Err(Error::StrError("count failure"))
