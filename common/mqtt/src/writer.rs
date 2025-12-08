@@ -76,7 +76,9 @@ impl<const SEND_CAP: usize, W: Write> MqttWriter<W, SEND_CAP> {
         };
         builder.write_packet(packet)?;
         let buf = builder.finish()?;
-        self.inner.write_all(buf).await.map_err(Error::NetworkError)
+        self.inner.write_all(buf).await.map_err(Error::NetworkError)?;
+        self.inner.flush().await.map_err(Error::NetworkError)?;
+        Ok(())
     }
 }
 

@@ -1,10 +1,10 @@
 #![allow(unreachable_code)]
+#![allow(unused_imports)]
 
 use arena::ArenaStorage;
 use core::fmt::{Debug, Display, Formatter};
 use core::time::Duration;
 use embassy_futures::select::{Either4, select4};
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embedded_io_async::{BufRead, ErrorKind, ErrorType, Read, Write};
 use mqtt::error::Error;
 use mqtt::receiver::MqttReceiver;
