@@ -92,7 +92,7 @@ impl Display {
             // A
             let success = false;
             for c in grapheme_in.chars() {
-                if let Some(matched) = common::letters_iter()
+                if let Some(matched) = letters::letters_iter()
                     .position(|g| g.len() == 1 && g.chars().next().unwrap() == c)
                 {
                     flaps.push(matched).ok();
@@ -116,7 +116,7 @@ impl Display {
         {
             let flap = char
                 .chars()
-                .filter_map(|c| common::LETTERS.find(c.to_ascii_uppercase()))
+                .filter_map(|c| letters::LETTERS.find(c.to_ascii_uppercase()))
                 .next()
                 .unwrap_or(0);
             self.chars[index].target = Some(

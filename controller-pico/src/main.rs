@@ -14,6 +14,7 @@
 #![feature(never_type)]
 #![feature(try_blocks)]
 #![feature(debug_closure_helpers)]
+#![allow(unreachable_code)]
 
 use crate::application::main_task;
 use crate::ble::BleModule;
@@ -45,11 +46,11 @@ use embedded_tls::{
 };
 use heapless::String;
 use log::{error, info};
-use rust_mqtt::client::client::MqttClient;
-use rust_mqtt::client::client_config::ClientConfig;
-use rust_mqtt::packet::v5::publish_packet::QualityOfService;
-use rust_mqtt::packet::v5::reason_codes::ReasonCode;
-use rust_mqtt::utils::rng_generator::CountingRng;
+// use rust_mqtt::client::client::MqttClient;
+// use rust_mqtt::client::client_config::ClientConfig;
+// use rust_mqtt::packet::v5::publish_packet::QualityOfService;
+// use rust_mqtt::packet::v5::reason_codes::ReasonCode;
+// use rust_mqtt::utils::rng_generator::CountingRng;
 use serde::{Deserialize, Serialize};
 use serde_json_core::from_slice;
 use trouble_host::prelude::HeaplessString;
@@ -69,7 +70,10 @@ mod product;
 mod radio;
 mod runtime;
 mod wifi;
+mod mqtt_client;
+mod global_alloc;
 
+extern crate alloc;
 
 #[entry]
 unsafe fn main() -> ! {
@@ -79,3 +83,5 @@ unsafe fn main() -> ! {
         move |spawner| spawner.spawn(main_task(spawner, ap).unwrap()),
     );
 }
+
+

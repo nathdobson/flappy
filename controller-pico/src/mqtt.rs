@@ -1,24 +1,35 @@
 use crate::error::Error;
 use crate::product::PRODUCT_NAME;
 use crate::wifi::WifiModule;
+use arena::ArenaStorage;
 use core::cell::Cell;
 use core::fmt;
 use core::fmt::{Display, Formatter, write};
+use core::future::pending;
+use core::intrinsics::unreachable;
 use embassy_executor::Spawner;
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{Either, Either4, select, select4};
 use embassy_futures::yield_now;
 use embassy_net::dns::DnsQueryType;
-use embassy_net::tcp::TcpSocket;
+use embassy_net::tcp::{TcpReader, TcpSocket, TcpWriter};
 use embassy_rp::clocks::RoscRng;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Duration, TimeoutError, Timer, with_timeout};
-use embedded_tls::{Aes128GcmSha256, NoVerify, TlsConfig, TlsConnection, TlsContext};
+use embedded_io_async::{ErrorType, Read, Write};
+use embedded_tls::{
+    Aes128GcmSha256, Certificate, NoVerify, SplitConnectionState, TlsConfig, TlsConnection,
+    TlsContext, TlsError, TlsVerifier,
+};
 use log::{error, info};
-use rust_mqtt::client::client::MqttClient;
-use rust_mqtt::client::client_config::ClientConfig;
-use rust_mqtt::packet::v5::reason_codes::ReasonCode;
-use rust_mqtt::utils::rng_generator::CountingRng;
+use mqtt::proto::Packet;
+use mqtt::receiver::MqttReceiver;
+use mqtt::sender::{ConnectRequest, MqttSender};
+// use rust_mqtt::client::client::MqttClient;
+// use rust_mqtt::client::client_config::ClientConfig;
+// use rust_mqtt::packet::v5::reason_codes::ReasonCode;
+// use rust_mqtt::utils::rng_generator::CountingRng;
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
 use static_cell::make_static;
@@ -59,6 +70,31 @@ pub trait MqttHandler {
     fn handle(&self, topic: &str, message: &[u8]);
 }
 
+struct TcpSocketMutex<'a> {
+    write: Mutex<NoopRawMutex, TcpWriter<'a>>,
+    read: Mutex<NoopRawMutex, TcpReader<'a>>,
+}
+
+impl<'a, 'b> ErrorType for &'a TcpSocketMutex<'b> {
+    type Error = embassy_net::tcp::Error;
+}
+
+impl<'a, 'b> Write for &'a TcpSocketMutex<'b> {
+    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        self.write.lock().await.write(buf).await
+    }
+
+    async fn flush(&mut self) -> Result<(), Self::Error> {
+        self.write.lock().await.flush().await
+    }
+}
+
+impl<'a, 'b> Read for &'a TcpSocketMutex<'b> {
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        self.read.lock().await.read(buf).await
+    }
+}
+
 impl MqttModule {
     pub async fn new(
         spawner: Spawner,
@@ -87,6 +123,8 @@ impl MqttModule {
 
     async fn run(&'static self, handler: &'static dyn MqttHandler) {
         let mut settings = self.signal.wait().await;
+        let mut rx_buffer = make_static!([0; 4096]);
+        let mut tx_buffer = make_static!([0; 4096]);
         loop {
             if let Some(s) = self.signal.try_take() {
                 settings = s;
@@ -94,7 +132,7 @@ impl MqttModule {
             // Cancel the MQTT connection every time the settings change.
             match select(
                 self.signal.wait(),
-                self.run_with_settings(&settings, handler),
+                self.run_with_settings(&settings, handler, rx_buffer, tx_buffer),
             )
             .await
             {
@@ -116,6 +154,8 @@ impl MqttModule {
         &'static self,
         settings: &MqttSettings,
         handler: &'static dyn MqttHandler,
+        rx_buffer: &mut [u8],
+        tx_buffer: &mut [u8],
     ) -> Result<!, Error> {
         info!(
             "{MODULE} [WiFi] Connecting to WiFi with MAC {}",
@@ -158,9 +198,7 @@ impl MqttModule {
             );
         }
 
-        let mut rx_buffer = [0; 4096];
-        let mut tx_buffer = [0; 4096];
-        let mut socket = TcpSocket::new(*self.stack, &mut rx_buffer, &mut tx_buffer);
+        let mut socket = TcpSocket::new(*self.stack, rx_buffer, tx_buffer);
         socket.set_timeout(Some(Duration::from_secs(20)));
         let dns = &*settings.hostname;
         let port = settings.port;
@@ -190,12 +228,22 @@ impl MqttModule {
             }),
         );
 
+        let (read, write) = socket.split();
+        let socket_mutex = TcpSocketMutex {
+            write: Mutex::new(write),
+            read: Mutex::new(read),
+        };
+
         let mut read_record_buffer = [0; 16384];
         let mut write_record_buffer = [0; 16384];
         let config = TlsConfig::<Aes128GcmSha256>::new()
             .with_server_name(dns)
             .enable_rsa_signatures();
-        let mut tls = TlsConnection::new(socket, &mut read_record_buffer, &mut write_record_buffer);
+        let mut tls = TlsConnection::new(
+            &socket_mutex,
+            &mut read_record_buffer,
+            &mut write_record_buffer,
+        );
 
         handler.handle_status(MqttStatus::TlsConnect);
         info!("{MODULE} [TLS] Starting handshake");
@@ -203,46 +251,66 @@ impl MqttModule {
             .await?;
         info!("{MODULE} [TLS] Handshake complete");
 
-        let mut config = ClientConfig::new(
-            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-            CountingRng(20000),
-        );
-        // config.add_max_subscribe_qos(QualityOfService::QoS1);
-        config.add_client_id(PRODUCT_NAME);
-        config.max_packet_size = 100;
-        config.add_username(&settings.username);
-        config.add_password(&settings.password);
-        let mut recv_buffer = [0; 80];
-        let mut write_buffer = [0; 80];
-
-        let mut client =
-            MqttClient::<_, 5, _>::new(tls, &mut write_buffer, 80, &mut recv_buffer, 80, config);
-
-        handler.handle_status(MqttStatus::MqttConnect);
-        info!(
-            "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
-            PRODUCT_NAME, settings.username
-        );
-        client.connect_to_broker().await?;
-        info!("{MODULE} Connected to broker");
-
-        handler.handle_status(MqttStatus::MqttSubscribe);
-        info!("{MODULE} Subscribing to {}", settings.topic);
-        client.subscribe_to_topic(&settings.topic).await?;
-        info!("{MODULE} Subscribed");
-
-        handler.handle_status(MqttStatus::Connected);
-        loop {
-            // Use timeout because receive_message and send_ping take &mut self.
-            match with_timeout(Duration::from_secs(10), client.receive_message()).await {
-                Ok(Ok((topic, body))) => {
-                    handler.handle(topic, body);
+        let mut state = SplitConnectionState::default();
+        let (read, write) = tls.split_with(&mut state);
+        let sender = MqttSender::<_, 1024, 1, 1>::new(write);
+        let mut receiver = MqttReceiver::new(read);
+        match select4(
+            async {
+                let mut arena = ArenaStorage::<1024>::new();
+                loop {
+                    let (ack, packet) = receiver.receive(arena.start()).await?;
+                    match packet {
+                        Packet::Publish(publish) => {
+                            handler.handle(publish.topic, publish.payload);
+                        }
+                        _ => {}
+                    }
+                    sender.acknowledge(ack)?;
                 }
-                Ok(Err(e)) => return Err(e.into()),
-                Err(TimeoutError) => {
-                    client.send_ping().await?;
+                Ok::<!, Error>(unreachable!())
+            },
+            async {
+                sender.send_acks().await?;
+                Ok::<!, Error>(unreachable!())
+            },
+            async {
+                loop {
+                    Timer::after(Duration::from_secs(60)).await;
+                    sender.ping().await?;
                 }
-            }
+                Ok::<!, Error>(unreachable!())
+            },
+            async {
+                handler.handle_status(MqttStatus::MqttConnect);
+                info!(
+                    "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
+                    PRODUCT_NAME, settings.username
+                );
+                sender
+                    .connect(&ConnectRequest {
+                        client_id: PRODUCT_NAME,
+                        username: Some(&settings.username),
+                        password: Some(&settings.password),
+                    })
+                    .await?;
+                info!("{MODULE} Connected to broker");
+
+                handler.handle_status(MqttStatus::MqttSubscribe);
+                info!("{MODULE} Subscribing to {}", settings.topic);
+                sender.subscribe(&settings.topic).await?;
+                info!("{MODULE} Subscribed");
+
+                handler.handle_status(MqttStatus::Connected);
+                pending::<Result<!, Error>>().await
+            },
+        )
+        .await
+        {
+            Either4::First(x) => x?,
+            Either4::Second(x) => x?,
+            Either4::Third(x) => x?,
+            Either4::Fourth(x) => x?,
         }
     }
     pub fn set_settings(&self, settings: MqttSettings) {

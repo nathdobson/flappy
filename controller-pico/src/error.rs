@@ -3,7 +3,8 @@ use core::fmt::{Display, Formatter};
 use embassy_executor::SpawnError;
 use embassy_net::tcp::ConnectError;
 use embedded_tls::TlsError;
-use rust_mqtt::packet::v5::reason_codes::ReasonCode;
+use mqtt::error::ProtocolError;
+// use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 use trouble_host::{BleHostError, codec};
 
 #[derive(Debug)]
@@ -18,7 +19,7 @@ pub enum Error {
     JsonDeError(serde_json_core::de::Error),
     JsonSerError(serde_json_core::ser::Error),
     DnsError(embassy_net::dns::Error),
-    MqttError(ReasonCode),
+    MqttError(ProtocolError),
     TlsError(TlsError),
     ConnectError(ConnectError),
     SpiError(embassy_rp::spi::Error),
@@ -109,12 +110,6 @@ impl From<embassy_net::dns::Error> for Error {
     }
 }
 
-impl From<ReasonCode> for Error {
-    fn from(value: ReasonCode) -> Self {
-        Error::MqttError(value)
-    }
-}
-
 impl From<TlsError> for Error {
     fn from(error: TlsError) -> Self {
         Error::TlsError(error)
@@ -136,5 +131,23 @@ impl From<embassy_rp::spi::Error> for Error {
 impl From<fmt::Error> for Error {
     fn from(value: fmt::Error) -> Self {
         Error::FmtError
+    }
+}
+
+impl<E> From<mqtt::error::Error<E>> for Error
+where
+    Error: From<E>,
+{
+    fn from(value: mqtt::error::Error<E>) -> Self {
+        match value {
+            mqtt::error::Error::NetworkError(e) => Error::from(e),
+            mqtt::error::Error::ProtocolError(e) => Error::MqttError(e),
+        }
+    }
+}
+
+impl From<ProtocolError> for Error {
+    fn from(value: ProtocolError) -> Self {
+        Error::MqttError(value)
     }
 }

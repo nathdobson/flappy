@@ -37,8 +37,13 @@ pub struct Application {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct MqttRequest {
-    msg: String<128>,
+enum MqttRequest {
+    Run(String<128>),
+}
+
+enum MqttResponse {
+    Start,
+    Stop,
 }
 
 impl MqttHandler for Application {
@@ -55,6 +60,7 @@ impl MqttHandler for Application {
         }
         match serde_json_core::from_slice::<MqttRequest>(message) {
             Ok((message, _)) => {
+                // self.mqtt.send(serde_json_core::to_vec(MqttResponse::Start));
                 info!("{MODULE} Parsed message as {:?}", message);
                 self.display_message.signal(message);
             }
@@ -213,8 +219,12 @@ impl Application {
         }
         loop {
             let request = self.display_message.wait().await;
-            if let Err(e) = display.run(&request.msg).await {
-                error!("{MODULE} error when displaying message: {:?}", e);
+            match request {
+                MqttRequest::Run(msg) => {
+                    if let Err(e) = display.run(&msg).await {
+                        error!("{MODULE} error when displaying message: {:?}", e);
+                    }
+                }
             }
         }
     }

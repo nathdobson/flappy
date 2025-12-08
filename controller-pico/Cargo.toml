@@ -31,14 +31,18 @@ serde-json-core = "0.6.0"
 rand_core = "0.9.3"
 uuid={version = "1.18.1",default-features = false}
 heapless = {version="0.9.2",features = ["serde"]}
-rust-mqtt = {path="../submodules/rust-mqtt", default-features = false}
+#rust-mqtt = {path="../submodules/rust-mqtt", default-features = false}
 embedded-tls = {version="0.17.0",default-features = false}
 embedded-hal = "1.0.0"
 unicode-segmentation = {version = "1.12.0",default-features = false}
-common = {path="../common"}
+letters = {path="../common/letters"}
 #unidecode = {path="../submodules/rust-unidecode", default-features = false}
 #unicode-normalization = {path="../submodules/unicode-normalization", default-features = false}
 smoltcp = {version="0.12.0",default-features = false}
+embedded-io-async = "0.6.1"
+embedded-io = "0.6.1"
+mqtt = {path="../common/mqtt"}
+arena = {path="../common/arena"}
 
 [build-dependencies]
 built = {version = "0.8.0", features = ["git2"]}

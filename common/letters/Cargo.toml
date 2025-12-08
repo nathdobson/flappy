@@ -1,0 +1,7 @@
+[package]
+name = "letters"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+unicode-segmentation = "1.12.0"
