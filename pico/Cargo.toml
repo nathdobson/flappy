@@ -1,5 +1,5 @@
 [workspace]
-members = ["controller-pico"]
+members = ["controller"]
 resolver = "3"
 
 [profile.release]
