@@ -2,10 +2,34 @@ html, body, .container {
     height: 100%;
 }
 
+.display {
+    display: flex;
+    flex-direction: row;
+    font-size:10vw;
+    width:100%;
+    border-style: solid;
+}
+
+.letter-outer{
+    border-style: solid;
+    width: 100%;
+}
+
+.letter-inner {
+    margin:15%;
+    border-style: solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: monospace, monospace;
+    aspect-ratio: 1/2
+}
+
 .container {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
 }
 
 .form {

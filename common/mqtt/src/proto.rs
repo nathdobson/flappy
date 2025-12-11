@@ -109,6 +109,19 @@ pub enum ReasonCode {
     UseAnotherServer = 0x9c,
     ServerMoved = 0x9d,
     ConnectionRateExceeded = 0x9f,
+    DisconnectWithWillMessage = 0x04,
+    ServerShuttingDown = 0x8b,
+    KeepAliveTimeout = 0x8d,
+    SessionTakenOver = 0x8e,
+    TopicFilterInvalid = 0x8f,
+    ReceiveMaximumExceeded = 0x93,
+    TopicAliasInvalid = 0x94,
+    MessageRateTooHigh = 0x96,
+    AdministrativeAction = 0x98,
+    SharedSubscriptionsNotSupported = 0x9e,
+    MaximumConnectTime = 0xa0,
+    SubscriptionIdentifiersNotSupported = 0xa1,
+    WildcardSubscriptionNotSupported = 0xa2,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
@@ -153,43 +166,9 @@ pub struct ConnackPacket<'a> {
     pub properties: &'a [Property<'a>],
 }
 
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash, FromRepr)]
-#[repr(u8)]
-pub enum DisconnectReason {
-    NormalDisconnection = 0x00,
-    DisconnectWithWillMessage = 0x04,
-    UnspecifiedError = 0x80,
-    MalformedPacket = 0x81,
-    ProtocolError = 0x82,
-    ImplementationSpecificError = 0x83,
-    NotAuthorized = 0x87,
-    ServerBusy = 0x89,
-    ServerShuttingDown = 0x8b,
-    KeepAliveTimeout = 0x8d,
-    SessionTakenOver = 0x8e,
-    TopicFilterInvalid = 0x8f,
-    TopicNameInvalid = 0x90,
-    ReceiveMaximumExceeded = 0x93,
-    TopicAliasInvalid = 0x94,
-    PacketTooLarge = 0x95,
-    MessageRateTooHigh = 0x96,
-    QuotaExceeded = 0x97,
-    AdministrativeAction = 0x98,
-    PayloadFormatInvalid = 0x99,
-    RetainNotSupported = 0x9a,
-    QosNotSupported = 0x9b,
-    UseAnotherServer = 0x9c,
-    ServerMoved = 0x9d,
-    SharedSubscriptionsNotSupported = 0x9e,
-    ConnectionRateExceeded = 0x9f,
-    MaximumConnectTime = 0xa0,
-    SubscriptionIdentifiersNotSupported = 0xa1,
-    WildcardSubscriptionNotSupported = 0xa2,
-}
-
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 pub struct DisconnectPacket<'a> {
-    pub reason: DisconnectReason,
+    pub reason: ReasonCode,
     pub phantom: PhantomData<&'a ()>,
 }
 

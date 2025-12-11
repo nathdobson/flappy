@@ -140,8 +140,8 @@ impl WifiModule {
                 settings = new;
             }
             info!(
-                "{MODULE} Connecting to WiFi network with SSID {}",
-                settings.ssid
+                "{MODULE} Connecting to WiFi network with SSID {:?} and password {:?}",
+                settings.ssid, settings.password
             );
             while let Err(err) = self
                 .radio

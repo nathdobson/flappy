@@ -53,7 +53,7 @@ impl Display {
                     prev_hall: None,
                     homed: false,
                     position: None,
-                    calibration: *[1870, 1910, 1850, 1855, 1860, 1830, 1840, 1850, 1850, 1840]
+                    calibration: *[1870, 1910, 1850, 1855, 1860, 1820, 1850, 1850, 1850, 1840]
                         .get(self.chars.len())
                         .unwrap_or(&0),
                 })
@@ -147,11 +147,14 @@ impl Display {
             for cs in self.chars.chunks_mut(2) {
                 let mut b = 0;
                 for (i, c) in cs.iter_mut().enumerate() {
-                    // Run the motor in reverse
-                    let phase1 = 3 - c.phase;
-                    // full step drive (two phases enabled at a time)
-                    let phase2 = (phase1 + 1) % 4;
-                    let mask = (1 << phase1) | (1 << phase2);
+                    let mut mask = 0;
+                    if c.position != c.target && c.target.is_some() {
+                        // Run the motor in reverse
+                        let phase1 = 3 - c.phase;
+                        // full step drive (two phases enabled at a time)
+                        let phase2 = (phase1 + 1) % 4;
+                        mask = (1 << phase1) | (1 << phase2);
+                    }
                     // encode two motors per byte
                     b |= mask << i * 4;
                 }
@@ -173,7 +176,10 @@ impl Display {
                 let hall = input_buffer[i] & 2 == 2;
                 let zeros = input_buffer[i] & !0b11;
                 if zeros != 0 {
-                    error!("{MODULE} Hall sensor read error (bad bits {}: {})", i, zeros);
+                    error!(
+                        "{MODULE} Hall sensor read error (bad bits {}: {})",
+                        i, zeros
+                    );
                 }
                 if !fault {
                     error!("{MODULE} Motor fault {}", i);

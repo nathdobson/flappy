@@ -1,0 +1,3 @@
+[workspace]
+members = ["arena","mqtt","letters","proto", "io-adapter"]
+resolver = "3"

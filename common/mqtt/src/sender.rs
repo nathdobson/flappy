@@ -21,11 +21,12 @@ pub struct MqttSender<W, const SEND_CAP: usize, const RECV_CONC: usize, const SE
     send_acks: Channel<NoopRawMutex, SendAckToken, RECV_CONC>,
     packet_id_signals: [Signal<NoopRawMutex, RecvAckToken>; SEND_CONC],
     free_packet_ids: RefCell<Vec<u16, SEND_CONC>>,
+    disconnect: Signal<NoopRawMutex, ReasonCode>,
 }
 
 pub enum AckToken {
     Connack(ReasonCode),
-    Disconnect,
+    Disconnect(ReasonCode),
     Suback(u16),
     Publish(Option<u16>),
     Puback(u16, ReasonCode),
@@ -56,6 +57,7 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
             send_acks: Channel::new(),
             packet_id_signals: [const { Signal::new() }; SEND_CONC],
             free_packet_ids: RefCell::new((1u16..SEND_CONC as u16 + 1).collect()),
+            disconnect: Signal::new(),
         }
     }
     pub fn acknowledge(&self, ack_token: AckToken) -> Result<(), Error<W::Error>> {
@@ -66,7 +68,9 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
             AckToken::Pingresp => {
                 self.pingresp.signal(());
             }
-            AckToken::Disconnect => todo!(),
+            AckToken::Disconnect(reason) => {
+                self.disconnect.signal(reason);
+            }
             AckToken::Suback(id) => {
                 self.packet_id_signals[id as usize - 1].signal(RecvAckToken::Suback);
             }
@@ -87,7 +91,7 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
         }
         Ok(())
     }
-    pub async fn send(&self, packet: &Packet<'_>) -> Result<(), Error<W::Error>> {
+    async fn send(&self, packet: &Packet<'_>) -> Result<(), Error<W::Error>> {
         self.writer.lock().await.send_packet(packet).await?;
         Ok(())
     }
@@ -105,7 +109,7 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
             will: None,
             password: connect_request.password.clone(),
             username: connect_request.username.clone(),
-            keep_alive: 0,
+            keep_alive: connect_request.keepalive,
             client_id: connect_request.client_id,
         }))
         .await?;
@@ -147,25 +151,20 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
         }
         Ok(())
     }
-    pub async fn publish(
-        &self,
-        qos: Qos,
-        topic: &str,
-        payload: &[u8],
-    ) -> Result<(), Error<W::Error>> {
-        assert_eq!(qos, Qos::AtMostOnce);
-        let packet_id = match qos {
+    pub async fn publish(&self, publish: &PublishRequest<'_>) -> Result<(), Error<W::Error>> {
+        assert_eq!(publish.qos, Qos::AtMostOnce);
+        let packet_id = match publish.qos {
             Qos::AtMostOnce => None,
             Qos::AtLeastOnce | Qos::ExactlyOnce => Some(self.allocate_packet_id()?),
         };
         self.send(&Packet::Publish(PublishPacket {
             dup: false,
-            qos,
+            qos: publish.qos,
             retain: false,
-            topic,
+            topic: publish.topic,
             packet_id,
             properties: &[],
-            payload,
+            payload: publish.payload,
         }))
         .await?;
         if let Some(packet_id) = packet_id {
@@ -195,10 +194,22 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
             }
         }
     }
+    pub async fn wait_disconnect(&self) -> Result<ReasonCode, Error<W::Error>> {
+        Ok(self.disconnect.wait().await)
+    }
 }
 
+#[derive(Clone, Debug)]
 pub struct ConnectRequest<'a> {
     pub client_id: &'a str,
     pub username: Option<&'a str>,
     pub password: Option<&'a str>,
+    pub keepalive: u16,
+}
+
+#[derive(Clone, Debug)]
+pub struct PublishRequest<'a> {
+    pub qos: Qos,
+    pub topic: &'a str,
+    pub payload: &'a [u8],
 }

@@ -4,7 +4,7 @@ use crate::driver::DriverModule;
 use crate::error::Error;
 use crate::flash::{FlashModule, FlashSettings};
 use crate::led::LedModule;
-use crate::mqtt::{MqttHandler, MqttModule, MqttStatus};
+use crate::mqtt::{MqttModule, MqttStatus};
 use crate::peripherals::AppPeripherals;
 use crate::product::{built_info, serial_number};
 use crate::radio::RadioModule;
@@ -18,6 +18,8 @@ use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use heapless::{String, format};
 use log::{error, info};
+use proto::FlappyRequest;
+use proto::FlappyResponse;
 use serde::{Deserialize, Serialize};
 use static_cell::make_static;
 
@@ -32,41 +34,6 @@ pub struct Application {
     driver: &'static DriverModule,
     state: RefCell<FlashSettings>,
     wifi_status: Signal<NoopRawMutex, WifiStatus>,
-    mqtt_status: Signal<NoopRawMutex, MqttStatus>,
-    display_message: Signal<NoopRawMutex, MqttRequest>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-enum MqttRequest {
-    Run(String<128>),
-}
-
-enum MqttResponse {
-    Start,
-    Stop,
-}
-
-impl MqttHandler for Application {
-    fn handle_status(&self, status: MqttStatus) {
-        self.mqtt_status.signal(status);
-    }
-
-    fn handle(&self, topic: &str, message: &[u8]) {
-        if let Ok(message) = str::from_utf8(message) {
-            info!("{MODULE} Received message on topic {}:", topic);
-            for line in message.split('\n') {
-                info!("{MODULE}      {}", line);
-            }
-        }
-        match serde_json_core::from_slice::<MqttRequest>(message) {
-            Ok((message, _)) => {
-                // self.mqtt.send(serde_json_core::to_vec(MqttResponse::Start));
-                info!("{MODULE} Parsed message as {:?}", message);
-                self.display_message.signal(message);
-            }
-            Err(e) => error!("{MODULE} Cannot parse message {:?}", e),
-        }
-    }
 }
 
 fn trim_null<const N: usize>(mut x: String<N>) -> String<N> {
@@ -123,12 +90,19 @@ impl WifiHandler for Application {
 impl Application {
     async fn new(spawner: Spawner, peri: AppPeripherals) -> Result<&'static Self, Error> {
         let driver = DriverModule::new(peri.driver_peri).await?;
+        // for i in 0.. {
+        //     let x = driver.count().ok();
+        //     if i % 100 == 0 {
+        //         info!("{:?}", x);
+        //     }
+        //     Timer::after_millis(100).await;
+        // }
         driver.write(&[0; 128])?;
         let mut rng = RoscRng;
         let flash = FlashModule::new(peri.flash_peri).await?;
         let (radio, bt_device, net_device) = RadioModule::new(spawner, peri.radio_peri).await?;
-        let ble = BleModule::new(spawner, bt_device).await?;
         let led = LedModule::new(spawner, radio).await?;
+        let ble = BleModule::new(spawner, bt_device).await?;
         let wifi = WifiModule::new(spawner, radio, net_device, &mut rng).await?;
         let mqtt = MqttModule::new(spawner, &wifi.stack()).await?;
         let state = flash.load().await?;
@@ -142,8 +116,6 @@ impl Application {
             driver,
             state: RefCell::new(state.clone()),
             wifi_status: Signal::new(),
-            mqtt_status: Signal::new(),
-            display_message: Signal::new(),
         });
         Ok(application)
     }
@@ -164,7 +136,6 @@ impl Application {
     }
     fn spawn_tasks(&'static self) -> Result<(), Error> {
         self.ble.start(self)?;
-        self.mqtt.start(self)?;
         self.wifi.start(self)?;
         self.spawner.spawn({
             #[embassy_executor::task]
@@ -191,7 +162,7 @@ impl Application {
     }
     async fn notify_mqtt_status(&'static self) {
         loop {
-            let status = self.mqtt_status.wait().await;
+            let status = self.mqtt.status().wait().await;
             self.ble
                 .set_and_notify(
                     &self.ble.server().flappy_service.mqtt_status,
@@ -217,13 +188,18 @@ impl Application {
         if let Err(e) = display.run("").await {
             error!("{MODULE} error when resetting flaps: {}", e);
         }
+        // self.mqtt.send(FlappyResponse::Start);
         loop {
-            let request = self.display_message.wait().await;
+            let request = self.mqtt.receive().wait().await;
             match request {
-                MqttRequest::Run(msg) => {
+                FlappyRequest::Run(msg) => {
+                    info!("{MODULE} Displaying {}", msg);
+                    self.mqtt.send(FlappyResponse::Start);
+                    // Timer::after_millis(1000).await;
                     if let Err(e) = display.run(&msg).await {
                         error!("{MODULE} error when displaying message: {:?}", e);
                     }
+                    self.mqtt.send(FlappyResponse::Stop);
                 }
             }
         }

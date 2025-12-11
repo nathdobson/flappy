@@ -22,7 +22,7 @@ use crate::display::Display;
 use crate::error::Error;
 use crate::flash::{FlashModule, FlashSettings};
 use crate::led::LedModule;
-use crate::mqtt::{MqttHandler, MqttSettings, MqttStatus};
+use crate::mqtt::{MqttSettings, MqttStatus};
 use crate::peripherals::build_peripherals;
 use crate::radio::RadioModule;
 use crate::wifi::{WifiHandler, WifiModule, WifiSettings, WifiStatus};
@@ -63,6 +63,7 @@ mod driver;
 mod error;
 mod executor;
 mod flash;
+mod global_alloc;
 mod led;
 mod mqtt;
 mod peripherals;
@@ -70,8 +71,6 @@ mod product;
 mod radio;
 mod runtime;
 mod wifi;
-mod mqtt_client;
-mod global_alloc;
 
 extern crate alloc;
 
@@ -83,5 +82,3 @@ unsafe fn main() -> ! {
         move |spawner| spawner.spawn(main_task(spawner, ap).unwrap()),
     );
 }
-
-

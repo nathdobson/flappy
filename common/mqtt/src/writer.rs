@@ -76,7 +76,10 @@ impl<const SEND_CAP: usize, W: Write> MqttWriter<W, SEND_CAP> {
         };
         builder.write_packet(packet)?;
         let buf = builder.finish()?;
-        self.inner.write_all(buf).await.map_err(Error::NetworkError)?;
+        self.inner
+            .write_all(buf)
+            .await
+            .map_err(Error::NetworkError)?;
         self.inner.flush().await.map_err(Error::NetworkError)?;
         Ok(())
     }
@@ -232,7 +235,8 @@ impl<'a> MqttPacketBuilder<'a> {
         if let Some(packet_id) = publish.packet_id {
             self.write_u16(packet_id)?;
         }
-        self.write_bytes(publish.payload)?;
+        self.write_properties(&publish.properties)?;
+        self.write(publish.payload)?;
         Ok(())
     }
     pub fn write_subscribe(

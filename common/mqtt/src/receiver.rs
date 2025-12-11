@@ -23,7 +23,7 @@ impl<R: Read> MqttReceiver<R> {
         let token = match &packet {
             Packet::Connack(connack) => AckToken::Connack(connack.reason_code),
             Packet::Connect(_) => return Err(ProtocolError::Malformed.into()),
-            Packet::Disconnect(_) => AckToken::Disconnect,
+            Packet::Disconnect(disconnect) => AckToken::Disconnect(disconnect.reason),
             Packet::Publish(p) => AckToken::Publish(p.packet_id),
             Packet::Subscribe(s) => return Err(ProtocolError::Malformed.into()),
             Packet::Suback(s) => AckToken::Suback(s.packet_id),

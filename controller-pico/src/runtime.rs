@@ -7,7 +7,7 @@ use embassy_rp::otp::get_chipid;
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
 use embassy_rp::{Peri, bind_interrupts, rom_data};
-use embassy_time::{Duration, block_for};
+use embassy_time::{Duration, Instant, block_for};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, ControlChanged, State};
 use embassy_usb::{Builder, Config, UsbDevice};
 // use embassy_usb_dfu::consts::DfuAttributes;
@@ -72,9 +72,10 @@ fn custom_style(record: &Record, writer: &mut embassy_usb_logger::Writer<LOG_BUF
     };
     let file = record.file().unwrap_or("");
     let line = record.line().unwrap_or(0);
+    let time = Instant::now();
     write!(
         writer,
-        "[{file:20}:{line:5}] [{level}] {}\r\n",
+        "[{file:20}:{line:5}] [{time}] [{level}] {}\r\n",
         record.args()
     )
     .ok();

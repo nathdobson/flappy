@@ -4,6 +4,7 @@ use embassy_executor::SpawnError;
 use embassy_net::tcp::ConnectError;
 use embedded_tls::TlsError;
 use mqtt::error::ProtocolError;
+use mqtt::proto::ReasonCode;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 use trouble_host::{BleHostError, codec};
 
@@ -24,6 +25,8 @@ pub enum Error {
     ConnectError(ConnectError),
     SpiError(embassy_rp::spi::Error),
     FmtError,
+    DeadlineExceeded,
+    Disconnected(ReasonCode),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -46,6 +49,8 @@ impl Display for Error {
             Error::ConnectError(error) => write!(f, "Connect error: {:?}", error),
             Error::SpiError(error) => write!(f, "SPI error: {:?}", error),
             Error::FmtError => write!(f, "Format error"),
+            Error::DeadlineExceeded => write!(f, "Deadline exceeded"),
+            Error::Disconnected(r) => write!(f, "Server disconnected {}", r),
         }
     }
 }

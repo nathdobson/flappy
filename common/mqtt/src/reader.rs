@@ -1,8 +1,7 @@
 use crate::error::{Error, ProtocolError};
 use crate::proto::{
-    ConnackPacket, ConnectPacket, DisconnectPacket, DisconnectReason, Packet, PacketType,
-    PingrespPacket, Property, PropertyId, PubackPacket, PublishPacket, PubrecPacket, Qos,
-    ReasonCode, SubackPacket,
+    ConnackPacket, ConnectPacket, DisconnectPacket, Packet, PacketType, PingrespPacket, Property,
+    PropertyId, PubackPacket, PublishPacket, PubrecPacket, Qos, ReasonCode, SubackPacket,
 };
 use arena::Arena;
 use core::marker::PhantomData;
@@ -115,8 +114,7 @@ impl<'ar> PacketParser<'ar> {
         })
     }
     pub fn parse_disconnect(&mut self) -> Result<DisconnectPacket<'ar>, ProtocolError> {
-        let reason =
-            DisconnectReason::from_repr(self.read_u8()?).ok_or(ProtocolError::Malformed)?;
+        let reason = ReasonCode::from_repr(self.read_u8()?).ok_or(ProtocolError::Malformed)?;
         Ok(DisconnectPacket {
             reason,
             phantom: PhantomData,

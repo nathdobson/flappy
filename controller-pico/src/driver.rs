@@ -31,10 +31,10 @@ pub struct DriverPeripherals {
     pub PIN_4: Peri<'static, PIN_4>,
     /// RESET
     pub PIN_5: Peri<'static, PIN_5>,
-    /// ENABLE
-    pub PIN_6: Peri<'static, PIN_6>,
     /// GND
     pub GND2: (),
+    /// ENABLE
+    pub PIN_6: Peri<'static, PIN_6>,
     /// SPI
     pub SPI0: Peri<'static, SPI0>,
 }
@@ -72,7 +72,7 @@ impl DriverModule {
                 return Ok(count);
             } else {
                 if data[0] != 0b01 && data[0] != 0b11 {
-                    info!("Bad data {:?}", data);
+                    // info!("Bad data {:?}", data);
                 }
             }
         }

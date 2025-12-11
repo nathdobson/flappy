@@ -9,7 +9,7 @@ use log::info;
 use static_cell::{ make_static};
 
 const INCREMENTS: u64 = 20;
-const DELAY_NANOS: f32 = 10000000f32;
+const DELAY_NANOS: f32 = 10_000_000f32;
 
 pub struct LedModule {
     radio: &'static RadioModule,
