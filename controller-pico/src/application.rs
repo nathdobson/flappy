@@ -8,6 +8,7 @@ use crate::mqtt::{MqttModule, MqttStatus};
 use crate::peripherals::AppPeripherals;
 use crate::product::{built_info, serial_number};
 use crate::radio::RadioModule;
+use crate::runtime::RuntimeModule;
 use crate::wifi::{WifiHandler, WifiModule, WifiStatus};
 use core::cell::RefCell;
 use core::future::pending;
@@ -26,6 +27,7 @@ use static_cell::make_static;
 pub const MODULE: &'static str = "[APP  ]";
 pub struct Application {
     spawner: Spawner,
+    runtime: &'static RuntimeModule,
     flash: &'static FlashModule,
     ble: &'static BleModule,
     led: &'static LedModule,
@@ -88,7 +90,11 @@ impl WifiHandler for Application {
 }
 
 impl Application {
-    async fn new(spawner: Spawner, peri: AppPeripherals) -> Result<&'static Self, Error> {
+    async fn new(
+        spawner: Spawner,
+        runtime: &'static RuntimeModule,
+        peri: AppPeripherals,
+    ) -> Result<&'static Self, Error> {
         let driver = DriverModule::new(peri.driver_peri).await?;
         // for i in 0.. {
         //     let x = driver.count().ok();
@@ -108,6 +114,7 @@ impl Application {
         let state = flash.load().await?;
         let application = make_static!(Application {
             spawner,
+            runtime,
             flash,
             ble,
             wifi,
@@ -158,6 +165,13 @@ impl Application {
             }
             display_message(self)?
         });
+        self.spawner.spawn({
+            #[embassy_executor::task]
+            async fn handle_commands(application: &'static Application) {
+                application.handle_commands().await;
+            }
+            handle_commands(self)?
+        });
         Ok(())
     }
     async fn notify_mqtt_status(&'static self) {
@@ -185,29 +199,35 @@ impl Application {
     }
     async fn display_message(&'static self) {
         let mut display = Display::new(self.driver);
-        if let Err(e) = display.run("").await {
-            error!("{MODULE} error when resetting flaps: {}", e);
-        }
+        // if let Err(e) = display.run("").await {
+        //     error!("{MODULE} error when resetting flaps: {}", e);
+        // }
         // self.mqtt.send(FlappyResponse::Start);
         loop {
             let request = self.mqtt.receive().wait().await;
             match request {
                 FlappyRequest::Run(msg) => {
                     info!("{MODULE} Displaying {}", msg);
-                    self.mqtt.send(FlappyResponse::Start);
+                    self.mqtt.send(FlappyResponse::Start(msg.clone()));
                     // Timer::after_millis(1000).await;
                     if let Err(e) = display.run(&msg).await {
                         error!("{MODULE} error when displaying message: {:?}", e);
                     }
-                    self.mqtt.send(FlappyResponse::Stop);
+                    self.mqtt.send(FlappyResponse::Stop(msg.clone()));
                 }
             }
+        }
+    }
+    async fn handle_commands(&'static self) {
+        loop {
+            let command = self.runtime.commands().receive().await;
+            info!("Command = {:?}", command);
         }
     }
 }
 
 #[embassy_executor::task]
-pub async fn main_task(spawner: Spawner, ap: AppPeripherals) {
+pub async fn main_task(spawner: Spawner, runtime: &'static RuntimeModule, peri: AppPeripherals) {
     if let Result::<(), Error>::Err(e) = try {
         info!("{MODULE} Welcome to the 3D printed Split Flap Display!");
         info!(
@@ -226,7 +246,7 @@ pub async fn main_task(spawner: Spawner, ap: AppPeripherals) {
             info!("{MODULE} MCU Serial Number: {}", sn);
         }
 
-        let app = Application::new(spawner, ap).await?;
+        let app = Application::new(spawner, runtime, peri).await?;
         app.initialize_settings()?;
         app.spawn_tasks()?;
         pending::<!>().await;

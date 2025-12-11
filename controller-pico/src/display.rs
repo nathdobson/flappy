@@ -16,12 +16,15 @@ const STEPS_PER_REV: usize = 2048;
 const FLAP_COUNT: usize = 45;
 
 pub struct DisplayCharacter {
-    target: Option<usize>,
-    phase: usize,
+    calibration: usize,
+    target: usize,
+    position: usize,
+
     prev_hall: Option<bool>,
     homed: bool,
-    position: Option<usize>,
-    calibration: usize,
+
+    phase: usize,
+    charged: bool,
 }
 
 pub struct Display {
@@ -46,23 +49,27 @@ impl Display {
             self.chars.pop();
         }
         while self.chars.len() < count {
+            let calibration = *[1870, 1900, 1850, 1855, 1860, 1820, 1850, 1850, 1850, 1840]
+                .get(self.chars.len())
+                .unwrap_or(&0);
             self.chars
                 .push(DisplayCharacter {
-                    target: None,
-                    phase: 0,
+                    calibration,
+                    target: calibration,
+                    position: 0,
                     prev_hall: None,
                     homed: false,
-                    position: None,
-                    calibration: *[1870, 1910, 1850, 1855, 1860, 1820, 1850, 1850, 1850, 1840]
-                        .get(self.chars.len())
-                        .unwrap_or(&0),
+                    phase: 0,
+                    charged: false,
                 })
                 .ok()
                 .unwrap();
         }
         for char in self.chars.iter_mut() {
+            char.position = 0;
             char.homed = false;
-            char.position = None;
+            char.prev_hall = None;
+            char.charged = true;
         }
         let mut flaps = Vec::<usize, MAX_CHARS>::new();
 
@@ -119,28 +126,31 @@ impl Display {
                 .filter_map(|c| letters::LETTERS.find(c.to_ascii_uppercase()))
                 .next()
                 .unwrap_or(0);
-            self.chars[index].target = Some(
-                (self.chars[index].calibration + flap * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV,
-            );
+            self.chars[index].target =
+                (self.chars[index].calibration + flap * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV;
             info!(
                 "{MODULE} Flap {index} has target {:?}",
                 self.chars[index].target
             );
         }
         for step in 0.. {
-            Timer::after_micros(2000).await;
+            let timer = Timer::after_micros(2000);
             let mut done = true;
             for char in &mut self.chars {
-                if let Some(target) = char.target {
-                    if let Some(position) = &mut char.position {
-                        if *position == target {
-                            continue;
-                        } else {
-                            *position = (*position + 1) % STEPS_PER_REV;
-                        }
-                    }
+                if !char.charged {
+                    continue;
+                }
+                if char.position == char.target && char.homed {
+                    char.charged = false;
+                    continue;
+                }
+                // We're well past the homing point, so the homing sensor must be malfunctioning.
+                if char.position > (STEPS_PER_REV * 3) / 2 {
+                    char.charged = false;
+                    continue;
                 }
                 done = false;
+                char.position = char.position + 1;
                 char.phase = (char.phase + 1) % 4;
             }
             let mut output_buffer = Vec::<u8, { (MAX_CHARS + 1) / 2 }>::new();
@@ -148,7 +158,7 @@ impl Display {
                 let mut b = 0;
                 for (i, c) in cs.iter_mut().enumerate() {
                     let mut mask = 0;
-                    if c.position != c.target && c.target.is_some() {
+                    if c.charged {
                         // Run the motor in reverse
                         let phase1 = 3 - c.phase;
                         // full step drive (two phases enabled at a time)
@@ -189,7 +199,7 @@ impl Display {
                         if !prev_hall {
                             self.chars[i].homed = true;
                             info!("{MODULE} Flap {} homed at {:?}", i, self.chars[i].position);
-                            self.chars[i].position = Some(0);
+                            self.chars[i].position = 0;
                         }
                     }
                     self.chars[i].prev_hall = Some(hall);
@@ -198,8 +208,14 @@ impl Display {
             if done {
                 break;
             }
+            timer.await;
         }
         self.driver.set_enabled(false);
+        for (index, char) in self.chars.iter().enumerate() {
+            if !char.homed {
+                error!("Failed to home {}", index);
+            }
+        }
         Ok(())
     }
 }

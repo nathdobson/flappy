@@ -17,11 +17,11 @@ unsafe fn SWI_IRQ_0() {
     }
 }
 
-pub fn run_program(runtime: impl FnOnce(SendSpawner), app: impl FnOnce(Spawner)) -> ! {
+pub fn run_program<T>(runtime: impl FnOnce(SendSpawner) -> T, app: impl FnOnce(Spawner, T)) -> ! {
     interrupt::SWI_IRQ_0.set_priority(Priority::P3);
     let runtime_spawner = RUNTIME_EXECUTOR.start(interrupt::SWI_IRQ_0);
     RUNTIME_STARTED.store(true, Ordering::SeqCst);
-    runtime(runtime_spawner);
+    let data = runtime(runtime_spawner);
     let application_executor = make_static!(Executor::new());
-    application_executor.run(app)
+    application_executor.run(|s| app(s, data))
 }

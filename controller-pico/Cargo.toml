@@ -14,13 +14,10 @@ embassy-net = { path = "../submodules/embassy/embassy-net", features = [ "tcp", 
 embassy-futures = { path = "../submodules/embassy/embassy-futures" }
 embassy-executor = { path = "../submodules/embassy/embassy-executor", features = [ "arch-cortex-m", "executor-thread","executor-interrupt"] }
 embassy-sync = { path = "../submodules/embassy/embassy-sync", features = [] }
-embassy-usb-logger = { path = "../submodules/embassy/embassy-usb-logger"}
-#embassy-usb-dfu = {path ="../submodules/embassy/embassy-usb-dfu",features = ["application"]}
 cyw43={path = "../submodules/embassy/cyw43",features = ["bluetooth"]}
 cyw43-pio={path = "../submodules/embassy/cyw43-pio"}
 trouble-host = { path= "../submodules/trouble/host" }
 
-#reqwless = "0.13.0"
 cortex-m = { version = "0.7.7", features = ["inline-asm", "critical-section-single-core"] }
 cortex-m-rt = {version="0.7.5",features = []}
 log="0.4.28"

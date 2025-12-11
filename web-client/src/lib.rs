@@ -16,7 +16,7 @@ use log::{error, info, warn};
 use mqtt::proto::{Packet, Qos};
 use mqtt::receiver::MqttReceiver;
 use mqtt::sender::{ConnectRequest, MqttSender, PublishRequest};
-use proto::{FlappyMessage, FlappyRequest};
+use proto::{FlappyMessage, FlappyRequest, FlappyResponse};
 use serde::{Deserialize, Serialize};
 use std::future::pending;
 use std::ops::Add;
@@ -58,29 +58,50 @@ pub async fn sleep(millis: i32) {
     wasm_bindgen_futures::JsFuture::from(p).await.unwrap();
 }
 
-fn create_display() -> Result<(), Error> {
-    let window = web_sys::window().ok_or(Error::NoneError)?;
-    let document = window.document().ok_or(Error::NoneError)?;
-    let display: HtmlDivElement = document
-        .get_element_by_id("display")
-        .ok_or(Error::NoneError)?
-        .dyn_into()
-        .ok()
-        .ok_or(Error::TypeError)?;
-    for i in 0..10 {
-        let letter_outer = document.create_element("div")?;
-        letter_outer.set_class_name("letter-outer");
-        let letter_inner = document.create_element("div")?;
-        letter_inner.set_class_name("letter-inner");
-        letter_inner.set_text_content(Some(&format!("{}", i)));
-        letter_outer.append_child(&letter_inner)?;
-        display.append_child(&letter_outer)?;
+struct Display {
+    inners: Vec<HtmlDivElement>,
+}
+
+impl Display {
+    pub fn new() -> Result<Self, Error> {
+        let window = web_sys::window().ok_or(Error::NoneError)?;
+        let document = window.document().ok_or(Error::NoneError)?;
+        let display: HtmlDivElement = document
+            .get_element_by_id("display")
+            .ok_or(Error::NoneError)?
+            .dyn_into()
+            .ok()
+            .ok_or(Error::TypeError)?;
+        let mut inners = vec![];
+        for i in 0..10 {
+            let letter_outer = document.create_element("div")?;
+            letter_outer.set_class_name("letter-outer");
+            let letter_inner: HtmlDivElement = document
+                .create_element("div")?
+                .dyn_into()
+                .ok()
+                .ok_or(Error::TypeError)?;
+            letter_inner.set_class_name("letter-inner");
+            letter_outer.append_child(&letter_inner)?;
+            display.append_child(&letter_outer)?;
+            inners.push(letter_inner);
+        }
+        Ok(Display { inners })
     }
-    Ok(())
+    pub fn start(&self) {
+        for inner in &self.inners {
+            inner.set_text_content(Some("⋮"));
+        }
+    }
+    pub fn stop(&self, text: &str) {
+        for inner in &self.inners {
+            inner.set_text_content(Some("?"));
+        }
+    }
 }
 
 async fn main() -> Result<(), Error> {
-    create_display()?;
+    let display = Display::new()?;
     // return Ok(());
     let window = web_sys::window().ok_or(Error::NoneError)?;
     let document = window.document().ok_or(Error::NoneError)?;
@@ -128,8 +149,12 @@ async fn main() -> Result<(), Error> {
                             Ok((m, _)) => match m {
                                 FlappyMessage::Request(_) => {}
                                 FlappyMessage::Response(response) => {
-                                    let status = document.get_element_by_id("display").unwrap();
-                                    status.set_text_content(Some(&format!("{:?}", response)));
+                                    match response {
+                                        FlappyResponse::Start(_) => display.start(),
+                                        FlappyResponse::Stop(s) => display.stop(&s),
+                                    }
+                                    // let status = document.get_element_by_id("display").unwrap();
+                                    // status.set_text_content(Some(&format!("{:?}", response)));
                                 }
                             },
                             Err(e) => {

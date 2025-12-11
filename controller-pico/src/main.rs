@@ -51,6 +51,7 @@ use log::{error, info};
 // use rust_mqtt::packet::v5::publish_packet::QualityOfService;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 // use rust_mqtt::utils::rng_generator::CountingRng;
+use crate::runtime::RuntimeModule;
 use serde::{Deserialize, Serialize};
 use serde_json_core::from_slice;
 use trouble_host::prelude::HeaplessString;
@@ -78,7 +79,7 @@ extern crate alloc;
 unsafe fn main() -> ! {
     let (rp, ap) = build_peripherals();
     executor::run_program(
-        move |spawner| runtime::runtime(spawner, rp),
-        move |spawner| spawner.spawn(main_task(spawner, ap).unwrap()),
+        move |spawner| RuntimeModule::new(spawner, rp),
+        move |spawner, runtime| spawner.spawn(main_task(spawner, runtime, ap).unwrap()),
     );
 }
