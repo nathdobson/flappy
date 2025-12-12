@@ -8,5 +8,5 @@ lto = true
 strip = true
 
 [patch.crates-io]
-embassy-time = {path="../submodules/embassy/embassy-time"}
-embassy-sync = {path="../submodules/embassy/embassy-sync"}
+embassy-time = { path = "../submodules/embassy/embassy-time" }
+embassy-sync = { path = "../submodules/embassy/embassy-sync" }

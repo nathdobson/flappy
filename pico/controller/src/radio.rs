@@ -1,19 +1,19 @@
-use crate::error::{Error, Result};
-use core::cell::RefCell;
+
+
 use cyw43::bluetooth::BtDriver;
-use cyw43::{Control, NetDriver, Runner};
+use cyw43::{Control, NetDriver};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
-use embassy_executor::Spawner;
+use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
-use embassy_rp::dma::AnyChannel;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
-use embassy_rp::{Peri, bind_interrupts};
+use embassy_rp::{bind_interrupts, Peri};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use log::info;
 use static_cell::make_static;
+
 const MODULE: &'static str = "[Radio]";
 
 bind_interrupts!(struct PioIrqs {
@@ -40,7 +40,7 @@ impl RadioModule {
     pub async fn new(
         spawner: Spawner,
         peri: RadioPeripherals,
-    ) -> Result<(&'static RadioModule, BtDriver<'static>, NetDriver<'static>)> {
+    ) -> Result<(&'static RadioModule, BtDriver<'static>, NetDriver<'static>), SpawnError> {
         info!("[Radio] Connecting to CYW43 radio transceiver over PIO-SPI");
         let pwr = Output::new(peri.PIN_23, Level::Low);
         let cs = Output::new(peri.PIN_25, Level::High);
@@ -66,7 +66,7 @@ impl RadioModule {
             cyw43_firmware::CYW43_43439A0,
             cyw43_firmware::CYW43_43439A0_BTFW,
         )
-        .await;
+            .await;
 
         spawner.spawn({
             #[embassy_executor::task]

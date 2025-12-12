@@ -1,6 +1,6 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 runner = "./runner.sh"
-rustflags= ["--cfg","no_global_oom_handling"]
+rustflags = ["--cfg", "no_global_oom_handling"]
 
 [build]
 target = "thumbv8m.main-none-eabihf"

@@ -1,14 +1,14 @@
-use crate::driver::DriverPeripherals;
-use crate::flash::FlashPeripherals;
-use crate::radio::RadioPeripherals;
 use crate::runtime::RuntimePeripherals;
 use embassy_rp::Peri;
 use embassy_rp::peripherals::USB;
 
 pub struct AppPeripherals {
-    pub flash_peri: FlashPeripherals,
-    pub driver_peri: DriverPeripherals,
-    pub radio_peri: RadioPeripherals,
+    #[cfg(feature = "flash")]
+    pub flash_peri: crate::flash::FlashPeripherals,
+    #[cfg(feature = "display")]
+    pub driver_peri: crate::driver::DriverPeripherals,
+    #[cfg(feature="radio")]
+    pub radio_peri: crate::radio::RadioPeripherals,
 }
 
 pub fn build_peripherals() -> (RuntimePeripherals, AppPeripherals) {
@@ -16,11 +16,13 @@ pub fn build_peripherals() -> (RuntimePeripherals, AppPeripherals) {
     (
         RuntimePeripherals { USB: p.USB },
         AppPeripherals {
-            flash_peri: FlashPeripherals {
+            #[cfg(feature = "flash")]
+            flash_peri: crate::flash::FlashPeripherals {
                 FLASH: p.FLASH,
                 DMA_CH1: p.DMA_CH1,
             },
-            driver_peri: DriverPeripherals {
+            #[cfg(feature = "display")]
+            driver_peri: crate::driver::DriverPeripherals {
                 PIN_0: p.PIN_0,
                 PIN_1: p.PIN_1,
                 GND1: (),
@@ -28,11 +30,12 @@ pub fn build_peripherals() -> (RuntimePeripherals, AppPeripherals) {
                 PIN_3: p.PIN_3,
                 PIN_4: p.PIN_4,
                 PIN_5: p.PIN_5,
-                PIN_6: p.PIN_6,
                 GND2: (),
+                PIN_6: p.PIN_6,
                 SPI0: p.SPI0,
             },
-            radio_peri: RadioPeripherals {
+            #[cfg(feature="radio")]
+            radio_peri: crate::radio::RadioPeripherals {
                 PIN_23: p.PIN_23,
                 PIN_24: p.PIN_24,
                 PIN_25: p.PIN_25,

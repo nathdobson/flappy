@@ -2,7 +2,6 @@ use crate::error::Error;
 use core::cell::RefCell;
 use cortex_m::asm::delay;
 use embassy_futures::yield_now;
-use embassy_net::tcp::ConnectError::TimedOut;
 use embassy_rp::gpio::{Level, Output, SlewRate};
 use embassy_rp::peripherals::{PIN_0, PIN_1, PIN_2, PIN_3, PIN_4, PIN_5, PIN_6, SPI0};
 use embassy_rp::pwm::Pwm;

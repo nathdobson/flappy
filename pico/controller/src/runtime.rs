@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::product::{PRODUCT_MANUFACTURER, PRODUCT_NAME, serial_number};
 use core::fmt;
+use core::fmt::Arguments;
 use core::intrinsics::abort;
 use embassy_executor::{SendSpawner, Spawner};
 use embassy_futures::join::join;
@@ -10,12 +11,12 @@ use embassy_rp::usb::Driver;
 use embassy_rp::{Peri, bind_interrupts, rom_data};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, DynamicReceiver};
+use embassy_sync::mutex::Mutex;
 use embassy_sync::pipe::Pipe;
 use embassy_time::{Duration, Instant, block_for};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, ControlChanged, Receiver, Sender, State};
 use embassy_usb::driver::EndpointError;
 use embassy_usb::{Builder, Config, UsbDevice};
-use embedded_io_async::{Read, Write};
 use heapless::{String, Vec};
 use log::{Level, Log, Metadata, Record, error, info, set_logger, set_max_level};
 use static_cell::make_static;
@@ -37,7 +38,7 @@ const ESC_REGION_FEEDBACK: &'static str = "\x1B[2;10r";
 const ESC_REGION_LOG: &'static str = "\x1B[11;r";
 const ESC_ERASE_ALL: &'static str = "\x1B[2J";
 const ESC_ERASE_LINE: &'static str = "\x1B[K";
-const SCROLL:&'static str= "\x1B[1S";
+const SCROLL: &'static str = "\x1B[1S";
 
 bind_interrupts!(struct UsbIrqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
@@ -48,7 +49,8 @@ pub struct RuntimePeripherals {
 }
 
 pub struct RuntimeModule {
-    log_buffer: Pipe<CriticalSectionRawMutex, LOG_BUFFER>,
+    send_lock: Mutex<CriticalSectionRawMutex, ()>,
+    send_buffer: Pipe<CriticalSectionRawMutex, LOG_BUFFER>,
     receive_buffer: Pipe<CriticalSectionRawMutex, RECEIVE_BUFFER>,
     command_buffer: Channel<CriticalSectionRawMutex, Vec<u8, MAX_COMMAND_LEN>, MAX_COMMAND_QUEUE>,
 }
@@ -70,7 +72,8 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 impl RuntimeModule {
     pub fn new(spawner: SendSpawner, peri: RuntimePeripherals) -> &'static Self {
         let module: &'static RuntimeModule = make_static!(RuntimeModule {
-            log_buffer: Pipe::new(),
+            send_lock: Mutex::new(()),
+            send_buffer: Pipe::new(),
             receive_buffer: Pipe::new(),
             command_buffer: Channel::new(),
         });
@@ -168,7 +171,7 @@ impl RuntimeModule {
             sender.write_packet(ESC_CURSOR_INPUT.as_bytes()).await.ok();
             while Err(EndpointError::Disabled)
                 != try {
-                    let len = self.log_buffer.read(&mut buf[..]).await;
+                    let len = self.send_buffer.read(&mut buf[..]).await;
                     sender.write_packet(&buf[..len]).await?;
                     if len == MAX_PACKET_SIZE as usize {
                         sender.write_packet(&[]).await?;
@@ -208,8 +211,11 @@ impl RuntimeModule {
             } else if b == b'\r' {
                 self.command_buffer.send(command.clone()).await;
                 command.clear();
-                self.log_buffer.write(b"\r").await;
-                self.log_buffer.write(ESC_ERASE_LINE.as_bytes()).await;
+                {
+                    let lock = self.send_lock.lock().await;
+                    self.send_buffer.write(b"\r").await;
+                    self.send_buffer.write(ESC_ERASE_LINE.as_bytes()).await;
+                }
             } else if b == b'\x1B' {
                 let mut escape = Vec::<u8, MAX_ESCAPE>::new();
                 loop {
@@ -222,7 +228,8 @@ impl RuntimeModule {
                 info!("Escape {:?}", escape);
             } else {
                 if let Ok(_) = command.push(b) {
-                    self.log_buffer.write_all(&[b]).await;
+                    let lock = self.send_lock.lock().await;
+                    self.send_buffer.write_all(&[b]).await;
                 }
             }
         }
@@ -248,15 +255,24 @@ impl RuntimeModule {
         };
         let file = record.file().unwrap_or("");
         let line = record.line().unwrap_or(0);
-        let time = Instant::now().as_millis() as f64 / 1000.0;
+        let time = Instant::now().as_secs();
         write!(
             writer,
-            "{ESC_SAVE}{ESC_REGION_LOG}{ESC_CURSOR_LOG}{SCROLL}[{file:20}:{line:5}] [{time:7.3} S] [{level}] {}{ESC_RESTORE}",
+            "{ESC_SAVE}{ESC_REGION_LOG}{ESC_CURSOR_LOG}{SCROLL}[{file:20}:{line:5}] [{time} S] [{level}] {}{ESC_RESTORE}",
             record.args()
         )
     }
     pub fn commands(&'static self) -> DynamicReceiver<'static, Vec<u8, MAX_COMMAND_LEN>> {
         self.command_buffer.dyn_receiver()
+    }
+    pub async fn write_feedback_line(mut self: &'static Self, args: Arguments<'_>) {
+        use core::fmt::Write;
+        let lock = self.send_lock.lock().await;
+        write!(
+            &mut self,
+            "{ESC_SAVE}{ESC_REGION_FEEDBACK}{ESC_CURSOR_FEEDBACK}{SCROLL}{args}{ESC_RESTORE}"
+        )
+        .ok();
     }
 }
 
@@ -271,7 +287,9 @@ impl Log for RuntimeModule {
 
     fn log(mut self: &Self, record: &Record) {
         if self.enabled(record.metadata()) {
-            Self::write_record(record, &mut self).ok();
+            if let Ok(guard) = self.send_lock.try_lock() {
+                Self::write_record(record, &mut self).ok();
+            }
         }
     }
 
@@ -281,10 +299,10 @@ impl Log for RuntimeModule {
 impl<'a> core::fmt::Write for &'a RuntimeModule {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let b = s.as_bytes();
-        let mut len = self.log_buffer.try_write(b).map_err(|_| fmt::Error)?;
+        let mut len = self.send_buffer.try_write(b).map_err(|_| fmt::Error)?;
         if len < s.len() {
             len += self
-                .log_buffer
+                .send_buffer
                 .try_write(&b[len..])
                 .map_err(|_| fmt::Error)?;
             if len < s.len() {

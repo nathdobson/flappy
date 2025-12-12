@@ -1,12 +1,10 @@
-use crate::error::{Error, Result};
-use crate::radio::RadioModule;
 use core::cell::RefCell;
-use cyw43::Control;
-use embassy_executor::Spawner;
+use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
-use static_cell::{ make_static};
+use static_cell::make_static;
+use crate::radio::RadioModule;
 
 const INCREMENTS: u64 = 20;
 const DELAY_NANOS: f32 = 10_000_000f32;
@@ -16,7 +14,10 @@ pub struct LedModule {
 }
 
 impl LedModule {
-    pub async fn new(spawner: Spawner, radio: &'static RadioModule) -> Result<&'static LedModule> {
+    pub async fn new(
+        spawner: Spawner,
+        radio: &'static RadioModule,
+    ) -> Result<&'static LedModule, SpawnError> {
         let module = make_static!(LedModule { radio });
         spawner.spawn({
             #[embassy_executor::task]
@@ -28,7 +29,6 @@ impl LedModule {
         Ok(module)
     }
     async fn blink(&self) {
-        let total = INCREMENTS;
         for i in 0u64.. {
             let intensity = ((1.0
                 + unsafe { core::intrinsics::sinf32((i as f32) / (INCREMENTS as f32)) })

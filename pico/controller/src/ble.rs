@@ -4,7 +4,6 @@ use crate::product;
 use core::cell::{Cell, RefCell};
 use core::future::{join, pending};
 use core::mem;
-use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
 use embassy_futures::select::select;
 use embassy_futures::yield_now;
@@ -25,7 +24,7 @@ use trouble_host::prelude::{
     appearance,
 };
 use trouble_host::{HostResources, PacketPool, Stack};
-
+use cyw43::bluetooth::BtDriver;
 const MODULE: &'static str = "[BLE  ]";
 /// Max number of connections
 const CONNECTIONS_MAX: usize = 1;

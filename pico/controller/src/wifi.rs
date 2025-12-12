@@ -1,10 +1,9 @@
 use crate::error::{Error, Result};
-use crate::led::LedModule;
-use crate::radio::RadioModule;
+use crate::wifi_proto::{WifiSettings, WifiStatus};
 use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
 use core::str::from_utf8;
-use cyw43::{Control, JoinOptions, NetDriver};
+use cyw43::{JoinOptions, NetDriver};
 use embassy_executor::Spawner;
 use embassy_net::dns::DnsSocket;
 use embassy_net::tcp::client::{TcpClient, TcpClientState};
@@ -19,17 +18,12 @@ use serde::{Deserialize, Serialize};
 use serde_json_core::from_slice;
 use static_cell::make_static;
 use trouble_host::prelude::HeaplessString;
+use crate::radio::RadioModule;
 
 const MODULE: &'static str = "[WiFi ]";
 struct WifiStatusBuilder {
     link_up: bool,
     dhcp_up: bool,
-}
-
-pub enum WifiStatus {
-    Disconnected,
-    LinkUp,
-    DhcpUp,
 }
 
 pub struct WifiModule {
@@ -42,12 +36,6 @@ pub struct WifiModule {
 
 pub trait WifiHandler {
     fn handle_wifi_status(&self, status: WifiStatus);
-}
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct WifiSettings {
-    pub ssid: HeaplessString<32>,
-    pub password: HeaplessString<63>,
 }
 
 impl WifiStatusBuilder {

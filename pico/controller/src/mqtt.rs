@@ -1,6 +1,5 @@
 use crate::error::Error;
 use crate::product::PRODUCT_NAME;
-use crate::wifi::WifiModule;
 use arena::ArenaStorage;
 use core::cell::Cell;
 use core::fmt;
@@ -41,6 +40,8 @@ const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
 
 use proto::FlappyRequest;
+use crate::mqtt_proto::{MqttSettings, MqttStatus};
+
 pub struct MqttModule {
     spawner: Spawner,
     stack: &'static embassy_net::Stack<'static>,
@@ -48,28 +49,6 @@ pub struct MqttModule {
     receive: Signal<NoopRawMutex, FlappyRequest>,
     send: Signal<NoopRawMutex, FlappyResponse>,
     status: Signal<NoopRawMutex, MqttStatus>,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct MqttSettings {
-    pub hostname: HeaplessString<128>,
-    pub port: u16,
-    pub username: HeaplessString<128>,
-    pub password: HeaplessString<128>,
-    pub topic: HeaplessString<128>,
-}
-
-pub enum MqttStatus {
-    Disconnected,
-    Connected,
-    WaitingForLink,
-    WaitingForDhcp,
-    DnsQuery,
-    TcpConnect,
-    TlsConnect,
-    MqttConnect,
-    MqttSubscribe,
-    Error(Error),
 }
 
 struct TcpSocketMutex<'a> {

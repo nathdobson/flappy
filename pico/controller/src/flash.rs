@@ -1,6 +1,4 @@
 use crate::error::Error;
-use crate::mqtt::MqttSettings;
-use crate::wifi::WifiSettings;
 use core::cell::RefCell;
 use cortex_m::prelude::_embedded_hal_blocking_spi_Write;
 use embassy_executor::Spawner;
@@ -12,7 +10,9 @@ use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, FLASH};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use static_cell::make_static;
-use trouble_host::prelude::HeaplessString;
+use crate::flash_proto::FlashSettings;
+use crate::mqtt_proto::MqttSettings;
+use crate::wifi_proto::WifiSettings;
 
 const MODULE: &'static str = "[FLASH]";
 const ADDR_OFFSET: u32 = 0x110000;
@@ -24,11 +24,6 @@ pub struct FlashPeripherals {
     pub DMA_CH1: Peri<'static, DMA_CH1>,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct FlashSettings {
-    pub wifi: WifiSettings,
-    pub mqtt: MqttSettings,
-}
 
 #[repr(C, align(8))]
 struct FlashFile([u8; ERASE_SIZE]);
