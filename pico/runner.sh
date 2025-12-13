@@ -22,10 +22,12 @@ PICOTOOL=/usr/local/bin/picotool
 echo rsyncing...
 rsync $1 $HOST:$REMOTE
 echo terminating...
-# Set the baud rate to 50 as an out-of-bounds signal
+# Set the baud rate to 50 as an out-of-band signal
 ssh $HOST stty -f $DEVICE 50 || true
 ssh $HOST "bash -c 'while [ -e $DEVICE ]; do sleep 1; done'"
 echo uploading...
 ssh $HOST $PICOTOOL load -f -u -v -x -t elf $REMOTE
 ssh $HOST "bash -c 'while [ ! -e $DEVICE ]; do sleep 1; done'"
-ssh -t $HOST screen $DEVICE
+reset
+ssh -t $HOST /usr/local/bin/tio -n $DEVICE
+reset

@@ -4,21 +4,24 @@
 mod test;
 
 use heapless::String;
-use serde::{Deserialize, Serialize};
 
 type Content = String<128>;
-#[derive(Serialize, Deserialize, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FlappyRequest {
     Run(Content),
+    Test,
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FlappyResponse {
     Start(Content),
     Stop(Content),
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FlappyMessage {
     Request(FlappyRequest),
     Response(FlappyResponse),

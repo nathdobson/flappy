@@ -1,5 +1,6 @@
 use crate::driver::DriverModule;
 use crate::error::Error;
+use core::cell::RefCell;
 use core::default::Default;
 use core::ops::Index;
 use core::{fmt, iter};
@@ -9,14 +10,15 @@ use log::{error, info};
 // use unicode_normalization::UnicodeNormalization;
 use unicode_segmentation::UnicodeSegmentation;
 // use unidecode::unidecode_char;
+use crate::display_proto;
+use crate::display_proto::DisplaySettings;
+use display_proto::MAX_CHARS;
 
 const MODULE: &'static str = "[DISPL]";
-const MAX_CHARS: usize = 12;
 const STEPS_PER_REV: usize = 2048;
 const FLAP_COUNT: usize = 45;
 
 pub struct DisplayCharacter {
-    calibration: usize,
     target: usize,
     position: usize,
 
@@ -30,6 +32,13 @@ pub struct DisplayCharacter {
 pub struct Display {
     driver: &'static DriverModule,
     chars: Vec<DisplayCharacter, MAX_CHARS>,
+    settings: RefCell<DisplaySettings>,
+}
+
+impl Display {
+    pub fn set_settings(&self, settings: DisplaySettings) {
+        *self.settings.borrow_mut() = settings;
+    }
 }
 
 impl Display {
@@ -37,6 +46,7 @@ impl Display {
         Display {
             driver,
             chars: Vec::new(),
+            settings: RefCell::new(DisplaySettings::default()),
         }
     }
     pub async fn run(&mut self, message: &str) -> Result<(), Error> {
@@ -49,13 +59,9 @@ impl Display {
             self.chars.pop();
         }
         while self.chars.len() < count {
-            let calibration = *[1870, 1900, 1850, 1855, 1860, 1820, 1850, 1850, 1850, 1840]
-                .get(self.chars.len())
-                .unwrap_or(&0);
             self.chars
                 .push(DisplayCharacter {
-                    calibration,
-                    target: calibration,
+                    target: 0,
                     position: 0,
                     prev_hall: None,
                     homed: false,
@@ -126,15 +132,22 @@ impl Display {
                 .filter_map(|c| letters::LETTERS.find(c.to_ascii_uppercase()))
                 .next()
                 .unwrap_or(0);
+            let calibration = self
+                .settings
+                .borrow()
+                .calibration
+                .get(index)
+                .cloned()
+                .unwrap_or(0);
             self.chars[index].target =
-                (self.chars[index].calibration + flap * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV;
+                (calibration + flap * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV;
             info!(
                 "{MODULE} Flap {index} has target {:?}",
                 self.chars[index].target
             );
         }
         for step in 0.. {
-            let timer = Timer::after_micros(2000);
+            let timer = Timer::after_micros(3000);
             let mut done = true;
             for char in &mut self.chars {
                 if !char.charged {

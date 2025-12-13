@@ -14,6 +14,7 @@
 #![feature(never_type)]
 #![feature(try_blocks)]
 #![feature(debug_closure_helpers)]
+#![feature(str_split_remainder)]
 #![allow(unreachable_code)]
 
 use crate::application::main_task;
@@ -48,6 +49,8 @@ mod runtime;
 #[cfg(feature = "radio")]
 mod wifi;
 mod wifi_proto;
+mod display_proto;
+mod cli;
 
 extern crate alloc;
 

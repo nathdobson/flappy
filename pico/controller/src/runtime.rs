@@ -5,6 +5,7 @@ use core::fmt::Arguments;
 use core::intrinsics::abort;
 use embassy_executor::{SendSpawner, Spawner};
 use embassy_futures::join::join;
+use embassy_futures::select::{Either, select};
 use embassy_rp::otp::get_chipid;
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
@@ -13,7 +14,8 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::{Channel, DynamicReceiver};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::pipe::Pipe;
-use embassy_time::{Duration, Instant, block_for};
+use embassy_sync::signal::Signal;
+use embassy_time::{Duration, Instant, Timer, block_for};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, ControlChanged, Receiver, Sender, State};
 use embassy_usb::driver::EndpointError;
 use embassy_usb::{Builder, Config, UsbDevice};
@@ -33,12 +35,17 @@ const ESC_SAVE: &'static str = "\x1B[s";
 const ESC_RESTORE: &'static str = "\x1B[u";
 const ESC_CURSOR_INPUT: &'static str = "\x1B[1;1H";
 const ESC_CURSOR_FEEDBACK: &'static str = "\x1B[10;1H";
+const ESC_CURSOR_SPLIT: &'static str = "\x1B[11;1H";
 const ESC_CURSOR_LOG: &'static str = "\x1B[9999;1H";
-const ESC_REGION_FEEDBACK: &'static str = "\x1B[2;10r";
-const ESC_REGION_LOG: &'static str = "\x1B[11;r";
+const ESC_REGION_FEEDBACK: &'static str = "\x1B[3;10r";
+const ESC_REGION_LOG: &'static str = "\x1B[12;r";
 const ESC_ERASE_ALL: &'static str = "\x1B[2J";
 const ESC_ERASE_LINE: &'static str = "\x1B[K";
-const SCROLL: &'static str = "\x1B[1S";
+const ESC_SCROLL: &'static str = "\x1B[1S";
+const ESC_BANNER1: &'static str = "\x1B[61;11;1;11;500$x";
+const ESC_BANNER2: &'static str = "\x1B[61;2;1;2;500$x";
+const ESC_INVERT: &'static str = "\x1B[7m";
+const ESC_NORMAL: &'static str = "\x1B[0m";
 
 bind_interrupts!(struct UsbIrqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
@@ -119,7 +126,7 @@ impl RuntimeModule {
 
         let mut device = builder.build();
 
-        let (sender, receiver, control) = class.split_with_control();
+        let (mut sender, mut receiver, control) = class.split_with_control();
         spawner.spawn({
             #[embassy_executor::task]
             async fn device_task(mut device: UsbDevice<'static, Driver<'static, USB>>) -> ! {
@@ -136,62 +143,75 @@ impl RuntimeModule {
         });
         spawner.spawn({
             #[embassy_executor::task]
-            async fn send_task(
-                module: &'static RuntimeModule,
-                sender: Sender<'static, Driver<'static, USB>>,
-            ) {
-                module.send(sender).await;
-            }
-            send_task(self, sender)?
-        });
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn receive_task(
-                module: &'static RuntimeModule,
-                receiver: Receiver<'static, Driver<'static, USB>>,
-            ) {
-                module.receive(receiver).await;
-            }
-            receive_task(self, receiver)?
-        });
-        spawner.spawn({
-            #[embassy_executor::task]
             async fn parse_task(module: &'static RuntimeModule) {
                 module.parse().await;
             }
             parse_task(self)?
         });
-        Ok(())
-    }
-    async fn send(&'static self, mut sender: Sender<'static, Driver<'static, USB>>) {
-        let mut buf = [0; MAX_PACKET_SIZE as usize];
         loop {
             sender.wait_connection().await;
-            sender.write_packet(ESC_ERASE_ALL.as_bytes()).await.ok();
-            sender.write_packet(ESC_CURSOR_INPUT.as_bytes()).await.ok();
-            while Err(EndpointError::Disabled)
-                != try {
-                    let len = self.send_buffer.read(&mut buf[..]).await;
-                    sender.write_packet(&buf[..len]).await?;
-                    if len == MAX_PACKET_SIZE as usize {
-                        sender.write_packet(&[]).await?;
-                    }
-                }
-            {}
-        }
-    }
-    async fn receive(&'static self, mut receiver: Receiver<'static, Driver<'static, USB>>) {
-        let mut command = Vec::<u8, MAX_COMMAND_LEN>::new();
-        let mut buf = [0u8; MAX_PACKET_SIZE as usize];
-        loop {
             receiver.wait_connection().await;
-            while Err(EndpointError::Disabled)
-                != try {
-                    let len = receiver.read_packet(&mut buf[..]).await?;
-                    self.receive_buffer.write_all(&buf[..len]).await;
-                }
-            {}
+            match select(
+                async {
+                    loop {
+                        sender.write_packet(b"\x1B[5n").await?;
+                        Timer::after_millis(1000).await;
+                    }
+                    Ok::<_, EndpointError>(())
+                },
+                async {
+                    loop {
+                        let mut packet = [0u8; 10];
+                        let len = receiver.read_packet(&mut packet).await?;
+                        if packet[..len] == *b"\x1B[0n" {
+                            break;
+                        }
+                    }
+                    Ok::<_, EndpointError>(())
+                },
+            )
+            .await
+            {
+                Either::First(Err(_)) | Either::Second(Err(_)) => continue,
+                _ => {}
+            };
+            select(
+                async {
+                    let mut buf = [0; MAX_PACKET_SIZE as usize];
+                    let mut inited = false;
+                    while Err(EndpointError::Disabled)
+                        != try {
+                            if !inited {
+                                inited = true;
+                                sender.write_packet(ESC_ERASE_ALL.as_bytes()).await?;
+                                sender.write_packet(ESC_CURSOR_INPUT.as_bytes()).await?;
+                                sender.write_packet(">".as_bytes()).await?;
+                                sender.write_packet(ESC_INVERT.as_bytes()).await?;
+                                sender.write_packet(ESC_BANNER1.as_bytes()).await?;
+                                sender.write_packet(ESC_BANNER2.as_bytes()).await?;
+                                sender.write_packet(ESC_NORMAL.as_bytes()).await?;
+                            }
+                            let len = self.send_buffer.read(&mut buf[..]).await;
+                            sender.write_packet(&buf[..len]).await?;
+                            if len == MAX_PACKET_SIZE as usize {
+                                sender.write_packet(&[]).await?;
+                            }
+                        }
+                    {}
+                },
+                async {
+                    let mut buf = [0u8; MAX_PACKET_SIZE as usize];
+                    while Err(EndpointError::Disabled)
+                        != try {
+                            let len = receiver.read_packet(&mut buf[..]).await?;
+                            self.receive_buffer.write_all(&buf[..len]).await;
+                        }
+                    {}
+                },
+            )
+            .await;
         }
+        Ok(())
     }
     async fn read_u8(&'static self) -> u8 {
         loop {
@@ -213,8 +233,9 @@ impl RuntimeModule {
                 command.clear();
                 {
                     let lock = self.send_lock.lock().await;
-                    self.send_buffer.write(b"\r").await;
+                    self.send_buffer.write(ESC_CURSOR_INPUT.as_bytes()).await;
                     self.send_buffer.write(ESC_ERASE_LINE.as_bytes()).await;
+                    self.send_buffer.write(b">").await;
                 }
             } else if b == b'\x1B' {
                 let mut escape = Vec::<u8, MAX_ESCAPE>::new();
@@ -226,6 +247,12 @@ impl RuntimeModule {
                     }
                 }
                 info!("Escape {:?}", escape);
+            } else if b == 127 {
+                if let Some(n) = command.pop() {
+                    self.send_buffer.write(b"\x08\x1B[P").await;
+                }
+            } else if b.is_ascii_control() {
+                info!("Ascii {}", b);
             } else {
                 if let Ok(_) = command.push(b) {
                     let lock = self.send_lock.lock().await;
@@ -258,7 +285,7 @@ impl RuntimeModule {
         let time = Instant::now().as_secs();
         write!(
             writer,
-            "{ESC_SAVE}{ESC_REGION_LOG}{ESC_CURSOR_LOG}{SCROLL}[{file:20}:{line:5}] [{time} S] [{level}] {}{ESC_RESTORE}",
+            "{ESC_SAVE}{ESC_REGION_LOG}{ESC_CURSOR_LOG}{ESC_SCROLL}[{file:20}:{line:5}] [{time:8} S] [{level}] {}{ESC_RESTORE}",
             record.args()
         )
     }
@@ -270,7 +297,7 @@ impl RuntimeModule {
         let lock = self.send_lock.lock().await;
         write!(
             &mut self,
-            "{ESC_SAVE}{ESC_REGION_FEEDBACK}{ESC_CURSOR_FEEDBACK}{SCROLL}{args}{ESC_RESTORE}"
+            "{ESC_SAVE}{ESC_REGION_FEEDBACK}{ESC_CURSOR_FEEDBACK}{ESC_SCROLL}{args}{ESC_RESTORE}"
         )
         .ok();
     }

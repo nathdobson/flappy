@@ -46,7 +46,7 @@ pub struct MqttModule {
     spawner: Spawner,
     stack: &'static embassy_net::Stack<'static>,
     settings: Signal<NoopRawMutex, MqttSettings>,
-    receive: Signal<NoopRawMutex, FlappyRequest>,
+    receive: &'static Signal<NoopRawMutex, FlappyRequest>,
     send: Signal<NoopRawMutex, FlappyResponse>,
     status: Signal<NoopRawMutex, MqttStatus>,
 }
@@ -80,12 +80,13 @@ impl MqttModule {
     pub async fn new(
         spawner: Spawner,
         stack: &'static embassy_net::Stack<'static>,
+        receive: &'static Signal<NoopRawMutex, FlappyRequest>
     ) -> Result<&'static MqttModule, Error> {
         let module = make_static!(MqttModule {
             spawner,
             stack,
             settings: Signal::new(),
-            receive: Signal::new(),
+            receive,
             send: Signal::new(),
             status: Signal::new(),
         });
@@ -355,9 +356,6 @@ impl MqttModule {
     }
     pub fn status(&self) -> &Signal<NoopRawMutex, MqttStatus> {
         &self.status
-    }
-    pub fn receive(&self) -> &Signal<NoopRawMutex, FlappyRequest> {
-        &self.receive
     }
     pub fn send(&self, message: FlappyResponse) {
         self.send.signal(message);

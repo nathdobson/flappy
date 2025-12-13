@@ -57,7 +57,7 @@ embedded-io-async = { version = "0.6.1", optional = true }
 embedded-io = { version = "0.6.1", optional = true }
 mqtt = { path = "../../common/mqtt", optional = true }
 arena = { path = "../../common/arena", optional = true }
-proto = { path = "../../common/proto", optional = true }
+proto = { path = "../../common/proto" }
 cyw43 = { path = "../../submodules/embassy/cyw43", features = [
   "bluetooth",
 ], optional = true }
@@ -67,13 +67,14 @@ cyw43-firmware = { version = "0.1.0", optional = true, features = [
   "wifi",
   "bluetooth",
 ] }
+noshell = {version="0.2.0",optional = true}
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }
 
 [features]
 default = ["radio", "flash", "serde", "display"]
-serde = ["dep:serde", "heapless/serde", "dep:serde-json-core"]
+serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","proto/serde"]
 radio = [
   "dep:cyw43",
   "dep:embedded-tls",
@@ -81,7 +82,6 @@ radio = [
   "dep:cyw43-firmware",
   "dep:mqtt",
   "dep:arena",
-  "dep:proto",
   "embassy-net",
   "dep:uuid",
   "dep:smoltcp",

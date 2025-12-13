@@ -1,3 +1,4 @@
+use crate::display_proto::DisplaySettings;
 use crate::mqtt_proto::MqttSettings;
 use crate::wifi_proto::WifiSettings;
 
@@ -6,4 +7,5 @@ use crate::wifi_proto::WifiSettings;
 pub struct FlashSettings {
     pub wifi: WifiSettings,
     pub mqtt: MqttSettings,
+    pub display: DisplaySettings,
 }

@@ -1,3 +1,5 @@
+use crate::cli::{Adjustment, Command, MqttField, WifiField};
+use crate::display_proto::MAX_CHARS;
 use crate::error::Error;
 use crate::flash_proto::FlashSettings;
 use crate::peripherals::AppPeripherals;
@@ -6,13 +8,16 @@ use crate::runtime::RuntimeModule;
 use crate::wifi_proto::WifiStatus;
 use core::cell::RefCell;
 use core::future::pending;
+use core::mem;
+use core::num::ParseIntError;
 use embassy_executor::Spawner;
 use embassy_rp::clocks::RoscRng;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
-use heapless::{String, format};
+use heapless::{CapacityError, String, format};
 use log::{error, info};
+use proto::FlappyRequest;
 use static_cell::make_static;
 
 pub const MODULE: &'static str = "[APP  ]";
@@ -31,6 +36,7 @@ pub struct Application {
     mqtt: &'static crate::mqtt::MqttModule,
     #[cfg(feature = "display")]
     driver: &'static crate::driver::DriverModule,
+    receive: &'static Signal<NoopRawMutex, FlappyRequest>,
     state: RefCell<FlashSettings>,
     wifi_status: Signal<NoopRawMutex, WifiStatus>,
 }
@@ -76,7 +82,7 @@ impl crate::ble::BleHandler for Application {
         if updated {
             #[cfg(feature = "flash")]
             if let Err(e) = self.flash.save(state) {
-                error!("{MODULE} failed to update wifi settings in flash {}", e);
+                error!("{MODULE} failed to update settings in flash {}", e);
             }
         }
     }
@@ -97,13 +103,6 @@ impl Application {
     ) -> Result<&'static Self, Error> {
         #[cfg(feature = "display")]
         let driver = crate::driver::DriverModule::new(peri.driver_peri).await?;
-        // for i in 0.. {
-        //     let x = driver.count().ok();
-        //     if i % 100 == 0 {
-        //         info!("{:?}", x);
-        //     }
-        //     Timer::after_millis(100).await;
-        // }
         #[cfg(feature = "display")]
         driver.write(&[0; 128])?;
         let mut rng = RoscRng;
@@ -118,8 +117,9 @@ impl Application {
         let ble = crate::ble::BleModule::new(spawner, bt_device).await?;
         #[cfg(feature = "radio")]
         let wifi = crate::wifi::WifiModule::new(spawner, radio, net_device, &mut rng).await?;
+        let receive: &'static Signal<NoopRawMutex, FlappyRequest> = make_static!(Signal::new());
         #[cfg(feature = "radio")]
-        let mqtt = crate::mqtt::MqttModule::new(spawner, &wifi.stack()).await?;
+        let mqtt = crate::mqtt::MqttModule::new(spawner, &wifi.stack(), receive).await?;
         #[cfg(feature = "flash")]
         let state = flash.load().await?;
         #[cfg(not(feature = "flash"))]
@@ -140,6 +140,7 @@ impl Application {
             #[cfg(feature = "display")]
             driver,
             state: RefCell::new(state.clone()),
+            receive,
             wifi_status: Signal::new(),
         });
         Ok(application)
@@ -227,23 +228,40 @@ impl Application {
     async fn display_message(&'static self) {
         #[cfg(feature = "display")]
         let mut display = crate::display::Display::new(self.driver);
-        // if let Err(e) = display.run("").await {
-        //     error!("{MODULE} error when resetting flaps: {}", e);
-        // }
-        // self.mqtt.send(FlappyResponse::Start);
-        #[cfg(feature = "radio")]
         loop {
-            let request = self.mqtt.receive().wait().await;
+            let request = self.receive.wait().await;
             match request {
                 proto::FlappyRequest::Run(msg) => {
+                    #[cfg(feature = "display")]
+                    display.set_settings(self.state.borrow().display.clone());
                     info!("{MODULE} Displaying {}", msg);
+                    #[cfg(feature = "radio")]
                     self.mqtt.send(proto::FlappyResponse::Start(msg.clone()));
-                    // Timer::after_millis(1000).await;
+                    #[cfg(not(feature = "display"))]
+                    Timer::after_millis(1000).await;
                     #[cfg(feature = "display")]
                     if let Err(e) = display.run(&msg).await {
                         error!("{MODULE} error when displaying message: {:?}", e);
                     }
+                    #[cfg(feature = "radio")]
                     self.mqtt.send(proto::FlappyResponse::Stop(msg.clone()));
+                }
+                proto::FlappyRequest::Test => {
+                    #[cfg(feature = "display")]
+                    {
+                        display.set_settings(self.state.borrow().display.clone());
+
+                        for letter in letters::letters_iter().step_by(3) {
+                            let mut msg = String::<MAX_CHARS>::new();
+                            for _ in 0..MAX_CHARS {
+                                msg.push_str(letter).ok();
+                            }
+                            if let Err(e) = display.run(&msg).await {
+                                error!("{MODULE} error when displaying message: {:?}", e);
+                            }
+                            Timer::after_millis(1000).await;
+                        }
+                    }
                 }
             }
         }
@@ -251,10 +269,167 @@ impl Application {
     async fn handle_commands(&'static self) {
         loop {
             let command = self.runtime.commands().receive().await;
-            if let Ok(s) = str::from_utf8(&command) {
-                self.runtime.write_feedback_line(format_args!("{}", s)).await;
+            let Ok(command) = str::from_utf8(&command) else {
+                self.runtime
+                    .write_feedback_line(format_args!("Command is not valid utf-8"))
+                    .await;
+                continue;
+            };
+            self.runtime
+                .write_feedback_line(format_args!(">{}", command))
+                .await;
+            let command = Command::parse(command);
+            let command = match command {
+                Ok(command) => command,
+                Err(e) => {
+                    self.runtime
+                        .write_feedback_line(format_args!("Bad command: {}", e))
+                        .await;
+                    continue;
+                }
+            };
+            self.handle_command(command).await;
+        }
+    }
+    async fn handle_command(&'static self, command: Command<'_>) {
+        match command {
+            Command::CalibrateRead => {
+                let calibration = self.state.borrow().display.calibration.clone();
+                self.runtime
+                    .write_feedback_line(format_args!("calibration = {:?}", calibration))
+                    .await;
             }
-            info!("Command = {:?}", command);
+            Command::CalibrateReadOne(index) => {
+                let calibration = self
+                    .state
+                    .borrow()
+                    .display
+                    .calibration
+                    .get(index)
+                    .cloned()
+                    .unwrap_or(0);
+                self.runtime
+                    .write_feedback_line(format_args!("calibration = {}", calibration))
+                    .await;
+            }
+            Command::CalibrateWriteOne(index, adj, value) => {
+                let mut state = self.state.borrow_mut();
+                let calibration = &mut state.display.calibration;
+                if calibration.len() < index + 1 {
+                    if let Err(_) = calibration.resize(index + 1, 0) {
+                        let cap = calibration.capacity();
+                        mem::drop(state);
+                        self.runtime
+                            .write_feedback_line(format_args!(
+                                "Index {} out of bounds {}",
+                                index, cap
+                            ))
+                            .await;
+                        return;
+                    }
+                }
+                match adj {
+                    Adjustment::Add => calibration[index] += value,
+                    Adjustment::Sub => calibration[index] -= value,
+                    Adjustment::Set => calibration[index] = value,
+                }
+                let calibration = calibration[index];
+                #[cfg(feature = "flash")]
+                if let Err(e) = self.flash.save(&state) {
+                    error!("{MODULE} failed to update settings in flash {}", e);
+                }
+                mem::drop(state);
+                self.runtime
+                    .write_feedback_line(format_args!("calibration = {}", calibration))
+                    .await;
+            }
+            Command::Help => {
+                self.runtime
+                    .write_feedback_line(format_args!(
+                        "commands: help, display, calibrate, wifi, mqtt"
+                    ))
+                    .await;
+            }
+            Command::Display(msg) => {
+                self.receive
+                    .signal(FlappyRequest::Run(msg.try_into().unwrap_or_default()));
+            }
+            Command::WifiRead => {
+                let settings = self.state.borrow().wifi.clone();
+                self.runtime
+                    .write_feedback_line(format_args!("WiFi settings: {:?}", settings))
+                    .await;
+            }
+            Command::WifiWrite(param, value) => {
+                let mut state = self.state.borrow_mut();
+                let settings = &mut state.wifi;
+                if let Err::<(), Error>(e) = try {
+                    match param {
+                        WifiField::Ssid => {
+                            settings.ssid = value.try_into()?;
+                        }
+                        WifiField::Password => {
+                            settings.password = value.try_into()?;
+                        }
+                    }
+                } {
+                    mem::drop(state);
+                    self.runtime
+                        .write_feedback_line(format_args!("Bad input: {}", e))
+                        .await;
+                    return;
+                }
+                #[cfg(feature = "flash")]
+                if let Err(e) = self.flash.save(&state) {
+                    error!("{MODULE} failed to update settings in flash {}", e);
+                }
+                #[cfg(feature = "radio")]
+                self.wifi.set_settings(state.wifi.clone());
+            }
+            Command::MqttRead => {
+                let settings = self.state.borrow().mqtt.clone();
+                self.runtime
+                    .write_feedback_line(format_args!("MQTT settings: {:?}", settings))
+                    .await;
+            }
+            Command::MqttWrite(param, value) => {
+                let mut state = self.state.borrow_mut();
+                let settings = &mut state.mqtt;
+                if let Err::<(), Error>(e) = try {
+                    match param {
+                        MqttField::Hostname => {
+                            settings.hostname = value.try_into()?;
+                        }
+                        MqttField::Port => {
+                            settings.port = value.parse()?;
+                        }
+                        MqttField::Username => {
+                            settings.username = value.try_into()?;
+                        }
+                        MqttField::Password => {
+                            settings.password = value.try_into()?;
+                        }
+                        MqttField::Topic => {
+                            settings.topic = value.try_into()?;
+                        }
+                    }
+                } {
+                    mem::drop(state);
+                    self.runtime
+                        .write_feedback_line(format_args!("Bad input: {}", e))
+                        .await;
+                    return;
+                }
+                #[cfg(feature = "flash")]
+                if let Err(e) = self.flash.save(&state) {
+                    error!("{MODULE} failed to update settings in flash {}", e);
+                }
+                #[cfg(feature = "radio")]
+                self.mqtt.set_settings(state.mqtt.clone());
+            }
+            Command::Test => {
+                self.receive.signal(FlappyRequest::Test);
+            }
         }
     }
 }

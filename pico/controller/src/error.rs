@@ -1,6 +1,8 @@
 use core::fmt;
 use core::fmt::{Display, Formatter};
+use core::num::ParseIntError;
 use embassy_executor::SpawnError;
+use heapless::CapacityError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -33,6 +35,8 @@ pub enum Error {
     DeadlineExceeded,
     #[cfg(feature = "radio")]
     Disconnected(mqtt::proto::ReasonCode),
+    CapacityError,
+    ParseIntError,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -69,6 +73,8 @@ impl Display for Error {
             Error::DeadlineExceeded => write!(f, "Deadline exceeded"),
             #[cfg(feature = "radio")]
             Error::Disconnected(r) => write!(f, "Server disconnected {}", r),
+            Error::CapacityError => write!(f, "Capacity error"),
+            Error::ParseIntError => write!(f, "Parse int error"),
         }
     }
 }
@@ -183,5 +189,17 @@ where
 impl From<mqtt::error::ProtocolError> for Error {
     fn from(value: mqtt::error::ProtocolError) -> Self {
         Error::MqttError(value)
+    }
+}
+
+impl From<CapacityError> for Error {
+    fn from(value: CapacityError) -> Self {
+        Error::CapacityError
+    }
+}
+
+impl From<ParseIntError> for Error {
+    fn from(value: ParseIntError) -> Self {
+        Error::ParseIntError
     }
 }
