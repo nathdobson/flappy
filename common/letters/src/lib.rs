@@ -1,9 +1,10 @@
 #![no_std]
 
-use unicode_segmentation::UnicodeSegmentation;
-
-pub static LETTERS: &str = " ABCDEFGHIJKLMNOPQRSTUVWXYZ$&#0123456789:.-?!";
-
-pub fn letters_iter() -> impl Iterator<Item = &'static str> {
-    UnicodeSegmentation::graphemes(LETTERS, true)
-}
+pub static LETTERS: &[&str] = &[
+    " ", //
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", //
+    "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", //
+    "$", "&", "#", //
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", //
+    ":", ".", "-", "?", "!",
+];

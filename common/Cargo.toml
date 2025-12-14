@@ -1,3 +1,5 @@
 [workspace]
-members = ["arena","mqtt","letters","proto", "io-adapter", "termtest"]
+members = ["arena","mqtt","letters","proto", "io-adapter", "termtest", "render"]
 resolver = "3"
+
+

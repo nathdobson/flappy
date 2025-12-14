@@ -1,5 +1,5 @@
 use crate::cli::{Adjustment, Command, MqttField, WifiField};
-use crate::display_proto::MAX_CHARS;
+use crate::display_proto::MAX_GLYPHS;
 use crate::error::Error;
 use crate::flash_proto::FlashSettings;
 use crate::peripherals::AppPeripherals;
@@ -15,9 +15,11 @@ use embassy_rp::clocks::RoscRng;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
-use heapless::{CapacityError, String, format};
+use heapless::{CapacityError, String, Vec, format};
+use letters::LETTERS;
 use log::{error, info};
 use proto::FlappyRequest;
+use render::Renderer;
 use static_cell::make_static;
 
 pub const MODULE: &'static str = "[APP  ]";
@@ -240,8 +242,13 @@ impl Application {
                     #[cfg(not(feature = "display"))]
                     Timer::after_millis(1000).await;
                     #[cfg(feature = "display")]
-                    if let Err(e) = display.run(&msg).await {
-                        error!("{MODULE} error when displaying message: {:?}", e);
+                    {
+                        let mut renderer = Renderer::<MAX_GLYPHS>::new(LETTERS);
+                        if let Err(e) = renderer.append(&msg) {
+                            error!("{MODULE} error when renderering message: {:?}", e);
+                        } else if let Err(e) = display.run(&renderer.finish()).await {
+                            error!("{MODULE} error when displaying message: {:?}", e);
+                        }
                     }
                     #[cfg(feature = "radio")]
                     self.mqtt.send(proto::FlappyResponse::Stop(msg.clone()));
@@ -251,10 +258,10 @@ impl Application {
                     {
                         display.set_settings(self.state.borrow().display.clone());
 
-                        for letter in letters::letters_iter().step_by(3) {
-                            let mut msg = String::<MAX_CHARS>::new();
-                            for _ in 0..MAX_CHARS {
-                                msg.push_str(letter).ok();
+                        for index in (0..letters::LETTERS.len()).step_by(3) {
+                            let mut msg = Vec::<usize, MAX_GLYPHS>::new();
+                            for _ in 0..MAX_GLYPHS {
+                                msg.push(index).ok();
                             }
                             if let Err(e) = display.run(&msg).await {
                                 error!("{MODULE} error when displaying message: {:?}", e);

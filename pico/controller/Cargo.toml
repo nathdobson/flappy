@@ -48,10 +48,7 @@ uuid = { version = "1.18.1", default-features = false, optional = true }
 heapless = { version = "0.9.2" }
 embedded-tls = { version = "0.17.0", default-features = false, optional = true }
 embedded-hal = "1.0.0"
-unicode-segmentation = { version = "1.12.0", default-features = false,optional = true }
 letters = { path = "../../common/letters" ,optional = true}
-#unidecode = {path="../submodules/rust-unidecode", default-features = false}
-#unicode-normalization = {path="../submodules/unicode-normalization", default-features = false}
 smoltcp = { version = "0.12.0", default-features = false, optional = true }
 embedded-io-async = { version = "0.6.1", optional = true }
 embedded-io = { version = "0.6.1", optional = true }
@@ -67,7 +64,7 @@ cyw43-firmware = { version = "0.1.0", optional = true, features = [
   "wifi",
   "bluetooth",
 ] }
-noshell = {version="0.2.0",optional = true}
+render = {path ="../../common/render",optional = true}
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }
@@ -91,4 +88,4 @@ radio = [
   "serde",
 ]
 flash = ["serde"]
-display = ["dep:unicode-segmentation","dep:letters"]
+display = ["dep:letters","dep:render"]
