@@ -2,4 +2,6 @@
   (version 7)
   (lib (name "ul_MP6605CGR-Z")(type "KiCad")(uri "${KIPRJMOD}/ul_MP6605CGR-Z/KiCADv6/2025-12-01_02-33-14.kicad_sym")(options "")(descr ""))
   (lib (name "BurntOutBakery")(type "KiCad")(uri "${KIPRJMOD}/BurntOutBakery/BurntOutBakery.kicad_sym")(options "")(descr ""))
+  (lib (name "ul_DRV8804PWP")(type "KiCad")(uri "${KIPRJMOD}/ul_DRV8804PWP/KiCADv6/2025-12-15_01-13-41.kicad_sym")(options "")(descr ""))
+  (lib (name "ul_SN74HCS165DYYR")(type "KiCad")(uri "${KIPRJMOD}/ul_SN74HCS165DYYR/KiCADv6/2025-12-15_01-11-32.kicad_sym")(options "")(descr ""))
 )
