@@ -1,5 +1,4 @@
 use crate::cli::{Adjustment, Command, MqttField, WifiField};
-use crate::display_proto::MAX_GLYPHS;
 use crate::error::Error;
 use crate::flash_proto::FlashSettings;
 use crate::peripherals::AppPeripherals;
@@ -19,7 +18,8 @@ use heapless::{CapacityError, String, Vec, format};
 use letters::LETTERS;
 use log::{error, info};
 use proto::FlappyRequest;
-use render::Renderer;
+use proto::MAX_GLYPH_BYTES;
+use proto::MAX_GLYPHS;
 use static_cell::make_static;
 
 pub const MODULE: &'static str = "[APP  ]";
@@ -234,24 +234,30 @@ impl Application {
             let request = self.receive.wait().await;
             match request {
                 proto::FlappyRequest::Run(msg) => {
-                    #[cfg(feature = "display")]
-                    display.set_settings(self.state.borrow().display.clone());
-                    info!("{MODULE} Displaying {}", msg);
+                    let mut renderer = render::Renderer::<MAX_GLYPHS>::new(letters::LETTERS);
+                    if let Err(e) = renderer.append(&msg) {
+                        error!("{MODULE} error when rendering message: {:?}", e);
+                        continue;
+                    }
+                    let glyphs = renderer.finish();
+                    let glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = glyphs
+                        .iter()
+                        .map(|i| LETTERS[*i].try_into().unwrap_or(" ".try_into().unwrap()))
+                        .collect();
                     #[cfg(feature = "radio")]
-                    self.mqtt.send(proto::FlappyResponse::Start(msg.clone()));
+                    self.mqtt.send(proto::FlappyResponse::Start(glyph_strs.clone()));
                     #[cfg(not(feature = "display"))]
                     Timer::after_millis(1000).await;
                     #[cfg(feature = "display")]
                     {
-                        let mut renderer = Renderer::<MAX_GLYPHS>::new(LETTERS);
-                        if let Err(e) = renderer.append(&msg) {
-                            error!("{MODULE} error when renderering message: {:?}", e);
-                        } else if let Err(e) = display.run(&renderer.finish()).await {
+                        info!("{MODULE} Displaying {}", msg);
+                        display.set_settings(self.state.borrow().display.clone());
+                        if let Err(e) = display.run(&glyphs).await {
                             error!("{MODULE} error when displaying message: {:?}", e);
                         }
                     }
                     #[cfg(feature = "radio")]
-                    self.mqtt.send(proto::FlappyResponse::Stop(msg.clone()));
+                    self.mqtt.send(proto::FlappyResponse::Stop(glyph_strs));
                 }
                 proto::FlappyRequest::Test => {
                     #[cfg(feature = "display")]

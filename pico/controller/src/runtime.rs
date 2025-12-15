@@ -285,7 +285,7 @@ impl RuntimeModule {
         let time = Instant::now().as_secs();
         write!(
             writer,
-            "{ESC_SAVE}{ESC_REGION_LOG}{ESC_CURSOR_LOG}{ESC_SCROLL}[{file:20}:{line:5}] [{time:8} S] [{level}] {}{ESC_RESTORE}",
+            "{ESC_SAVE}{ESC_REGION_LOG}{ESC_CURSOR_LOG}{ESC_SCROLL}[{file:30}:{line:5}] [{time:8} S] [{level}] {}{ESC_RESTORE}",
             record.args()
         )
     }

@@ -1,6 +1,6 @@
 use heapless::Vec;
 
-pub const MAX_GLYPHS: usize = 12;
+use proto::MAX_GLYPHS;
 
 #[derive(Default, Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

@@ -127,6 +127,10 @@ impl WifiModule {
             if let Some(new) = self.settings.try_take() {
                 settings = new;
             }
+            if settings.ssid.is_empty() {
+                info!("{MODULE} WiFi not configured.");
+                settings = self.settings.wait().await;
+            }
             info!(
                 "{MODULE} Connecting to WiFi network with SSID {:?} and password {:?}",
                 settings.ssid, settings.password

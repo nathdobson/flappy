@@ -27,6 +27,7 @@ use url::Url;
 use wasm_bindgen::prelude::*;
 use web_sys::{window, HtmlDivElement, HtmlFormElement, HtmlInputElement, Window};
 use ws_stream_wasm::WsMeta;
+use proto::MAX_GLYPH_BYTES;
 
 const KEEPALIVE: u16 = 60;
 
@@ -93,9 +94,9 @@ impl Display {
             inner.set_text_content(Some("⋮"));
         }
     }
-    pub fn stop(&self, text: &str) {
-        for inner in &self.inners {
-            inner.set_text_content(Some("?"));
+    pub fn stop(&self, text: &[heapless::String<MAX_GLYPH_BYTES>]) {
+        for (inner,glyph) in self.inners.iter().zip(text.iter()) {
+            inner.set_text_content(Some(glyph));
         }
     }
 }
@@ -151,7 +152,7 @@ async fn main() -> Result<(), Error> {
                                 FlappyMessage::Response(response) => {
                                     match response {
                                         FlappyResponse::Start(_) => display.start(),
-                                        FlappyResponse::Stop(s) => display.stop(&s),
+                                        FlappyResponse::Stop(s) => display.stop(s.as_slice()),
                                     }
                                     // let status = document.get_element_by_id("display").unwrap();
                                     // status.set_text_content(Some(&format!("{:?}", response)));

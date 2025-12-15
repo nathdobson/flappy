@@ -1,11 +1,15 @@
 #![no_std]
 #![feature(iter_order_by)]
 #![deny(unused_must_use)]
+#![allow(unused_imports)]
 
 use core::iter;
 use heapless::{CapacityError, Vec};
+#[cfg(feature = "unicode")]
 use unicode_normalization::{UnicodeNormalization, try_iter_eq, try_iter_eq_by};
+#[cfg(feature = "unicode")]
 use unicode_segmentation::UnicodeSegmentation;
+#[cfg(feature = "unicode")]
 use unidecode::unidecode_char;
 
 pub struct Renderer<'a, const CAP: usize> {
@@ -21,6 +25,13 @@ impl<'a, const CAP: usize> Renderer<'a, CAP> {
         }
     }
     pub fn append(&mut self, text: &str) -> Result<(), CapacityError> {
+        #[cfg(not(feature = "unicode"))]
+        for c in text.chars() {
+            self.append_match(|s| {
+                Ok(s.len() == 1 && s.chars().next().unwrap().eq_ignore_ascii_case(&c))
+            })?;
+        }
+        #[cfg(feature = "unicode")]
         for grapheme in UnicodeSegmentation::graphemes(text, true) {
             self.append_grapheme(grapheme)?;
         }
@@ -40,9 +51,11 @@ impl<'a, const CAP: usize> Renderer<'a, CAP> {
         }
         Ok(false)
     }
+    #[cfg(feature = "unicode")]
     fn eq_ignore_case(c1: char, c2: char) -> Result<bool, CapacityError> {
         Ok(c1.to_lowercase().eq(c2.to_lowercase()))
     }
+    #[cfg(feature = "unicode")]
     fn append_grapheme(&mut self, grapheme: &str) -> Result<(), CapacityError> {
         if self.append_match(|g| Ok(g == grapheme))? {
             return Ok(());

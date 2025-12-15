@@ -15,8 +15,8 @@ use crate::mqtt_proto::MqttSettings;
 use crate::wifi_proto::WifiSettings;
 
 const MODULE: &'static str = "[FLASH]";
-const ADDR_OFFSET: u32 = 0x110000;
-const FLASH_SIZE: usize = 2 * 1024 * 1024;
+const ADDR_OFFSET: u32 = 0x310000;
+const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
 #[allow(non_snake_case)]
 pub struct FlashPeripherals {

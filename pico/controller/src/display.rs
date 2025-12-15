@@ -9,7 +9,7 @@ use heapless::{String, Vec};
 use log::{error, info};
 use crate::display_proto;
 use crate::display_proto::DisplaySettings;
-use crate::display_proto::MAX_GLYPHS;
+use proto::MAX_GLYPHS;
 
 const MODULE: &'static str = "[DISPL]";
 const STEPS_PER_REV: usize = 2048;
@@ -83,7 +83,7 @@ impl Display {
                 .cloned()
                 .unwrap_or(0);
             char.target =
-                (calibration + message[index] * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV;
+                (calibration + message.get(index).cloned().unwrap_or(0) * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV;
             info!("{MODULE} Flap {index} has target {:?}", char.target);
         }
         for step in 0.. {

@@ -1,6 +1,7 @@
 use crate::{FlappyMessage, FlappyRequest};
 use core::str::FromStr;
 
+#[cfg(feature = "serde")]
 #[test]
 fn test() {
     let original = FlappyMessage::Request(FlappyRequest::Run(

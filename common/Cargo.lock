@@ -309,7 +309,6 @@ name = "render"
 version = "0.1.0"
 dependencies = [
  "heapless 0.9.2",
- "log",
  "unicode-normalization",
  "unicode-segmentation",
  "unidecode",
