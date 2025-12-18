@@ -1,6 +1,7 @@
 fonts/**
 draft/**
 full/**
-simplified/**.stl
+simplified/**
 flaps/
 .idea/
+flaps.3mf
