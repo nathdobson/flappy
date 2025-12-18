@@ -1,3 +1,3 @@
-import * as wasm from "../pkg/web-client.js";
+import init, { foo } from "../pkg/web_client.js";
 
-window.wasm = wasm
+await init()
