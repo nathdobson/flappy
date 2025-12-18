@@ -2,7 +2,7 @@
 
 This project is a redesign of David Kingsman's [Split Flap Display](https://www.printables.com/model/69464-split-flap-display).
 
-## How does it work?
+## How it works
 This display shows a sequence of characters in individual 3d-printed modules. Each module contains a drum with flaps
 displaying individual symbols, like a Rolodex. A motor rotates the drum to change from one symbol to another.
 
@@ -48,6 +48,18 @@ Recommended
 | Assorted solid wire for manually soldered boards                                                                                                                                                   |          |
 | Assorted stranded wire for cables                                                                                                                                                                  |          |
 | Magnets for drum                                                                                                                                                                                   |          |
+
+## Repository
+The repository is divided into several hardware and software components:
+* [common/](common/) A cargo workspace with utilities and configuration in use by several components
+* [driver3/](driver3/) A KiCad PCB design for the motor driver attached to each character.
+* [mobile/](mobile/) An Android app made with MIT App Inventor for configuring the display over Bluetooth.
+* [models/](models/) A cargo workspace with binaries that generate .3mf files for each 3D-printed part.
+* [pico/](pico/) A cargo workspace with the firmware for the Raspberry Pi Pico 2 W.
+* [setup/](setup/) A cargo workspace with a binary for configuring the display over USB or Bluetooth.
+* [submodules/](submodules/) A set of git submodules with forked dependencies.
+* [submodules/patina-rs](submodules/patina-rs/) A CAD library for generating 3D meshes from SDFs (signed distance functions).
+* [web-client](web-client/) A WASM web application for activating the display over MQTT.
 
 ## Instructions
 For each module, print one each of the following:

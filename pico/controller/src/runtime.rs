@@ -66,6 +66,7 @@ impl RuntimeModule {
     }
 }
 
-pub fn reboot_to_bootsel() {
+pub fn reboot_to_bootsel() -> ! {
     rom_data::reboot(0x0002, 500, 0, 0);
+    unreachable!()
 }

@@ -8,6 +8,9 @@ use embassy_usb::types::{InterfaceNumber, StringIndex};
 use embassy_usb::{Builder, Handler};
 use static_cell::make_static;
 
+/// Implement a USB interface for picotool to instruct the device to restart in BOOTSEL mode for
+/// firmware updates.
+
 pub struct UsbResetModule {}
 
 struct UsbResetHandler {
@@ -61,7 +64,6 @@ impl Handler for UsbResetHandler {
         match req.request {
             RESET_REQUEST_BOOTSEL => {
                 reboot_to_bootsel();
-                unreachable!();
             }
             _ => Some(OutResponse::Rejected),
         }

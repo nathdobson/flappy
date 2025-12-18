@@ -279,7 +279,7 @@ impl Log for UsbSerialModule {
     fn flush(&self) {}
 }
 
-impl<'a> core::fmt::Write for &'a UsbSerialModule {
+impl<'a> fmt::Write for &'a UsbSerialModule {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let b = s.as_bytes();
         let mut len = self.send_buffer.try_write(b).map_err(|_| fmt::Error)?;
