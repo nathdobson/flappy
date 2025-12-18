@@ -52,10 +52,10 @@ Recommended
 ## Repository
 The repository is divided into several hardware and software components:
 * [common/](common/) A cargo workspace with utilities and configuration in use by several components
-* [driver3/](driver3/) A KiCad PCB design for the motor driver attached to each character.
+* [driver/](driver/) A KiCad PCB design for the motor driver attached to each character.
 * [mobile/](mobile/) An Android app made with MIT App Inventor for configuring the display over Bluetooth.
-* [models/](models/) A cargo workspace with binaries that generate .3mf files for each 3D-printed part.
-* [pico/](pico/) A cargo workspace with the firmware for the Raspberry Pi Pico 2 W.
+* [models/](models/) A cargo crate with binaries that generate .3mf files for each 3D-printed part.
+* [firmware/](firmware/) A cargo workspace with the firmware for the Raspberry Pi Pico 2 W.
 * [setup/](setup/) A cargo workspace with a binary for configuring the display over USB or Bluetooth.
 * [submodules/](submodules/) A set of git submodules with forked dependencies.
 * [submodules/patina-rs](submodules/patina-rs/) A CAD library for generating 3D meshes from SDFs (signed distance functions).

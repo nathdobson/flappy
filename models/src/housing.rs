@@ -4,7 +4,7 @@
 #![allow(unused_imports)]
 
 use anyhow::Context;
-use housing::encode_sdf::encode_model;
+use models::encode_sdf::encode_model;
 use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;

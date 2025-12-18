@@ -60,7 +60,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
-use common::LETTERS;
+use letters::LETTERS;
 use tokio::fs;
 use zip::write::{FileOptions, SimpleFileOptions};
 use zip::{ZipArchive, ZipWriter};
@@ -133,9 +133,7 @@ async fn build_output() -> anyhow::Result<()> {
             axle_diameter: 1.2,
             drum_diameter: 18.0,
             letter_thickness: 0.4,
-            letters: LETTERS
-                .chars()
-                .collect(),
+            letters: LETTERS.iter().cloned().collect(),
             font,
             flap_separation: 3.0,
             wall_separation: 0.01,

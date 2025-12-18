@@ -28,7 +28,7 @@ pub struct StackBuilder {
     pub support_thickness: f64,
     pub letter_thickness: f64,
 
-    pub letters: Vec<char>,
+    pub letters: Vec<&'static str>,
     pub font: Font<'static>,
 
     pub flap_separation: f64,
@@ -89,7 +89,15 @@ impl StackBuilder {
         let scale = Scale::uniform(self.letter_scale);
         let v_metrics = self.font.v_metrics(scale);
         let v_shift = (v_metrics.ascent / 2.0) as f64;
-        let glyph = self.font.glyph(self.letters[index]).scaled(scale);
+        let glyph = self
+            .font
+            .glyph(
+                self.letters[index]
+                    .chars()
+                    .exactly_one()
+                    .expect("Multi-codepoint glyphs are not yet supported"),
+            )
+            .scaled(scale);
         let h_metrics = glyph.h_metrics();
         let h_shift = (-h_metrics.advance_width / 2.0) as f64;
         let shift = self.shift_letter + Vec2::new(h_shift, v_shift);
@@ -159,10 +167,7 @@ impl StackBuilder {
         );
         encode_file(
             &mixed,
-            Path::new(&format!(
-                "flaps/letters/letter_{}.svg",
-                index
-            )),
+            Path::new(&format!("flaps/letters/letter_{}.svg", index)),
         )
         .await
         .unwrap();
@@ -183,10 +188,7 @@ impl StackBuilder {
         }
         encode_file(
             &mesh,
-            Path::new(&format!(
-                "flaps/supports/support_{}.stl",
-                index
-            )),
+            Path::new(&format!("flaps/supports/support_{}.stl", index)),
         )
         .await
         .unwrap();
@@ -254,10 +256,7 @@ impl StackBuilder {
         println!("Built mesh in {}", start.elapsed().as_secs_f64());
         encode_file(
             &mesh,
-            Path::new(&format!(
-                "flaps/inserts/insert_{}.stl",
-                index
-            )),
+            Path::new(&format!("flaps/inserts/insert_{}.stl", index)),
         )
         .await
         .unwrap();

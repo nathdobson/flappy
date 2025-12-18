@@ -19,7 +19,7 @@ use std::f64;
 use std::path::Path;
 use std::time::Instant;
 use patina_bambu::BambuBuilder;
-use housing::encode_sdf::encode_model;
+use models::encode_sdf::encode_model;
 
 pub struct DrumBuilder {
     eps: f64,

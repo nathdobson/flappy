@@ -1,5 +1,5 @@
 [package]
-name = "housing"
+name = "models"
 version = "0.1.0"
 edition = "2024"
 
@@ -32,7 +32,7 @@ patina-bambu = {path="../submodules/patina-rs/patina-bambu"}
 patina-extrude = {path="../submodules/patina-rs/patina-extrude"}
 patina-font = {path="../submodules/patina-rs/patina-font"}
 patina-3mf = {path="../submodules/patina-rs/patina-3mf"}
-common = {path="../common"}
+letters = {path="../common/letters"}
 
 rusttype = "0.9.3"
 zip = "4.3.0"
