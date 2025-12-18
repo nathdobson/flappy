@@ -3,8 +3,6 @@ use embassy_sync::lazy_lock::LazyLock;
 use heapless::{String, format};
 use static_cell::make_static;
 
-pub const PRODUCT_MANUFACTURER: &str = "Burnt Out Robotics";
-pub const PRODUCT_NAME: &str = "Split Flap Display";
 pub mod built_info {
     // The file has been placed there by the build script.
     include!(concat!(env!("OUT_DIR"), "/built.rs"));

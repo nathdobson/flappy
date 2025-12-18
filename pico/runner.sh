@@ -1,33 +1,30 @@
 #!/bin/sh
 set -u
 set -e
-#REMOTE=/home/nathan/Documents/pico
+
+#HOST=nathans-macbook-pro-2.local
+#REMOTE=/Users/nathan/Documents/pico
+#DEVICE=/dev/cu.usbmodem14101
+#PICOTOOL=/usr/local/bin/picotool
 #echo rsyncing...
-#rsync $1 raspberrynut.local:$REMOTE
+#rsync $1 $HOST:$REMOTE
+#echo terminating...
+## Set the baud rate to 50 as an out-of-band signal
+#ssh $HOST stty -f $DEVICE 50 || true
+#ssh $HOST "bash -c 'while [ -e $DEVICE ]; do sleep 1; done'"
 #echo uploading...
-#ssh raspberrynut.local picotool load -u -v -x -t elf $REMOTE
-#ssh raspberrynut.local "bash -c 'while [ ! -e /dev/ttyACM0 ]; do sleep 1; done'"
-#ssh -t raspberrynut.local screen /dev/ttyACM0
-
-#picotool load -u -v -x -t elf $1
-#bash -c 'while [ ! -e /dev/cu.usbmodem101 ]; do sleep 1; done'
+#ssh $HOST $PICOTOOL load -f -u -v -x -t elf $REMOTE
+#ssh $HOST "bash -c 'while [ ! -e $DEVICE ]; do sleep 1; done'"
 #reset
-#screen /dev/cu.usbmodem101
+#ssh -t $HOST /usr/local/bin/tio -n $DEVICE
 #reset
 
-HOST=nathans-macbook-pro-2.local
-REMOTE=/Users/nathan/Documents/pico
-DEVICE=/dev/cu.usbmodem14101
-PICOTOOL=/usr/local/bin/picotool
-echo rsyncing...
-rsync $1 $HOST:$REMOTE
-echo terminating...
-# Set the baud rate to 50 as an out-of-band signal
-ssh $HOST stty -f $DEVICE 50 || true
-ssh $HOST "bash -c 'while [ -e $DEVICE ]; do sleep 1; done'"
+DEVICE=/dev/cu.usbmodem2101
+PICOTOOL=/opt/homebrew/bin/picotool
+TIO=/opt/homebrew/bin/tio
 echo uploading...
-ssh $HOST $PICOTOOL load -f -u -v -x -t elf $REMOTE
-ssh $HOST "bash -c 'while [ ! -e $DEVICE ]; do sleep 1; done'"
+$PICOTOOL load -f -u -v -x -t elf $1
+while [ ! -e $DEVICE ]; do sleep 1; done
 reset
-ssh -t $HOST /usr/local/bin/tio -n $DEVICE
+$TIO -n $DEVICE
 reset

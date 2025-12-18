@@ -5,17 +5,23 @@
 #![feature(never_type)]
 #![allow(unreachable_code)]
 #![feature(try_blocks)]
+#![feature(unsized_const_params)]
+#![feature(adt_const_params)]
+#![feature(unwrap_infallible)]
+#![allow(incomplete_features)]
 mod error;
+mod mqtt_socket;
+mod utils;
 
 use crate::error::Error;
+use crate::mqtt_socket::run_mqtt;
+use crate::utils::{create_element, sleep, try_create_div, try_document, try_get_element_by_id};
 use arena::ArenaStorage;
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
 use io_adapter::split::split_io;
 use io_adapter::tokio::TokioStreamAdapter;
 use log::{error, info, warn};
-use mqtt::proto::{Packet, Qos};
-use mqtt::receiver::MqttReceiver;
-use mqtt::sender::{ConnectRequest, MqttSender, PublishRequest};
+use proto::MAX_GLYPH_BYTES;
 use proto::{FlappyMessage, FlappyRequest, FlappyResponse};
 use serde::{Deserialize, Serialize};
 use std::future::pending;
@@ -23,13 +29,12 @@ use std::ops::Add;
 use std::pin::pin;
 use std::str::FromStr;
 use std::time::Duration;
+use tokio::sync::mpsc::channel;
 use url::Url;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
 use web_sys::{window, HtmlDivElement, HtmlFormElement, HtmlInputElement, Window};
 use ws_stream_wasm::WsMeta;
-use proto::MAX_GLYPH_BYTES;
-
-const KEEPALIVE: u16 = 60;
 
 #[wasm_bindgen(start)]
 async fn start() {
@@ -40,197 +45,121 @@ async fn start() {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FlappyQueryParams {
-    ws_url: String,
-    username: String,
-    password: String,
-    topic: String,
-}
-
-pub async fn sleep(millis: i32) {
-    let mut cb = |resolve: js_sys::Function, _reject: js_sys::Function| {
-        web_sys::window()
-            .unwrap()
-            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, millis)
-            .unwrap();
-    };
-    let p = js_sys::Promise::new(&mut cb);
-    wasm_bindgen_futures::JsFuture::from(p).await.unwrap();
-}
-
 struct Display {
+    form: HtmlFormElement,
+    input: HtmlInputElement,
     inners: Vec<HtmlDivElement>,
+    dots: Vec<char>,
 }
 
 impl Display {
     pub fn new() -> Result<Self, Error> {
-        let window = web_sys::window().ok_or(Error::NoneError)?;
-        let document = window.document().ok_or(Error::NoneError)?;
-        let display: HtmlDivElement = document
-            .get_element_by_id("display")
-            .ok_or(Error::NoneError)?
-            .dyn_into()
-            .ok()
-            .ok_or(Error::TypeError)?;
+        let display: HtmlDivElement = try_get_element_by_id("display")?;
         let mut inners = vec![];
         for i in 0..10 {
-            let letter_outer = document.create_element("div")?;
+            let letter_outer = create_element::<"div">()?;
             letter_outer.set_class_name("letter-outer");
-            let letter_inner: HtmlDivElement = document
-                .create_element("div")?
-                .dyn_into()
-                .ok()
-                .ok_or(Error::TypeError)?;
+            let letter_inner: HtmlDivElement = create_element::<"div">()?;
             letter_inner.set_class_name("letter-inner");
             letter_outer.append_child(&letter_inner)?;
             display.append_child(&letter_outer)?;
             inners.push(letter_inner);
         }
-        Ok(Display { inners })
-    }
-    pub fn start(&self) {
-        for inner in &self.inners {
-            inner.set_text_content(Some("⋮"));
+        let form: HtmlFormElement = try_get_element_by_id("form")?;
+        let input: HtmlInputElement = try_get_element_by_id("content")?;
+        let mut dots = vec![];
+        for i in 0..8 {
+            let mut codepoint = 0x2800;
+            for k in 0..4 {
+                let index = match (i + k) % 8 {
+                    0 => 0,
+                    1 => 1,
+                    2 => 2,
+                    3 => 6,
+                    4 => 7,
+                    5 => 5,
+                    6 => 4,
+                    7 => 3,
+                    _ => unreachable!(),
+                };
+                codepoint |= 1 << index;
+            }
+            dots.push(char::from_u32(codepoint).unwrap());
         }
+        Ok(Display {
+            form,
+            input,
+            inners,
+            dots,
+        })
     }
-    pub fn stop(&self, text: &[heapless::String<MAX_GLYPH_BYTES>]) {
-        for (inner,glyph) in self.inners.iter().zip(text.iter()) {
-            inner.set_text_content(Some(glyph));
+    // pub fn start(&self) {
+    //     for inner in &self.inners {
+    //         inner.set_text_content(Some("⋮"));
+    //     }
+    // }
+    // pub fn stop(&self, text: &[heapless::String<MAX_GLYPH_BYTES>]) {
+    //     for (inner, glyph) in self.inners.iter().zip(text.iter()) {
+    //         inner.set_text_content(Some(glyph));
+    //     }
+    // }
+    pub fn set_on_submit(&self, mut on_submit: impl FnMut(&str)) {
+        let closure = Closure::wrap(Box::new(move || {
+            on_submit(&self.input.value());
+            false
+        }) as Box<dyn FnMut() -> bool>);
+        self.form
+            .set_onsubmit(Some(&closure.as_ref().unchecked_ref()));
+        closure.forget();
+    }
+    pub async fn handle_response(&self, resp: FlappyResponse) -> Result<!, Error> {
+        match resp {
+            FlappyResponse::Start(_) => {
+                for step in 0.. {
+                    for inner in &self.inners {
+                        inner.set_text_content(Some(&format!(
+                            "{}",
+                            self.dots[step % self.dots.len()]
+                        )));
+                    }
+                    sleep(100).await;
+                }
+            }
+            FlappyResponse::Stop(text) => {
+                for (index, inner) in self.inners.iter().enumerate() {
+                    inner.set_text_content(Some(text.get(index).map_or(" ", |x| &**x)));
+                }
+            }
         }
+        pending().await
     }
 }
 
 async fn main() -> Result<(), Error> {
     let display = Display::new()?;
-    // return Ok(());
-    let window = web_sys::window().ok_or(Error::NoneError)?;
-    let document = window.document().ok_or(Error::NoneError)?;
-    let form: HtmlFormElement = document
-        .get_element_by_id("form")
-        .ok_or(Error::NoneError)?
-        .dyn_into()
-        .ok()
-        .ok_or(Error::TypeError)?;
-    let input: HtmlInputElement = document
-        .get_element_by_id("content")
-        .ok_or(Error::NoneError)?
-        .dyn_into()
-        .ok()
-        .ok_or(Error::TypeError)?;
-    let (request_send, mut request_recv) = tokio::sync::mpsc::channel::<FlappyRequest>(10);
-    let closure = Closure::wrap(Box::new(move || {
-        info!("OnSubmit");
-        if let Err::<(), Error>(e) = try {
-            request_send.try_send(FlappyRequest::Run(heapless::String::from_str(
-                &*input.value(),
-            )?))?
-        } {
+    let (request_send, request_recv) = channel::<FlappyRequest>(10);
+    let (response_send, mut response_recv) = channel::<FlappyResponse>(10);
+    display.set_on_submit(|value| {
+        if let Err::<(), Error>(e) =
+            try { request_send.try_send(FlappyRequest::Run(heapless::String::from_str(value)?))? }
+        {
             error!("{:?}", e);
         }
-        false
-    }) as Box<dyn FnMut() -> bool>);
-    form.set_onsubmit(Some(&closure.as_ref().unchecked_ref()));
-    closure.forget();
-    let search = window.location().search()?;
-    let search = search.strip_prefix("?").unwrap_or(&search);
-    let params: FlappyQueryParams = serde_qs::from_str(&search)?;
-    let (meta, stream) = WsMeta::connect(&params.ws_url, Some(vec!["mqtt"])).await?;
-    let (read, write) = split_io(stream.into_io());
-    let sender = MqttSender::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
-    let mut receiver = MqttReceiver::new(TokioStreamAdapter(read));
-    match select5(
-        async {
-            let mut arena = ArenaStorage::<1024>::new();
-            loop {
-                let (ack, packet) = receiver.receive(arena.start()).await?;
-                match packet {
-                    Packet::Publish(publish) => {
-                        match serde_json_core::from_slice::<FlappyMessage>(&publish.payload) {
-                            Ok((m, _)) => match m {
-                                FlappyMessage::Request(_) => {}
-                                FlappyMessage::Response(response) => {
-                                    match response {
-                                        FlappyResponse::Start(_) => display.start(),
-                                        FlappyResponse::Stop(s) => display.stop(s.as_slice()),
-                                    }
-                                    // let status = document.get_element_by_id("display").unwrap();
-                                    // status.set_text_content(Some(&format!("{:?}", response)));
-                                }
-                            },
-                            Err(e) => {
-                                error!("Could not parse message: {:?}", e);
-                            }
-                        }
-                    }
-                    _ => {}
+    });
+    spawn_local(async move {
+        let mut response = FlappyResponse::Stop(heapless::Vec::new());
+        loop {
+            match select(response_recv.recv(), display.handle_response(response)).await {
+                Either::First(None) => return,
+                Either::First(Some(new)) => response = new,
+                Either::Second(x) => {
+                    error!("{:?}", x.into_err());
+                    return;
                 }
-                sender.acknowledge(ack)?;
             }
-            Ok::<!, Error>(unreachable!())
-        },
-        async {
-            sender.send_acks().await?;
-            Ok::<!, Error>(unreachable!())
-        },
-        async {
-            let disconnect = sender.wait_disconnect().await?;
-            Err(Error::Disconnect(disconnect))
-        },
-        async {
-            sleep(KEEPALIVE as i32 * 1000).await;
-            loop {
-                let mut timer = pin!(sleep(KEEPALIVE as i32 * 1000));
-                match select(&mut timer, sender.ping()).await {
-                    Either::First(()) => return Err(Error::DeadlineExceeded),
-                    Either::Second(p) => p?,
-                }
-                timer.await
-            }
-            Ok::<!, Error>(unreachable!())
-        },
-        async {
-            let client_id = "flappy_web";
-            info!(
-                "Connecting to broker with client_id '{}' and username '{}'",
-                client_id, params.username
-            );
-            sender
-                .connect(&ConnectRequest {
-                    client_id,
-                    username: Some(&params.username),
-                    password: Some(&params.password),
-                    keepalive: 0,
-                })
-                .await?;
-            info!("Connected to broker");
-            info!("Subscribing to {}", params.topic);
-            sender.subscribe(&params.topic).await?;
-            info!("Subscribed");
-            while let Some(next) = request_recv.recv().await {
-                info!("Publishing {:?}", next);
-                sender
-                    .publish(&PublishRequest {
-                        qos: Qos::AtMostOnce,
-                        topic: &params.topic,
-                        payload: &serde_json_core::to_vec::<_, 1024>(&FlappyMessage::Request(
-                            next,
-                        ))?,
-                    })
-                    .await?;
-                info!("Published");
-            }
-            Ok::<!, Error>(unreachable!())
-        },
-    )
-    .await
-    {
-        Either5::First(x) => x?,
-        Either5::Second(x) => x?,
-        Either5::Third(x) => x?,
-        Either5::Fourth(x) => x?,
-        Either5::Fifth(x) => x?,
-    }
+        }
+    });
+    run_mqtt(request_recv, response_send).await?;
     Ok(())
 }
 

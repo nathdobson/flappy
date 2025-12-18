@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::product::PRODUCT_NAME;
 use arena::ArenaStorage;
 use core::cell::Cell;
 use core::fmt;
@@ -277,11 +276,11 @@ impl MqttModule {
                 self.status.signal(MqttStatus::MqttConnect);
                 info!(
                     "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
-                    PRODUCT_NAME, settings.username
+                    proto::PRODUCT_NAME, settings.username
                 );
                 sender
                     .connect(&ConnectRequest {
-                        client_id: PRODUCT_NAME,
+                        client_id: proto::PRODUCT_NAME,
                         username: Some(&settings.username),
                         password: Some(&settings.password),
                         keepalive: 0,

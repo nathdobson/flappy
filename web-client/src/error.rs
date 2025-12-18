@@ -2,7 +2,7 @@ use heapless::CapacityError;
 use io_adapter::tokio::TokioErrorAdapter;
 use mqtt::error::ProtocolError;
 use mqtt::proto::ReasonCode;
-use tokio::sync::mpsc::error::TrySendError;
+use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsValue;
 
 #[derive(Debug)]
@@ -20,6 +20,7 @@ pub enum Error {
     CapacityError(CapacityError),
     TrySendError,
     Disconnect(ReasonCode),
+    SendError,
 }
 
 impl From<JsValue> for Error {
@@ -76,8 +77,14 @@ impl From<CapacityError> for Error {
     }
 }
 
-impl<T> From<TrySendError<T>> for Error{
+impl<T> From<TrySendError<T>> for Error {
     fn from(value: TrySendError<T>) -> Self {
         Error::TrySendError
+    }
+}
+
+impl<T> From<SendError<T>> for Error {
+    fn from(value: SendError<T>) -> Self {
+        Error::SendError
     }
 }

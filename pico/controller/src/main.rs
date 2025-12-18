@@ -51,6 +51,10 @@ mod wifi;
 mod wifi_proto;
 mod display_proto;
 mod cli;
+mod usb_reset;
+mod usb_config;
+mod usb;
+mod usb_serial;
 
 extern crate alloc;
 

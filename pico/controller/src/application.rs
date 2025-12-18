@@ -245,7 +245,8 @@ impl Application {
                         .map(|i| LETTERS[*i].try_into().unwrap_or(" ".try_into().unwrap()))
                         .collect();
                     #[cfg(feature = "radio")]
-                    self.mqtt.send(proto::FlappyResponse::Start(glyph_strs.clone()));
+                    self.mqtt
+                        .send(proto::FlappyResponse::Start(glyph_strs.clone()));
                     #[cfg(not(feature = "display"))]
                     Timer::after_millis(1000).await;
                     #[cfg(feature = "display")]
@@ -280,22 +281,23 @@ impl Application {
         }
     }
     async fn handle_commands(&'static self) {
+        let usb_serial = self.runtime.usb.usb_serial;
         loop {
-            let command = self.runtime.commands().receive().await;
+            let command = usb_serial.commands().receive().await;
             let Ok(command) = str::from_utf8(&command) else {
-                self.runtime
+                usb_serial
                     .write_feedback_line(format_args!("Command is not valid utf-8"))
                     .await;
                 continue;
             };
-            self.runtime
+            usb_serial
                 .write_feedback_line(format_args!(">{}", command))
                 .await;
             let command = Command::parse(command);
             let command = match command {
                 Ok(command) => command,
                 Err(e) => {
-                    self.runtime
+                    usb_serial
                         .write_feedback_line(format_args!("Bad command: {}", e))
                         .await;
                     continue;
@@ -305,10 +307,11 @@ impl Application {
         }
     }
     async fn handle_command(&'static self, command: Command<'_>) {
+        let usb_serial = self.runtime.usb.usb_serial;
         match command {
             Command::CalibrateRead => {
                 let calibration = self.state.borrow().display.calibration.clone();
-                self.runtime
+                usb_serial
                     .write_feedback_line(format_args!("calibration = {:?}", calibration))
                     .await;
             }
@@ -321,7 +324,7 @@ impl Application {
                     .get(index)
                     .cloned()
                     .unwrap_or(0);
-                self.runtime
+                usb_serial
                     .write_feedback_line(format_args!("calibration = {}", calibration))
                     .await;
             }
@@ -332,7 +335,7 @@ impl Application {
                     if let Err(_) = calibration.resize(index + 1, 0) {
                         let cap = calibration.capacity();
                         mem::drop(state);
-                        self.runtime
+                        usb_serial
                             .write_feedback_line(format_args!(
                                 "Index {} out of bounds {}",
                                 index, cap
@@ -352,12 +355,12 @@ impl Application {
                     error!("{MODULE} failed to update settings in flash {}", e);
                 }
                 mem::drop(state);
-                self.runtime
+                usb_serial
                     .write_feedback_line(format_args!("calibration = {}", calibration))
                     .await;
             }
             Command::Help => {
-                self.runtime
+                usb_serial
                     .write_feedback_line(format_args!(
                         "commands: help, display, calibrate, wifi, mqtt"
                     ))
@@ -369,7 +372,7 @@ impl Application {
             }
             Command::WifiRead => {
                 let settings = self.state.borrow().wifi.clone();
-                self.runtime
+                usb_serial
                     .write_feedback_line(format_args!("WiFi settings: {:?}", settings))
                     .await;
             }
@@ -387,7 +390,7 @@ impl Application {
                     }
                 } {
                     mem::drop(state);
-                    self.runtime
+                    usb_serial
                         .write_feedback_line(format_args!("Bad input: {}", e))
                         .await;
                     return;
@@ -401,7 +404,7 @@ impl Application {
             }
             Command::MqttRead => {
                 let settings = self.state.borrow().mqtt.clone();
-                self.runtime
+                usb_serial
                     .write_feedback_line(format_args!("MQTT settings: {:?}", settings))
                     .await;
             }
@@ -428,7 +431,7 @@ impl Application {
                     }
                 } {
                     mem::drop(state);
-                    self.runtime
+                    usb_serial
                         .write_feedback_line(format_args!("Bad input: {}", e))
                         .await;
                     return;

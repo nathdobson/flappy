@@ -66,7 +66,7 @@ impl BleModule {
         let stack: &MyStack = make_static!(trouble_host::new(controller, resources));
         let mut host = stack.build();
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
-            name: product::PRODUCT_NAME,
+            name: proto::PRODUCT_NAME,
             appearance: &appearance::domestic_appliance::COFFEE_MAKER,
         }))?;
         let module: &BleModule = make_static!(BleModule {
@@ -140,7 +140,7 @@ impl BleModule {
                 AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
                 AdStructure::ServiceUuids16(&[[0x0f, 0x18]]),
                 AdStructure::ServiceUuids128(&[service_uuid]),
-                AdStructure::CompleteLocalName(product::PRODUCT_NAME.as_bytes()),
+                AdStructure::CompleteLocalName(proto::PRODUCT_NAME.as_bytes()),
             ],
             &mut advertiser_data[..],
         )?;
