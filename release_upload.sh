@@ -14,7 +14,14 @@ cp models/simplified/inner.3mf release/model-inner.3mf
 cp models/simplified/outer.3mf release/model-outer.3mf
 cp firmware/target/thumbv8m.main-none-eabihf/release/controller release/firmware.elf
 cp setup/target/aarch64-apple-darwin/release/setup release/setup-aarch64-apple-darwin
+cp setup/target/aarch64-unknown-linux-gnu/release/setup release/setup-aarch64-unknown-linux-gnu
+cp setup/target/aarch64-unknown-linux-musl/release/setup release/setup-aarch64-unknown-linux-musl
+cp setup/target/i686-pc-windows-gnu/release/setup.exe release/setup-i686-pc-windows-gnu.exe
+cp setup/target/i686-unknown-linux-gnu/release/setup release/setup-i686-unknown-linux-gnu
+cp setup/target/x86_64-pc-windows-gnu/release/setup.exe release/setup-x86_64-pc-windows-gnu.exe
+cp setup/target/x86_64-unknown-linux-gnu/release/setup release/setup-x86_64-unknown-linux-gnu
 cp setup/target/x86_64-apple-darwin/release/setup release/setup-x86_64-apple-darwin
+cp setup/target/x86_64-unknown-linux-musl/release/setup release/setup-x86_64-unknown-linux-musl
 cp web-client/web-client.zip release
 # The order of assets listed of the website depends on upload order, so upload one file at a time
 ls release | xargs -n 1 -I{} gh release upload --clobber $VERSION release/{}
