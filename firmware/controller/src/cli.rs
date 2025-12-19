@@ -28,13 +28,13 @@ pub enum MqttField {
 
 #[derive(Debug)]
 pub enum Command<'a> {
-    WifiRead,
-    WifiWrite(WifiField, &'a str),
-    MqttRead,
-    MqttWrite(MqttField, &'a str),
-    CalibrateRead,
-    CalibrateReadOne(usize),
-    CalibrateWriteOne(usize, Adjustment, usize),
+    // WifiRead,
+    // WifiWrite(WifiField, &'a str),
+    // MqttRead,
+    // MqttWrite(MqttField, &'a str),
+    // CalibrateRead,
+    // CalibrateReadOne(usize),
+    // CalibrateWriteOne(usize, Adjustment, usize),
     Help,
     Display(&'a str),
     Test,
@@ -71,10 +71,10 @@ impl<'a> Command<'a> {
             .ok_or::<CommandError>("no command given".into())?;
         match kind {
             "help" => Self::parse_help(input),
-            "calibrate" => Self::parse_calibrate(input),
+            // "calibrate" => Self::parse_calibrate(input),
             "display" => Self::parse_display(input),
-            "wifi" => Self::parse_wifi(input),
-            "mqtt" => Self::parse_mqtt(input),
+            // "wifi" => Self::parse_wifi(input),
+            // "mqtt" => Self::parse_mqtt(input),
             "test" => Self::parse_test(input),
             _ => Err(format_args!("unknown command '{}'", kind).into()),
         }
@@ -87,73 +87,73 @@ impl<'a> Command<'a> {
         Ok(Command::Help)
     }
 
-    fn parse_calibrate(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
-        let index = match input.next() {
-            None => return Ok(Command::CalibrateRead),
-            Some(index) => index,
-        };
-        let index = match index.parse::<usize>() {
-            Ok(index) => index,
-            Err(e) => return Err(format_args!("Cannot parse index '{}': {}", index, e).into()),
-        };
-        let value = match input.next() {
-            None => return Ok(Command::CalibrateReadOne(index)),
-            Some(value) => value,
-        };
-        let (adj, value) = if let Some(add) = value.strip_prefix("+") {
-            (Adjustment::Add, add)
-        } else if let Some(sub) = value.strip_prefix("-") {
-            (Adjustment::Sub, sub)
-        } else {
-            (Adjustment::Set, value)
-        };
-        let value = match value.parse::<usize>() {
-            Ok(index) => index,
-            Err(e) => return Err(format_args!("Cannot parse value '{}': {}", value, e).into()),
-        };
-        Ok(Command::CalibrateWriteOne(index, adj, value))
-    }
+    // fn parse_calibrate(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
+    //     let index = match input.next() {
+    //         None => return Ok(Command::CalibrateRead),
+    //         Some(index) => index,
+    //     };
+    //     let index = match index.parse::<usize>() {
+    //         Ok(index) => index,
+    //         Err(e) => return Err(format_args!("Cannot parse index '{}': {}", index, e).into()),
+    //     };
+    //     let value = match input.next() {
+    //         None => return Ok(Command::CalibrateReadOne(index)),
+    //         Some(value) => value,
+    //     };
+    //     let (adj, value) = if let Some(add) = value.strip_prefix("+") {
+    //         (Adjustment::Add, add)
+    //     } else if let Some(sub) = value.strip_prefix("-") {
+    //         (Adjustment::Sub, sub)
+    //     } else {
+    //         (Adjustment::Set, value)
+    //     };
+    //     let value = match value.parse::<usize>() {
+    //         Ok(index) => index,
+    //         Err(e) => return Err(format_args!("Cannot parse value '{}': {}", value, e).into()),
+    //     };
+    //     Ok(Command::CalibrateWriteOne(index, adj, value))
+    // }
 
     fn parse_display(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
         Ok(Command::Display(input.remainder().unwrap_or("")))
     }
 
-    fn parse_wifi(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
-        let field = match input.next() {
-            None => return Ok(Command::WifiRead),
-            Some(field) => field,
-        };
-        let field = match field {
-            "ssid" => WifiField::Ssid,
-            "password" => WifiField::Password,
-            _ => return Err(format_args!("Unrecognized field {}", field).into()),
-        };
-        let value = match input.next() {
-            None => return Err(format_args!("Missing value").into()),
-            Some(value) => value,
-        };
-        Ok(Command::WifiWrite(field, value))
-    }
+    // fn parse_wifi(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
+    //     let field = match input.next() {
+    //         None => return Ok(Command::WifiRead),
+    //         Some(field) => field,
+    //     };
+    //     let field = match field {
+    //         "ssid" => WifiField::Ssid,
+    //         "password" => WifiField::Password,
+    //         _ => return Err(format_args!("Unrecognized field {}", field).into()),
+    //     };
+    //     let value = match input.next() {
+    //         None => return Err(format_args!("Missing value").into()),
+    //         Some(value) => value,
+    //     };
+    //     Ok(Command::WifiWrite(field, value))
+    // }
 
-    fn parse_mqtt(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
-        let field = match input.next() {
-            None => return Ok(Command::MqttRead),
-            Some(field) => field,
-        };
-        let field = match field {
-            "hostname" => MqttField::Hostname,
-            "port" => MqttField::Port,
-            "username" => MqttField::Username,
-            "password" => MqttField::Password,
-            "topic" => MqttField::Topic,
-            _ => return Err(format_args!("Unrecognized field {}", field).into()),
-        };
-        let value = match input.next() {
-            None => return Err(format_args!("Missing value").into()),
-            Some(value) => value,
-        };
-        Ok(Command::MqttWrite(field, value))
-    }
+    // fn parse_mqtt(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
+    //     let field = match input.next() {
+    //         None => return Ok(Command::MqttRead),
+    //         Some(field) => field,
+    //     };
+    //     let field = match field {
+    //         "hostname" => MqttField::Hostname,
+    //         "port" => MqttField::Port,
+    //         "username" => MqttField::Username,
+    //         "password" => MqttField::Password,
+    //         "topic" => MqttField::Topic,
+    //         _ => return Err(format_args!("Unrecognized field {}", field).into()),
+    //     };
+    //     let value = match input.next() {
+    //         None => return Err(format_args!("Missing value").into()),
+    //         Some(value) => value,
+    //     };
+    //     Ok(Command::MqttWrite(field, value))
+    // }
     fn parse_test(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
         Ok(Command::Test)
     }

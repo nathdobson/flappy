@@ -21,8 +21,7 @@ use embassy_futures::select::{select, select4, select5, Either, Either4, Either5
 use io_adapter::split::split_io;
 use io_adapter::tokio::TokioStreamAdapter;
 use log::{error, info, warn};
-use proto::MAX_GLYPH_BYTES;
-use proto::{FlappyMessage, FlappyRequest, FlappyResponse};
+use proto::display::{DisplayMessage, DisplayRequest, DisplayResponse, MAX_GLYPH_BYTES};
 use serde::{Deserialize, Serialize};
 use std::future::pending;
 use std::ops::Add;
@@ -112,9 +111,9 @@ impl Display {
             .set_onsubmit(Some(&closure.as_ref().unchecked_ref()));
         closure.forget();
     }
-    pub async fn handle_response(&self, resp: FlappyResponse) -> Result<!, Error> {
+    pub async fn handle_response(&self, resp: DisplayResponse) -> Result<!, Error> {
         match resp {
-            FlappyResponse::Start(_) => {
+            DisplayResponse::Start(_) => {
                 for step in 0.. {
                     for inner in &self.inners {
                         inner.set_text_content(Some(&format!(
@@ -125,7 +124,7 @@ impl Display {
                     sleep(100).await;
                 }
             }
-            FlappyResponse::Stop(text) => {
+            DisplayResponse::Stop(text) => {
                 for (index, inner) in self.inners.iter().enumerate() {
                     inner.set_text_content(Some(text.get(index).map_or(" ", |x| &**x)));
                 }
@@ -137,17 +136,17 @@ impl Display {
 
 async fn main() -> Result<(), Error> {
     let display = Display::new()?;
-    let (request_send, request_recv) = channel::<FlappyRequest>(10);
-    let (response_send, mut response_recv) = channel::<FlappyResponse>(10);
+    let (request_send, request_recv) = channel::<DisplayRequest>(10);
+    let (response_send, mut response_recv) = channel::<DisplayResponse>(10);
     display.set_on_submit(|value| {
         if let Err::<(), Error>(e) =
-            try { request_send.try_send(FlappyRequest::Run(heapless::String::from_str(value)?))? }
+            try { request_send.try_send(DisplayRequest::Run(heapless::String::from_str(value)?))? }
         {
             error!("{:?}", e);
         }
     });
     spawn_local(async move {
-        let mut response = FlappyResponse::Stop(heapless::Vec::new());
+        let mut response = DisplayResponse::Stop(heapless::Vec::new());
         loop {
             match select(response_recv.recv(), display.handle_response(response)).await {
                 Either::First(None) => return,

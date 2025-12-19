@@ -8,11 +8,9 @@ use embassy_rp::dma::AnyChannel;
 use embassy_rp::flash::{Async, ERASE_SIZE, Flash};
 use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, FLASH};
 use log::{error, info};
+use proto::setup::{AppSettings, WriteSettingsError};
 use serde::{Deserialize, Serialize};
 use static_cell::make_static;
-use crate::flash_proto::FlashSettings;
-use crate::mqtt_proto::MqttSettings;
-use crate::wifi_proto::WifiSettings;
 
 const MODULE: &'static str = "[FLASH]";
 const ADDR_OFFSET: u32 = 0x310000;
@@ -23,7 +21,6 @@ pub struct FlashPeripherals {
     pub FLASH: Peri<'static, FLASH>,
     pub DMA_CH1: Peri<'static, DMA_CH1>,
 }
-
 
 #[repr(C, align(8))]
 struct FlashFile([u8; ERASE_SIZE]);
@@ -43,35 +40,37 @@ impl FlashModule {
 }
 
 impl FlashModule {
-    pub async fn load(&self) -> Result<FlashSettings, Error> {
+    pub async fn load(&self) -> Result<AppSettings, Error> {
         let mut buf = FlashFile([0; ERASE_SIZE]);
+        let mut tmp = [0; ERASE_SIZE];
         self.flash
             .borrow_mut()
             .read(ADDR_OFFSET, &mut buf.0)
             .await?;
         yield_now().await;
-        match serde_json_core::from_slice::<FlashSettings>(&buf.0) {
+        match serde_json_core::from_slice_escaped::<AppSettings>(&buf.0, &mut tmp) {
             Ok((state, _)) => Ok(state),
             Err(x) => {
                 error!("{MODULE} Failed to deserialize state {:?}", x);
-                Ok(FlashSettings::default())
+                Ok(AppSettings::default())
             }
         }
     }
-    pub fn save(&self, state: &FlashSettings) -> Result<(), Error> {
-        let mut data = serde_json_core::to_vec::<_, ERASE_SIZE>(&state)?;
+    pub fn save(&self, state: &AppSettings) -> Result<(), WriteSettingsError> {
+        let mut data = serde_json_core::to_vec::<_, ERASE_SIZE>(&state)
+            .map_err(|_| WriteSettingsError::SerdeError)?;
         while data.len() < data.capacity() {
             data.push(b' ').unwrap();
         }
         let data = FlashFile(data.into_array().unwrap());
-        info!("Erasing");
         self.flash
             .borrow_mut()
-            .blocking_erase(ADDR_OFFSET, ADDR_OFFSET + ERASE_SIZE as u32)?;
-        // info!("writing {:?}", data.0);
+            .blocking_erase(ADDR_OFFSET, ADDR_OFFSET + ERASE_SIZE as u32)
+            .map_err(|_| WriteSettingsError::FlashError)?;
         self.flash
             .borrow_mut()
-            .blocking_write(ADDR_OFFSET, &data.0)?;
+            .blocking_write(ADDR_OFFSET, &data.0)
+            .map_err(|_| WriteSettingsError::FlashError)?;
         Ok(())
     }
 }

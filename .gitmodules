@@ -16,3 +16,6 @@
 [submodule "submodules/patina-rs"]
 	path = submodules/patina-rs
 	url = https://github.com/nathdobson/patina-rs.git
+[submodule "submodules/serde-json-core"]
+	path = submodules/serde-json-core
+	url = https://github.com/nathdobson/serde-json-core.git

@@ -23,7 +23,7 @@ use embassy_usb::driver::{EndpointError, EndpointIn, EndpointOut};
 use embassy_usb::{Builder, Config, UsbDevice};
 use heapless::{String, Vec};
 use log::{Level, Log, Metadata, Record, error, info, set_logger, set_max_level};
-use proto::CUSTOM_CLASS_ID;
+use proto::setup::CUSTOM_CLASS_ID;
 use static_cell::make_static;
 
 const MODULE: &'static str = "[RUN  ]";

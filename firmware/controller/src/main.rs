@@ -26,35 +26,34 @@ mod application;
 mod ble;
 #[cfg(feature = "radio")]
 mod ble_gatt;
+mod cli;
 #[cfg(feature = "display")]
 mod display;
+mod display_proto;
 #[cfg(feature = "display")]
 mod driver;
 mod error;
 mod executor;
 #[cfg(feature = "flash")]
 mod flash;
-mod flash_proto;
 mod global_alloc;
 #[cfg(feature = "radio")]
 mod led;
 #[cfg(feature = "radio")]
 mod mqtt;
-mod mqtt_proto;
 mod peripherals;
 mod product;
 #[cfg(feature = "radio")]
 mod radio;
 mod runtime;
+mod usb;
+mod usb_reset;
+mod usb_serial;
+#[cfg(feature = "setup")]
+mod usb_setup;
 #[cfg(feature = "radio")]
 mod wifi;
-mod wifi_proto;
-mod display_proto;
-mod cli;
-mod usb_reset;
-mod usb_config;
-mod usb;
-mod usb_serial;
+mod settings_channel;
 
 extern crate alloc;
 

@@ -8,11 +8,11 @@ use log::{error, info};
 use mqtt::proto::{Packet, Qos};
 use mqtt::receiver::MqttReceiver;
 use mqtt::sender::{ConnectRequest, MqttSender, PublishRequest};
-use proto::{FlappyMessage, FlappyRequest, FlappyResponse};
 use serde::{Deserialize, Serialize};
 use std::pin::pin;
 use tokio::sync::mpsc::{Receiver, Sender};
 use ws_stream_wasm::WsMeta;
+use proto::display::{DisplayMessage, DisplayRequest, DisplayResponse};
 
 const KEEPALIVE: u16 = 60;
 
@@ -25,8 +25,8 @@ pub struct FlappyQueryParams {
 }
 
 pub async fn run_mqtt(
-    mut requests: Receiver<FlappyRequest>,
-    responses: Sender<FlappyResponse>,
+    mut requests: Receiver<DisplayRequest>,
+    responses: Sender<DisplayResponse>,
 ) -> Result<!, Error> {
     let search = try_window()?.location().search()?;
     let search = search.strip_prefix("?").unwrap_or(&search);
@@ -42,10 +42,10 @@ pub async fn run_mqtt(
                 let (ack, packet) = receiver.receive(arena.start()).await?;
                 match packet {
                     Packet::Publish(publish) => {
-                        match serde_json_core::from_slice::<FlappyMessage>(&publish.payload) {
+                        match serde_json_core::from_slice::<DisplayMessage>(&publish.payload) {
                             Ok((m, _)) => match m {
-                                FlappyMessage::Request(_) => {}
-                                FlappyMessage::Response(response) => {
+                                DisplayMessage::Request(_) => {}
+                                DisplayMessage::Response(response) => {
                                     responses.send(response).await?;
                                 }
                             },
@@ -104,7 +104,7 @@ pub async fn run_mqtt(
                     .publish(&PublishRequest {
                         qos: Qos::AtMostOnce,
                         topic: &params.topic,
-                        payload: &serde_json_core::to_vec::<_, 1024>(&FlappyMessage::Request(
+                        payload: &serde_json_core::to_vec::<_, 1024>(&DisplayMessage::Request(
                             next,
                         ))?,
                     })

@@ -8,8 +8,8 @@ use embassy_time::Timer;
 use heapless::{String, Vec};
 use log::{error, info};
 use crate::display_proto;
-use crate::display_proto::DisplaySettings;
-use proto::MAX_GLYPHS;
+use proto::setup::DisplaySettings;
+use proto::display::MAX_GLYPHS;
 
 const MODULE: &'static str = "[DISPL]";
 const STEPS_PER_REV: usize = 2048;

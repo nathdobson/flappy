@@ -8,7 +8,7 @@ heapless = {version="0.9.2",features = ["serde"],default-features = false}
 serde = { version = "1.0.228", features = ["derive"] ,default-features = false,optional = true}
 
 [dev-dependencies]
-serde-json-core = "0.6.0"
+serde-json-core = {path="../../submodules/serde-json-core"}
 
 [features]
 serde = ["dep:serde"]

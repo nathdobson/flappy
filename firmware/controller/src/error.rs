@@ -2,6 +2,7 @@ use core::fmt;
 use core::fmt::{Display, Formatter};
 use core::num::ParseIntError;
 use embassy_executor::SpawnError;
+use embassy_usb::driver::EndpointError;
 use heapless::CapacityError;
 
 #[derive(Debug)]
@@ -37,6 +38,8 @@ pub enum Error {
     Disconnected(mqtt::proto::ReasonCode),
     CapacityError,
     ParseIntError,
+    EndpointError(EndpointError),
+    NotEnoughReceivers,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -75,6 +78,8 @@ impl Display for Error {
             Error::Disconnected(r) => write!(f, "Server disconnected {}", r),
             Error::CapacityError => write!(f, "Capacity error"),
             Error::ParseIntError => write!(f, "Parse int error"),
+            Error::EndpointError(e) => write!(f, "Endpoint error: {:?}", e),
+            Error::NotEnoughReceivers => write!(f, "Not enough receivers"),
         }
     }
 }
@@ -201,5 +206,11 @@ impl From<CapacityError> for Error {
 impl From<ParseIntError> for Error {
     fn from(value: ParseIntError) -> Self {
         Error::ParseIntError
+    }
+}
+
+impl From<EndpointError> for Error {
+    fn from(value: EndpointError) -> Self {
+        Error::EndpointError(value)
     }
 }

@@ -1,5 +1,5 @@
 use crate::error::{Error, Result};
-use crate::wifi_proto::{WifiSettings, WifiStatus};
+use crate::radio::RadioModule;
 use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
 use core::str::from_utf8;
@@ -11,45 +11,23 @@ use embassy_net::{Config, Stack, StackResources};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
+use embassy_sync::watch::{DynReceiver, Watch};
 use embassy_time::{Duration, Timer};
 use log::{error, info, warn};
+use proto::setup::{WifiSettings, WifiStatus};
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
-use serde_json_core::from_slice;
 use static_cell::make_static;
 use trouble_host::prelude::HeaplessString;
-use crate::radio::RadioModule;
 
 const MODULE: &'static str = "[WiFi ]";
-struct WifiStatusBuilder {
-    link_up: bool,
-    dhcp_up: bool,
-}
 
 pub struct WifiModule {
     spawner: Spawner,
     stack: Stack<'static>,
     radio: &'static RadioModule,
     settings: Signal<NoopRawMutex, WifiSettings>,
-    status: RefCell<WifiStatusBuilder>,
-}
-
-pub trait WifiHandler {
-    fn handle_wifi_status(&self, status: WifiStatus);
-}
-
-impl WifiStatusBuilder {
-    pub fn build(&self) -> WifiStatus {
-        if self.link_up {
-            if self.dhcp_up {
-                WifiStatus::DhcpUp
-            } else {
-                WifiStatus::LinkUp
-            }
-        } else {
-            WifiStatus::Disconnected
-        }
-    }
+    status: Watch<NoopRawMutex, WifiStatus, 1>,
 }
 
 impl WifiModule {
@@ -78,10 +56,7 @@ impl WifiModule {
             stack,
             radio,
             settings: Signal::new(),
-            status: RefCell::new(WifiStatusBuilder {
-                link_up: false,
-                dhcp_up: false,
-            }),
+            status: Watch::new(),
         });
         spawner.spawn({
             #[embassy_executor::task]
@@ -99,28 +74,6 @@ impl WifiModule {
     pub fn stack(&'static self) -> &'static Stack<'static> {
         &self.stack
     }
-    async fn update_link_status(&'static self, handler: &'static dyn WifiHandler) {
-        loop {
-            self.stack.wait_link_up().await;
-            self.status.borrow_mut().link_up = true;
-            handler.handle_wifi_status(self.status.borrow().build());
-            self.stack.wait_link_down().await;
-            self.status.borrow_mut().link_up = false;
-            handler.handle_wifi_status(self.status.borrow().build());
-        }
-    }
-
-    async fn update_dhcp_status(&'static self, handler: &'static dyn WifiHandler) {
-        loop {
-            self.stack.wait_config_up().await;
-            self.status.borrow_mut().dhcp_up = true;
-            handler.handle_wifi_status(self.status.borrow().build());
-            self.stack.wait_config_down().await;
-            self.status.borrow_mut().dhcp_up = true;
-            handler.handle_wifi_status(self.status.borrow().build());
-        }
-    }
-
     async fn connect_to_wifi(&'static self) {
         let mut settings = self.settings.wait().await;
         loop {
@@ -128,9 +81,20 @@ impl WifiModule {
                 settings = new;
             }
             if settings.ssid.is_empty() {
+                self.status.sender().send(WifiStatus::Unconfigured);
                 info!("{MODULE} WiFi not configured.");
                 settings = self.settings.wait().await;
             }
+            self.status.sender().send_if_modified(|x| {
+                let x = x.get_or_insert_default();
+                match x {
+                    WifiStatus::Unconfigured => {
+                        *x = WifiStatus::Disconnected;
+                        true
+                    }
+                    _ => false,
+                }
+            });
             info!(
                 "{MODULE} Connecting to WiFi network with SSID {:?} and password {:?}",
                 settings.ssid, settings.password
@@ -149,42 +113,12 @@ impl WifiModule {
                 warn!("{MODULE} Failed to join WiFi network ({})", err.status);
                 continue;
             }
+            self.status.sender().send(WifiStatus::Connected);
             info!("{MODULE} Connected to WiFi network");
             settings = self.settings.wait().await;
         }
     }
-
-    pub fn start(&'static self, handler: &'static dyn WifiHandler) -> Result<()> {
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn update_link_status(
-                module: &'static WifiModule,
-                handler: &'static dyn WifiHandler,
-            ) {
-                module.update_link_status(handler).await;
-            }
-            update_link_status(self, handler)?
-        });
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn update_dhcp_status(
-                module: &'static WifiModule,
-                handler: &'static dyn WifiHandler,
-            ) {
-                module.update_dhcp_status(handler).await;
-            }
-            update_dhcp_status(self, handler)?
-        });
-        Ok(())
-    }
-}
-
-impl Display for WifiStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            WifiStatus::Disconnected => write!(f, "Disconnected"),
-            WifiStatus::LinkUp => write!(f, "Waiting for IP Address"),
-            WifiStatus::DhcpUp => write!(f, "Connected"),
-        }
+    pub fn watch_status(&'static self) -> Option<DynReceiver<'static, WifiStatus>> {
+        self.status.dyn_receiver()
     }
 }

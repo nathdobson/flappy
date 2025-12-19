@@ -19,10 +19,11 @@ set -e
 #ssh -t $HOST /usr/local/bin/tio -n $DEVICE
 #reset
 
-DEVICE=/dev/cu.usbmodem2101
+DEVICE=/dev/cu.usbmodem101
 PICOTOOL=/opt/homebrew/bin/picotool
 TIO=/opt/homebrew/bin/tio
 echo uploading...
+diskutil unmount /Volumes/RP2350 || true
 $PICOTOOL load -f -u -v -x -t elf $1
 while [ ! -e $DEVICE ]; do sleep 1; done
 reset

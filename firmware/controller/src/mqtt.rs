@@ -8,6 +8,7 @@ use core::intrinsics::unreachable;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, Either4, Either5, select, select4, select5};
 use embassy_futures::yield_now;
+use embassy_net::dns;
 use embassy_net::dns::DnsQueryType;
 use embassy_net::tcp::{TcpReader, TcpSocket, TcpWriter};
 use embassy_rp::clocks::RoscRng;
@@ -15,6 +16,7 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
+use embassy_sync::watch::{DynReceiver, Watch};
 use embassy_time::{Duration, TimeoutError, Timer, with_timeout};
 use embedded_io_async::{ErrorType, Read, Write};
 use embedded_tls::{
@@ -25,29 +27,30 @@ use log::{error, info, warn};
 use mqtt::proto::{Packet, PublishPacket, Qos};
 use mqtt::receiver::MqttReceiver;
 use mqtt::sender::{ConnectRequest, MqttSender, PublishRequest};
-// use rust_mqtt::client::client::MqttClient;
-// use rust_mqtt::client::client_config::ClientConfig;
-// use rust_mqtt::packet::v5::reason_codes::ReasonCode;
-// use rust_mqtt::utils::rng_generator::CountingRng;
-use proto::{FlappyMessage, FlappyResponse};
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
 use static_cell::make_static;
 use trouble_host::prelude::HeaplessString;
+// use rust_mqtt::client::client::MqttClient;
+// use rust_mqtt::client::client_config::ClientConfig;
+// use rust_mqtt::packet::v5::reason_codes::ReasonCode;
+// use rust_mqtt::utils::rng_generator::CountingRng;
+use proto::display::{DisplayMessage, DisplayResponse};
 
 const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
+const PACKET_SIZE: usize = 1024;
 
-use proto::FlappyRequest;
-use crate::mqtt_proto::{MqttSettings, MqttStatus};
+use proto::display::DisplayRequest;
+use proto::setup::{AppSettings, MqttServiceError, MqttServiceStatus, MqttSettings};
 
 pub struct MqttModule {
     spawner: Spawner,
     stack: &'static embassy_net::Stack<'static>,
     settings: Signal<NoopRawMutex, MqttSettings>,
-    receive: &'static Signal<NoopRawMutex, FlappyRequest>,
-    send: Signal<NoopRawMutex, FlappyResponse>,
-    status: Signal<NoopRawMutex, MqttStatus>,
+    display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
+    display_response: &'static Signal<NoopRawMutex, DisplayResponse>,
+    status: Watch<NoopRawMutex, MqttServiceStatus, 1>,
 }
 
 struct TcpSocketMutex<'a> {
@@ -79,15 +82,16 @@ impl MqttModule {
     pub async fn new(
         spawner: Spawner,
         stack: &'static embassy_net::Stack<'static>,
-        receive: &'static Signal<NoopRawMutex, FlappyRequest>
+        display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
+        display_response: &'static Signal<NoopRawMutex, DisplayResponse>,
     ) -> Result<&'static MqttModule, Error> {
         let module = make_static!(MqttModule {
             spawner,
             stack,
             settings: Signal::new(),
-            receive,
-            send: Signal::new(),
-            status: Signal::new(),
+            display_request,
+            display_response,
+            status: Watch::new(),
         });
         spawner.spawn({
             #[embassy_executor::task]
@@ -102,8 +106,8 @@ impl MqttModule {
 
     async fn run(&'static self) {
         let mut settings = self.settings.wait().await;
-        let mut rx_buffer = make_static!([0; 4096]);
-        let mut tx_buffer = make_static!([0; 4096]);
+        let mut rx_buffer = make_static!([0; PACKET_SIZE]);
+        let mut tx_buffer = make_static!([0; PACKET_SIZE]);
         loop {
             if let Some(s) = self.settings.try_take() {
                 settings = s;
@@ -122,7 +126,7 @@ impl MqttModule {
                 Either::Second(Ok(x)) => match x {},
                 Either::Second(Err(e)) => {
                     error!("{MODULE} error during MQTT loop: {:?}", e);
-                    self.status.signal(MqttStatus::Error(e));
+                    self.status.sender().send(MqttServiceStatus::Error(e));
                     Timer::after(Duration::from_secs(10)).await;
                 }
             }
@@ -135,16 +139,20 @@ impl MqttModule {
 
         rx_buffer: &mut [u8],
         tx_buffer: &mut [u8],
-    ) -> Result<!, Error> {
+    ) -> Result<!, MqttServiceError> {
+        if settings.hostname.is_empty() {
+            self.status.sender().send(MqttServiceStatus::Unconfigured);
+            pending::<!>().await;
+        }
         info!(
             "{MODULE} [WiFi] Connecting to WiFi with MAC {}",
             self.stack.hardware_address()
         );
-        self.status.signal(MqttStatus::WaitingForLink);
+        self.status.sender().send(MqttServiceStatus::WaitingForLink);
         self.stack.wait_link_up().await;
         info!("{MODULE} [WiFi] Connecting to WiFi");
         info!("{MODULE} [WiFi] Waiting for IP address");
-        self.status.signal(MqttStatus::WaitingForDhcp);
+        self.status.sender().send(MqttServiceStatus::WaitingForDhcp);
         self.stack.wait_config_up().await;
         if let Some(config) = self.stack.config_v4() {
             info!(
@@ -182,15 +190,22 @@ impl MqttModule {
         let dns = &*settings.hostname;
         let port = settings.port;
         info!("{MODULE} [DNS] Querying {:?}", dns);
-        self.status.signal(MqttStatus::DnsQuery);
-        let addr = self.stack.dns_query(dns, DnsQueryType::A).await?[0];
+        self.status.sender().send(MqttServiceStatus::DnsQuery);
+        let addr = self
+            .stack
+            .dns_query(dns, DnsQueryType::A)
+            .await
+            .map_err(|e| MqttServiceError::DnsError)?[0];
 
         let remote_endpoint = IpEndpoint { addr, port };
         info!("{MODULE} [DNS] Resolved {}", remote_endpoint);
-        self.status.signal(MqttStatus::TcpConnect);
+        self.status.sender().send(MqttServiceStatus::TcpConnect);
 
         info!("{MODULE} [TCP] Connecting to {}", remote_endpoint);
-        socket.connect(remote_endpoint).await?;
+        socket
+            .connect(remote_endpoint)
+            .await
+            .map_err(|e| MqttServiceError::TcpError)?;
         info!(
             "{MODULE} [TCP] Connected ({} -> {})",
             fmt::from_fn(|f| {
@@ -224,10 +239,11 @@ impl MqttModule {
             &mut write_record_buffer,
         );
 
-        self.status.signal(MqttStatus::TlsConnect);
+        self.status.sender().send(MqttServiceStatus::TlsConnect);
         info!("{MODULE} [TLS] Starting handshake");
         tls.open::<_, NoVerify>(TlsContext::new(&config, &mut RoscRng))
-            .await?;
+            .await
+            .map_err(|e| MqttServiceError::TlsError)?;
         info!("{MODULE} [TLS] Handshake complete");
 
         let mut state = SplitConnectionState::default();
@@ -238,7 +254,10 @@ impl MqttModule {
             async {
                 let mut arena = ArenaStorage::<1024>::new();
                 loop {
-                    let (ack, packet) = receiver.receive(arena.start()).await?;
+                    let (ack, packet) = receiver
+                        .receive(arena.start())
+                        .await
+                        .map_err(|e| MqttServiceError::MqttError)?;
                     match packet {
                         Packet::Publish(publish) => {
                             self.handle_publish(&publish);
@@ -248,35 +267,45 @@ impl MqttModule {
                         }
                         _ => {}
                     }
-                    sender.acknowledge(ack)?;
+                    sender
+                        .acknowledge(ack)
+                        .map_err(|e| MqttServiceError::MqttError)?;
                 }
-                Ok::<!, Error>(unreachable!())
+                Ok::<!, MqttServiceError>(unreachable!())
             },
             async {
-                let disconnect = sender.wait_disconnect().await?;
-                Err::<!, Error>(Error::Disconnected(disconnect))
+                let disconnect = sender
+                    .wait_disconnect()
+                    .await
+                    .map_err(|e| MqttServiceError::MqttError)?;
+                error!("Disconnect: {}", disconnect);
+                Err::<!, MqttServiceError>(MqttServiceError::Disconnected)
             },
             async {
-                sender.send_acks().await?;
-                Ok::<!, Error>(unreachable!())
+                sender
+                    .send_acks()
+                    .await
+                    .map_err(|e| MqttServiceError::MqttError)?;
+                Ok::<!, MqttServiceError>(unreachable!())
             },
             async {
                 Timer::after(Duration::from_secs(KEEPALIVE as u64)).await;
                 loop {
                     let mut timer = Timer::after(Duration::from_secs(KEEPALIVE as u64));
                     match select(&mut timer, sender.ping()).await {
-                        Either::First(()) => return Err(Error::DeadlineExceeded),
-                        Either::Second(p) => p?,
+                        Either::First(()) => return Err(MqttServiceError::DeadlineExceeded),
+                        Either::Second(p) => p.map_err(|_| MqttServiceError::MqttError)?,
                     }
                     timer.await
                 }
-                Ok::<!, Error>(unreachable!())
+                Ok::<!, MqttServiceError>(unreachable!())
             },
             async {
-                self.status.signal(MqttStatus::MqttConnect);
+                self.status.sender().send(MqttServiceStatus::MqttConnect);
                 info!(
                     "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
-                    proto::PRODUCT_NAME, settings.username
+                    proto::PRODUCT_NAME,
+                    settings.username
                 );
                 sender
                     .connect(&ConnectRequest {
@@ -285,19 +314,23 @@ impl MqttModule {
                         password: Some(&settings.password),
                         keepalive: 0,
                     })
-                    .await?;
+                    .await
+                    .map_err(|e| MqttServiceError::MqttError)?;
                 info!("{MODULE} Connected to broker");
 
-                self.status.signal(MqttStatus::MqttSubscribe);
+                self.status.sender().send(MqttServiceStatus::MqttSubscribe);
                 info!("{MODULE} Subscribing to {}", settings.topic);
-                sender.subscribe(&settings.topic).await?;
+                sender
+                    .subscribe(&settings.topic)
+                    .await
+                    .map_err(|e| MqttServiceError::MqttError)?;
                 info!("{MODULE} Subscribed");
 
-                self.status.signal(MqttStatus::Connected);
+                self.status.sender().send(MqttServiceStatus::Connected);
                 loop {
-                    let response = self.send.wait().await;
+                    let response = self.display_response.wait().await;
                     info!("Sending response: {:?}", response);
-                    match serde_json_core::to_vec::<FlappyMessage, 128>(&FlappyMessage::Response(
+                    match serde_json_core::to_vec::<DisplayMessage, 128>(&DisplayMessage::Response(
                         response,
                     )) {
                         Ok(encoded) => {
@@ -306,7 +339,10 @@ impl MqttModule {
                                 topic: &settings.topic,
                                 payload: &encoded,
                             };
-                            sender.publish(&request).await?;
+                            sender
+                                .publish(&request)
+                                .await
+                                .map_err(|e| MqttServiceError::MqttError)?;
                             info!("Sent response");
                         }
                         Err(e) => {
@@ -314,7 +350,7 @@ impl MqttModule {
                         }
                     }
                 }
-                Ok::<!, Error>(unreachable!())
+                Ok::<!, MqttServiceError>(unreachable!())
             },
         )
         .await
@@ -336,7 +372,10 @@ impl MqttModule {
         for lines in message.lines() {
             info!("{MODULE}    {}", lines);
         }
-        let message = match serde_json_core::from_str::<FlappyMessage>(message) {
+        let message = match serde_json_core::from_str_escaped::<DisplayMessage>(
+            message,
+            &mut [0; PACKET_SIZE],
+        ) {
             Ok((message, _)) => message,
             Err(e) => {
                 error!("{MODULE} Failed to parse message: {:?}", e);
@@ -345,35 +384,15 @@ impl MqttModule {
         };
         info!("{MODULE} Parsed: {:?}", message);
         match message {
-            FlappyMessage::Request(req) => self.receive.signal(req),
-            FlappyMessage::Response(_) => {}
+            DisplayMessage::Request(req) => self.display_request.signal(req),
+            DisplayMessage::Response(_) => {}
         }
     }
     pub fn set_settings(&self, settings: MqttSettings) {
         info!("{MODULE} Updating mqtt settings");
         self.settings.signal(settings);
     }
-    pub fn status(&self) -> &Signal<NoopRawMutex, MqttStatus> {
-        &self.status
-    }
-    pub fn send(&self, message: FlappyResponse) {
-        self.send.signal(message);
-    }
-}
-
-impl Display for MqttStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            MqttStatus::Disconnected => write!(f, "Disconnected"),
-            MqttStatus::Connected => write!(f, "Connected"),
-            MqttStatus::WaitingForLink => write!(f, "Waiting for link"),
-            MqttStatus::WaitingForDhcp => write!(f, "Waiting for DHCP"),
-            MqttStatus::DnsQuery => write!(f, "Resolving hostname"),
-            MqttStatus::TcpConnect => write!(f, "Establishing TCP connection"),
-            MqttStatus::TlsConnect => write!(f, "Establishing TLS connection"),
-            MqttStatus::MqttConnect => write!(f, "Establishing MQTT connection"),
-            MqttStatus::MqttSubscribe => write!(f, "Subscribing to topic"),
-            MqttStatus::Error(e) => write!(f, "{}", e),
-        }
+    pub fn watch_status(&'static self) -> Option<DynReceiver<'static, MqttServiceStatus>> {
+        self.status.dyn_receiver()
     }
 }

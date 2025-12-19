@@ -16,6 +16,8 @@ pub const MAX_PACKET_SIZE: u8 = 64;
 pub struct UsbModule {
     pub usb_serial: &'static UsbSerialModule,
     pub usb_reset: &'static UsbResetModule,
+    #[cfg(feature = "setup")]
+    pub usb_setup: &'static crate::usb_setup::UsbSetupModule,
 }
 
 struct RuntimeState {
@@ -34,6 +36,8 @@ impl UsbModule {
         let module = make_static!(UsbModule {
             usb_serial: UsbSerialModule::new(),
             usb_reset: UsbResetModule::new(),
+            #[cfg(feature = "setup")]
+            usb_setup: crate::usb_setup::UsbSetupModule::new(),
         });
         module
     }
@@ -44,7 +48,7 @@ impl UsbModule {
     ) -> Result<(), Error> {
         let driver = Driver::new(peri, UsbIrqs);
 
-        let mut config = Config::new(proto::VENDOR_ID, proto::PRODUCT_ID);
+        let mut config = Config::new(proto::setup::VENDOR_ID, proto::setup::PRODUCT_ID);
         config.manufacturer = Some(proto::PRODUCT_MANUFACTURER);
         config.product = Some(proto::PRODUCT_NAME);
 
@@ -76,6 +80,10 @@ impl UsbModule {
         }
         if let Err(e) = self.usb_reset.start(spawner, &mut builder).await {
             error!("Failed to start USB reset: {:?}", e);
+        }
+        #[cfg(feature = "setup")]
+        if let Err(e) = self.usb_setup.start(spawner, &mut builder).await {
+            error!("Failed to start USB config: {:?}", e);
         }
         let mut device = builder.build();
         spawner.spawn({
