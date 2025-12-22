@@ -1,20 +1,8 @@
-use crate::protocol::ReasonCode;
+use mqtt_core::protocol::ReasonCode;
 use core::alloc::AllocError;
 use core::fmt::{Display, Formatter};
 use heapless::CapacityError;
-
-#[derive(Debug)]
-pub enum ProtocolError {
-    BufferFull,
-    UnexpectedEof,
-    Malformed,
-    Unsupported,
-    ConnectFailed(ReasonCode),
-    ExceededSendConcurrency,
-    BadUtf8,
-    ExceededRecvConcurrency,
-    PublishFailed(ReasonCode),
-}
+use mqtt_core::error::ProtocolError;
 
 #[derive(Debug)]
 pub enum Error<E> {
@@ -22,17 +10,17 @@ pub enum Error<E> {
     ProtocolError(ProtocolError),
 }
 
-impl From<CapacityError> for ProtocolError {
-    fn from(value: CapacityError) -> Self {
-        ProtocolError::BufferFull
-    }
-}
-
-impl From<AllocError> for ProtocolError {
-    fn from(value: AllocError) -> Self {
-        ProtocolError::BufferFull
-    }
-}
+// impl From<CapacityError> for ProtocolError {
+//     fn from(value: CapacityError) -> Self {
+//         ProtocolError::BufferFull
+//     }
+// }
+//
+// impl From<AllocError> for ProtocolError {
+//     fn from(value: AllocError) -> Self {
+//         ProtocolError::BufferFull
+//     }
+// }
 
 impl<E> From<CapacityError> for Error<E> {
     fn from(value: CapacityError) -> Self {
@@ -70,18 +58,3 @@ impl<E: Display> Display for Error<E> {
     }
 }
 
-impl Display for ProtocolError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ProtocolError::BufferFull => write!(f, "buffer full"),
-            ProtocolError::UnexpectedEof => write!(f, "unexpected EOF"),
-            ProtocolError::Malformed => write!(f, "malformed"),
-            ProtocolError::Unsupported => write!(f, "unsupported"),
-            ProtocolError::ConnectFailed(r) => write!(f, "connect failed {}", r),
-            ProtocolError::ExceededSendConcurrency => write!(f, "exceed send concurrency"),
-            ProtocolError::BadUtf8 => write!(f, "bad UTF-8"),
-            ProtocolError::ExceededRecvConcurrency => write!(f, "exceed recv concurrency"),
-            ProtocolError::PublishFailed(r) => write!(f, "publish failed {}", r),
-        }
-    }
-}

@@ -10,6 +10,7 @@ strum = {version="0.27.2",features=["derive"],default-features = false}
 arena = {path="../arena"}
 embassy-sync = "0.7.2"
 webpki-roots = "1.0.4"
+mqtt-core = {path="../mqtt-core"}
 
 [dev-dependencies]
 embassy-futures = "0.1.2"

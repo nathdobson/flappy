@@ -1,12 +1,13 @@
-use crate::error::{Error, ProtocolError};
-use crate::protocol::{
-    ConnackPacket, ConnectPacket, DisconnectPacket, Packet, PacketType, PingrespPacket, Property,
-    PropertyId, PubackPacket, PublishPacket, PubrecPacket, Qos, ReasonCode, SubackPacket,
-};
+use crate::error::Error;
 use arena::Arena;
 use core::marker::PhantomData;
 use embedded_io_async::{BufRead, ErrorType, Read, ReadExactError};
 use heapless::VecView;
+use mqtt_core::error::ProtocolError;
+use mqtt_core::protocol::{
+    ConnackPacket, ConnectPacket, DisconnectPacket, Packet, PacketType, PingrespPacket, Property,
+    PropertyId, PubackPacket, PublishPacket, PubrecPacket, Qos, ReasonCode, SubackPacket,
+};
 
 pub struct MqttReader<R> {
     inner: R,

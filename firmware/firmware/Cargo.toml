@@ -72,6 +72,7 @@ cyw43-firmware = { version = "0.1.0", optional = true, features = [
   "bluetooth",
 ] }
 glyph-render = {path ="../../common/glyph-render", default-features = false}
+mqtt-core = {path="../../common/mqtt-core"}
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }

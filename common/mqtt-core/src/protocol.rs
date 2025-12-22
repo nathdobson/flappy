@@ -83,6 +83,7 @@ pub struct ConnectPacket<'a> {
 }
 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash, FromRepr)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum ReasonCode {
     Success = 0,

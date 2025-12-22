@@ -1,13 +1,14 @@
-use crate::error::{Error, ProtocolError};
-use crate::protocol::{
-    ConnectPacket, Packet, PacketType, PingreqPacket, Property, PropertyId, PubackPacket,
-    PublishPacket, SubscribePacket, WillProperty,
-};
+use crate::error::Error;
 use crate::varint::encode_varint;
 use core::marker::PhantomData;
 use embedded_io_async::Write;
 use heapless::deque::DequeView;
 use heapless::{Deque, Vec, VecView};
+use mqtt_core::error::ProtocolError;
+use mqtt_core::protocol::{
+    ConnectPacket, Packet, PacketType, PingreqPacket, Property, PropertyId, PubackPacket,
+    PublishPacket, SubscribePacket, WillProperty,
+};
 
 const FIXED_HEADER_RESERVATION: usize = 5;
 
@@ -107,7 +108,10 @@ impl<'a> MqttPacketBuilder<'a> {
         Ok(&self.packet[self.packet_start..])
     }
     pub fn write(&mut self, data: &[u8]) -> Result<(), ProtocolError> {
-        Ok(self.packet.extend_from_slice(data)?)
+        Ok(self
+            .packet
+            .extend_from_slice(data)
+            .map_err(|_| ProtocolError::BufferFull)?)
     }
     pub fn write_u8(&mut self, data: u8) -> Result<(), ProtocolError> {
         self.write(&[data])

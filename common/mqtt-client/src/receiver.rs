@@ -1,9 +1,10 @@
-use crate::error::{Error, ProtocolError};
-use crate::protocol::Packet;
+use crate::error::{Error};
+use mqtt_core::protocol::Packet;
 use crate::reader::MqttReader;
 use crate::sender::AckToken;
 use arena::Arena;
 use embedded_io_async::Read;
+use mqtt_core::error::ProtocolError;
 
 pub struct MqttReceiver<R> {
     reader: MqttReader<R>,

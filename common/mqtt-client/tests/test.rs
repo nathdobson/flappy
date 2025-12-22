@@ -9,7 +9,7 @@ use embedded_io_async::{BufRead, ErrorKind, ErrorType, Read, Write};
 use io_adapters::split::split_io;
 use io_adapters::tokio::{TokioErrorAdapter, TokioStreamAdapter};
 use mqtt_client::error::Error;
-use mqtt_client::protocol::Qos;
+use mqtt_core::protocol::Qos;
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use std::env;

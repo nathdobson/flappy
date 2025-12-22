@@ -6,9 +6,10 @@ edition = "2024"
 [dependencies]
 heapless = {version="0.9.2",features = ["serde"],default-features = false}
 serde = { version = "1.0.228", features = ["derive"] ,default-features = false,optional = true}
+mqtt-core = {path="../mqtt-core"}
 
 [dev-dependencies]
 serde-json-core = {path="../../submodules/serde-json-core"}
 
 [features]
-serde = ["dep:serde"]
+serde = ["dep:serde","mqtt-core/serde"]

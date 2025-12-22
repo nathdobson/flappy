@@ -9,7 +9,6 @@
 #![allow(unreachable_code)]
 
 pub mod error;
-pub mod protocol;
 mod reader;
 mod varint;
 mod writer;

@@ -1,6 +1,7 @@
 use crate::display::MAX_GLYPHS;
 use core::fmt::{Display, Formatter};
 use heapless::{String, Vec};
+use crate::error::MqttServiceError;
 
 pub const MAX_SETUP_MESSAGE_SIZE: usize = 1024;
 
@@ -103,17 +104,6 @@ impl Default for WifiStatus {
     fn default() -> Self {
         WifiStatus::Unconfigured
     }
-}
-
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum MqttServiceError {
-    DnsError,
-    TcpError,
-    TlsError,
-    MqttError,
-    Disconnected,
-    DeadlineExceeded,
 }
 
 impl Display for MqttServiceStatus {

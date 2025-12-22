@@ -5,7 +5,7 @@ use embassy_futures::select::{select, select5, Either, Either5};
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
 use log::{error, info};
-use mqtt_client::protocol::{Packet, Qos};
+use mqtt_core::protocol::{Packet, Qos};
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use serde::{Deserialize, Serialize};

@@ -877,6 +877,7 @@ dependencies = [
  "heapless 0.9.2",
  "log",
  "mqtt-client",
+ "mqtt-core",
  "protocol",
  "rand_core 0.9.3",
  "serde",
@@ -1509,8 +1510,17 @@ dependencies = [
  "embassy-sync",
  "embedded-io-async",
  "heapless 0.9.2",
+ "mqtt-core",
  "strum",
  "webpki-roots",
+]
+
+[[package]]
+name = "mqtt-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "strum",
 ]
 
 [[package]]
@@ -1819,6 +1829,7 @@ name = "protocol"
 version = "0.1.0"
 dependencies = [
  "heapless 0.9.2",
+ "mqtt-core",
  "serde",
 ]
 
