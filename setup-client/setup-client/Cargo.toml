@@ -14,8 +14,9 @@ serde-json-core = {path="../../submodules/serde-json-core"}
 jsonformat="2.1.0"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
-btleplug = "0.11.8"
+btleplug = {version="0.11.8",features = ["serde"]}
 uuid = "1.19.0"
+serde-string = {path="../../common/serde-string"}
 
 [target.'cfg(darwin)'.dependencies]
 objc2={version="0.6.1",features=["disable-encoding-assertions"]}

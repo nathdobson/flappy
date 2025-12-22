@@ -1,5 +1,5 @@
 [workspace]
-members = ["arena","mqtt-client","glyph-list","protocol", "io-adapters", "glyph-render", "mqtt-core"]
+members = ["arena","mqtt-client","glyph-list","protocol", "io-adapters", "glyph-render", "mqtt-core", "serde-string"]
 resolver = "3"
 
 

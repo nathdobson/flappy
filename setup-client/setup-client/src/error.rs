@@ -1,6 +1,7 @@
 use itertools::ExactlyOneError;
 use nusb::ActiveConfigurationError;
 use serde_json_core::heapless::CapacityError;
+use serde_string::{StringDeserializerError, StringSerializerError};
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,6 +22,8 @@ pub enum Error {
     MissingNotification,
     CapacityError,
     UuidError(uuid::Error),
+    StringSerError(StringSerializerError),
+    StringDeError(StringDeserializerError),
 }
 
 impl From<nusb::Error> for Error {
@@ -68,5 +71,17 @@ impl From<CapacityError> for Error {
 impl From<uuid::Error> for Error {
     fn from(value: uuid::Error) -> Self {
         Error::UuidError(value)
+    }
+}
+
+impl From<StringSerializerError> for Error {
+    fn from(value: StringSerializerError) -> Self {
+        Error::StringSerError(value)
+    }
+}
+
+impl From<StringDeserializerError> for Error {
+    fn from(value: StringDeserializerError) -> Self {
+        Error::StringDeError(value)
     }
 }

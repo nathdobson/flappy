@@ -123,7 +123,10 @@ async fn main() -> Result<(), Error> {
                 let mut list = BleAddress::list().await?;
                 while let Some(next) = list.next().await {
                     let next = next?;
-                    println!("{}", next);
+                    match next.try_to_string() {
+                        Ok(s) => println!("{}", s),
+                        Err(e) => eprintln!("{:?}", e),
+                    }
                 }
             }
         },

@@ -44,13 +44,6 @@ pub struct BleConnection {
     notifications: Pin<Box<dyn Stream<Item = ValueNotification> + Send>>,
 }
 
-impl Display for BleAddress {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.peripheral.id())?;
-        Ok(())
-    }
-}
-
 async fn get_central() -> Result<Adapter, Error> {
     let manager = Manager::new().await?;
     let adapters = manager.adapters().await?;
@@ -63,6 +56,9 @@ async fn get_central() -> Result<Adapter, Error> {
 }
 
 impl BleAddress {
+    pub fn try_to_string(&self) -> Result<String, Error> {
+        Ok(serde_string::to_string(&self.peripheral.id())?)
+    }
     pub async fn list()
     -> Result<Pin<Box<dyn Stream<Item = Result<BleAddress, Error>> + Send>>, Error> {
         let central = get_central().await?;
@@ -97,12 +93,9 @@ impl BleConnection {
     pub async fn new(address: &str) -> Result<Self, Error> {
         let central = get_central().await?;
         central.start_scan(ScanFilter::default()).await?;
-        tokio::time::sleep(Duration::from_secs(1)).await;
         let peri = loop {
-            match central
-                .peripheral(&PeripheralId::from(Uuid::parse_str(address)?))
-                .await
-            {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            match central.peripheral(&serde_string::from_str(address)?).await {
                 Ok(peri) => break peri,
                 Err(btleplug::Error::DeviceNotFound) => continue,
                 Err(e) => return Err(e.into()),
@@ -184,9 +177,11 @@ impl BleConnection {
                 .await
                 .ok_or(Error::MissingNotification)?;
             if next.uuid == APP_STATUS_UUID {
-                return Ok(
-                    serde_json_core::from_slice_escaped::<AppStatus>(&next.value, &mut tmp)?.0,
-                );
+                return Ok(serde_json_core::from_slice_escaped::<AppStatus>(
+                    &next.value,
+                    &mut tmp,
+                )?
+                .0);
             }
         }
     }

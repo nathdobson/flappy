@@ -399,6 +399,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-string"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -126,6 +126,8 @@ dependencies = [
  "objc2-core-bluetooth",
  "objc2-foundation",
  "once_cell",
+ "serde",
+ "serde_bytes",
  "static_assertions",
  "thiserror 2.0.17",
  "tokio",
@@ -795,6 +797,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-string"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde-xml-rs"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -804,6 +813,15 @@ dependencies = [
  "serde",
  "thiserror 2.0.17",
  "xml",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8437fd221bde2d4ca316d61b90e337e9e702b3820b87d63caa9ba6c02bd06d96"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -841,6 +859,7 @@ dependencies = [
  "protocol",
  "serde",
  "serde-json-core",
+ "serde-string",
  "tokio",
  "uuid",
 ]
@@ -1027,6 +1046,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2e054861b4bd027cd373e18e8d8d8e6548085000e41290d95ce0c373a654b4a"
 dependencies = [
  "js-sys",
+ "serde_core",
  "wasm-bindgen",
 ]
 
