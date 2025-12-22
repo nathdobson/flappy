@@ -1,7 +1,7 @@
 use crate::display::MAX_GLYPHS;
+use crate::error::MqttServiceError;
 use core::fmt::{Display, Formatter};
 use heapless::{String, Vec};
-use crate::error::MqttServiceError;
 
 pub const MAX_SETUP_MESSAGE_SIZE: usize = 1024;
 
@@ -28,6 +28,7 @@ pub enum SetupResponse {
 pub struct MqttSettings {
     pub hostname: String<128>,
     pub port: u16,
+    pub client_id: String<128>,
     pub username: String<128>,
     pub password: String<128>,
     pub topic: String<128>,

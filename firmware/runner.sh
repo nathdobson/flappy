@@ -23,8 +23,6 @@ DEVICE=/dev/cu.usbmodem101
 PICOTOOL=/opt/homebrew/bin/picotool
 TIO=/opt/homebrew/bin/tio
 echo uploading...
-diskutil unmount /Volumes/RP2350 || true
-while [ -e /Volumes/RP2350 ]; do sleep 1; done
 $PICOTOOL load -f -u -v -x -t elf $1
 while [ ! -e $DEVICE ]; do sleep 1; done
 reset

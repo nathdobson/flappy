@@ -437,12 +437,12 @@ impl MqttModule {
                 self.status.sender().send(MqttServiceStatus::MqttConnect);
                 info!(
                     "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
-                    protocol::PRODUCT_NAME,
+                    settings.client_id,
                     settings.username
                 );
                 sender
                     .connect(&ConnectRequest {
-                        client_id: protocol::PRODUCT_NAME,
+                        client_id: &settings.client_id,
                         username: Some(&settings.username),
                         password: Some(&settings.password),
                         keepalive: 0,

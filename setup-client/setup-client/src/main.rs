@@ -180,7 +180,7 @@ async fn main() -> Result<(), Error> {
                         git_dirty,
                         git_head_ref,
                     } = x;
-                    println!("serial: {}", serial);
+                    println!("serial: {:016X}", serial);
                     println!("git_version: {}", git_version);
                     println!("git_dirty: {:?}", git_dirty);
                     println!("git_head_ref: {}", git_head_ref);
