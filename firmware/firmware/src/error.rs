@@ -27,7 +27,7 @@ pub enum Error {
     #[cfg(feature = "radio")]
     DnsError(embassy_net::dns::Error),
     #[cfg(feature = "radio")]
-    MqttError(mqtt::error::ProtocolError),
+    MqttError(mqtt_client::error::ProtocolError),
     #[cfg(feature = "radio")]
     TlsError(embedded_tls::TlsError),
     #[cfg(feature = "radio")]
@@ -37,7 +37,7 @@ pub enum Error {
     #[cfg(feature = "radio")]
     DeadlineExceeded,
     #[cfg(feature = "radio")]
-    Disconnected(mqtt::proto::ReasonCode),
+    Disconnected(mqtt_client::protocol::ReasonCode),
     CapacityError,
     ParseIntError,
     EndpointError(EndpointError),
@@ -184,21 +184,21 @@ impl From<fmt::Error> for Error {
 }
 
 #[cfg(feature = "radio")]
-impl<E> From<mqtt::error::Error<E>> for Error
+impl<E> From<mqtt_client::error::Error<E>> for Error
 where
     Error: From<E>,
 {
-    fn from(value: mqtt::error::Error<E>) -> Self {
+    fn from(value: mqtt_client::error::Error<E>) -> Self {
         match value {
-            mqtt::error::Error::NetworkError(e) => Error::from(e),
-            mqtt::error::Error::ProtocolError(e) => Error::MqttError(e),
+            mqtt_client::error::Error::NetworkError(e) => Error::from(e),
+            mqtt_client::error::Error::ProtocolError(e) => Error::MqttError(e),
         }
     }
 }
 
 #[cfg(feature = "radio")]
-impl From<mqtt::error::ProtocolError> for Error {
-    fn from(value: mqtt::error::ProtocolError) -> Self {
+impl From<mqtt_client::error::ProtocolError> for Error {
+    fn from(value: mqtt_client::error::ProtocolError) -> Self {
         Error::MqttError(value)
     }
 }

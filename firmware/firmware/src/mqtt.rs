@@ -24,9 +24,9 @@ use embedded_tls::{
     TlsContext, TlsError, TlsVerifier, TlsWriter,
 };
 use log::{error, info, warn};
-use mqtt::proto::{Packet, PublishPacket, Qos};
-use mqtt::receiver::MqttReceiver;
-use mqtt::sender::{ConnectRequest, MqttSender, PublishRequest};
+use mqtt_client::protocol::{Packet, PublishPacket, Qos};
+use mqtt_client::receiver::MqttReceiver;
+use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
 use static_cell::make_static;
@@ -35,14 +35,14 @@ use trouble_host::prelude::HeaplessString;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 // use rust_mqtt::utils::rng_generator::CountingRng;
-use proto::display::{DisplayMessage, DisplayResponse};
+use protocol::display::{DisplayMessage, DisplayResponse};
 
 const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
 const PACKET_SIZE: usize = 1024;
 
-use proto::display::DisplayRequest;
-use proto::setup::{AppSettings, MqttServiceError, MqttServiceStatus, MqttSettings};
+use protocol::display::DisplayRequest;
+use protocol::setup::{AppSettings, MqttServiceError, MqttServiceStatus, MqttSettings};
 
 pub struct MqttModule {
     spawner: Spawner,
@@ -304,12 +304,12 @@ impl MqttModule {
                 self.status.sender().send(MqttServiceStatus::MqttConnect);
                 info!(
                     "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
-                    proto::PRODUCT_NAME,
+                    protocol::PRODUCT_NAME,
                     settings.username
                 );
                 sender
                     .connect(&ConnectRequest {
-                        client_id: proto::PRODUCT_NAME,
+                        client_id: protocol::PRODUCT_NAME,
                         username: Some(&settings.username),
                         password: Some(&settings.password),
                         keepalive: 0,

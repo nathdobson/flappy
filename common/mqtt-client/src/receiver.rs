@@ -1,5 +1,5 @@
 use crate::error::{Error, ProtocolError};
-use crate::proto::Packet;
+use crate::protocol::Packet;
 use crate::reader::MqttReader;
 use crate::sender::AckToken;
 use arena::Arena;

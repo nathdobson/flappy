@@ -6,11 +6,12 @@ use core::fmt::{Debug, Display, Formatter};
 use core::time::Duration;
 use embassy_futures::select::{Either4, select4};
 use embedded_io_async::{BufRead, ErrorKind, ErrorType, Read, Write};
-use io_adapter::split::split_io;
-use io_adapter::tokio::{TokioErrorAdapter, TokioStreamAdapter};
-use mqtt::error::Error;
-use mqtt::receiver::MqttReceiver;
-use mqtt::sender::{ConnectRequest, MqttSender, PublishRequest};
+use io_adapters::split::split_io;
+use io_adapters::tokio::{TokioErrorAdapter, TokioStreamAdapter};
+use mqtt_client::error::Error;
+use mqtt_client::protocol::Qos;
+use mqtt_client::receiver::MqttReceiver;
+use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use std::env;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -22,7 +23,6 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::pki_types::ServerName;
 use tokio_rustls::{TlsConnector, rustls};
-use mqtt::proto::Qos;
 
 const KEEPALIVE: u16 = 60;
 

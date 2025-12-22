@@ -1,5 +1,5 @@
 use crate::error::{Error, ProtocolError};
-use crate::proto::{
+use crate::protocol::{
     ConnectPacket, Packet, PacketType, PingreqPacket, Property, PropertyId, PubackPacket,
     PublishPacket, SubscribePacket, WillProperty,
 };

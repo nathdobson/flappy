@@ -32,7 +32,7 @@ patina-bambu = {path="../submodules/patina-rs/patina-bambu"}
 patina-extrude = {path="../submodules/patina-rs/patina-extrude"}
 patina-font = {path="../submodules/patina-rs/patina-font"}
 patina-3mf = {path="../submodules/patina-rs/patina-3mf"}
-letters = {path="../common/letters"}
+glyph-list = {path="../common/glyph-list"}
 
 rusttype = "0.9.3"
 zip = "4.3.0"

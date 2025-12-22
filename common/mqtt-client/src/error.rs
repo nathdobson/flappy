@@ -1,4 +1,4 @@
-use crate::proto::ReasonCode;
+use crate::protocol::ReasonCode;
 use core::alloc::AllocError;
 use core::fmt::{Display, Formatter};
 use heapless::CapacityError;

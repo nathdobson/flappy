@@ -8,7 +8,7 @@ use embassy_rp::dma::AnyChannel;
 use embassy_rp::flash::{Async, ERASE_SIZE, Flash};
 use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, FLASH};
 use log::{error, info};
-use proto::setup::{AppSettings, WriteSettingsError};
+use protocol::setup::{AppSettings, WriteSettingsError};
 use serde::{Deserialize, Serialize};
 use static_cell::make_static;
 

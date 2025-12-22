@@ -1,10 +1,11 @@
 #![no_std]
 
-#[cfg(test)]
-mod test;
+pub mod ble;
 pub mod display;
 pub mod setup;
-pub mod ble;
+#[cfg(test)]
+mod test;
 
 pub const PRODUCT_MANUFACTURER: &str = "Burnt Out Robotics";
 pub const PRODUCT_NAME: &str = "Split Flap Display";
+pub const PRODUCT_SHORT_NAME: &str = "Flap";

@@ -1,7 +1,7 @@
 use core::cell::{Ref, RefCell, RefMut};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::signal::Signal;
-use proto::setup::AppSettings;
+use protocol::setup::AppSettings;
 
 pub struct SettingsChannel {
     settings: RefCell<AppSettings>,

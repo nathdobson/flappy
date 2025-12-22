@@ -13,7 +13,7 @@ use embassy_usb::descriptor::{SynchronizationType, UsageType};
 use embassy_usb::driver::Endpoint as _;
 use embassy_usb::driver::{EndpointError, EndpointIn, EndpointOut, EndpointType};
 use log::{error, info};
-use proto::setup::{
+use protocol::setup::{
     AppStatus, CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, MAX_SETUP_MESSAGE_SIZE, MqttServiceStatus,
     SetupRequest, SetupResponse,
 };

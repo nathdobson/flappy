@@ -4,7 +4,7 @@ use itertools::Itertools;
 use nusb::io::{EndpointRead, EndpointWrite};
 use nusb::transfer::{Bulk, Direction, In, Out};
 use nusb::{Device, DeviceInfo, Endpoint, list_devices};
-use proto::setup::{
+use protocol::setup::{
     AppStatus, CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, MAX_SETUP_MESSAGE_SIZE, SetupRequest,
     SetupResponse,
 };
@@ -29,8 +29,8 @@ impl UsbAddress {
         Ok(list_devices()
             .await?
             .filter(|device| {
-                device.vendor_id() == proto::setup::VENDOR_ID
-                    && device.product_id() == proto::setup::PRODUCT_ID
+                device.vendor_id() == protocol::setup::VENDOR_ID
+                    && device.product_id() == protocol::setup::PRODUCT_ID
             })
             .map(|device| UsbAddress { device })
             .collect())

@@ -1,5 +1,5 @@
 [package]
-name = "termtest"
+name = "glyph-list"
 version = "0.1.0"
 edition = "2024"
 

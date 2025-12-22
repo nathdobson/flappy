@@ -1,7 +1,7 @@
 use heapless::CapacityError;
-use io_adapter::tokio::TokioErrorAdapter;
-use mqtt::error::ProtocolError;
-use mqtt::proto::ReasonCode;
+use io_adapters::tokio::TokioErrorAdapter;
+use mqtt_client::error::ProtocolError;
+use mqtt_client::protocol::ReasonCode;
 use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsValue;
 
@@ -47,14 +47,14 @@ impl From<ws_stream_wasm::WsErr> for Error {
     }
 }
 
-impl<T> From<mqtt::error::Error<T>> for Error
+impl<T> From<mqtt_client::error::Error<T>> for Error
 where
     Error: From<T>,
 {
-    fn from(value: mqtt::error::Error<T>) -> Self {
+    fn from(value: mqtt_client::error::Error<T>) -> Self {
         match value {
-            mqtt::error::Error::NetworkError(e) => Error::from(e),
-            mqtt::error::Error::ProtocolError(e) => Error::MqttError(e),
+            mqtt_client::error::Error::NetworkError(e) => Error::from(e),
+            mqtt_client::error::Error::ProtocolError(e) => Error::MqttError(e),
         }
     }
 }

@@ -14,7 +14,7 @@ use embassy_sync::signal::Signal;
 use embassy_sync::watch::{DynReceiver, Watch};
 use embassy_time::{Duration, Timer};
 use log::{error, info, warn};
-use proto::setup::{WifiSettings, WifiStatus};
+use protocol::setup::{WifiSettings, WifiStatus};
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use static_cell::make_static;

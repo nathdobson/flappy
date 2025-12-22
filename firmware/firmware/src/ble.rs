@@ -14,9 +14,9 @@ use embassy_sync::watch::Watch;
 use embassy_time::{Duration, Timer, WithTimeout};
 use heapless::Vec;
 use log::{error, info, warn};
-use proto::PRODUCT_NAME;
-use proto::ble::SERIAL_MTU;
-use proto::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
+use protocol::ble::SERIAL_MTU;
+use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
+use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
 use static_cell::make_static;
 use trouble_host::advertise::{
     AdStructure, Advertisement, AdvertisementParameters, BR_EDR_NOT_SUPPORTED,
@@ -98,7 +98,7 @@ impl BleModule {
         let stack: &MyStack = make_static!(trouble_host::new(controller, resources));
         let mut host = stack.build();
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
-            name: proto::PRODUCT_NAME,
+            name: protocol::PRODUCT_NAME,
             appearance: &appearance::domestic_appliance::COFFEE_MAKER,
         }))?;
         let module: &BleModule = make_static!(BleModule {
@@ -182,7 +182,7 @@ impl BleModule {
             &[
                 AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
                 AdStructure::ServiceUuids128(&[service_uuid]),
-                AdStructure::CompleteLocalName("Flap".as_bytes()),
+                AdStructure::CompleteLocalName(PRODUCT_SHORT_NAME.as_bytes()),
             ],
             &mut advertiser_data[..],
         )?;

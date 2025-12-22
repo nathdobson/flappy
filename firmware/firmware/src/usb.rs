@@ -48,9 +48,9 @@ impl UsbModule {
     ) -> Result<(), Error> {
         let driver = Driver::new(peri, UsbIrqs);
 
-        let mut config = Config::new(proto::setup::VENDOR_ID, proto::setup::PRODUCT_ID);
-        config.manufacturer = Some(proto::PRODUCT_MANUFACTURER);
-        config.product = Some(proto::PRODUCT_NAME);
+        let mut config = Config::new(protocol::setup::VENDOR_ID, protocol::setup::PRODUCT_ID);
+        config.manufacturer = Some(protocol::PRODUCT_MANUFACTURER);
+        config.product = Some(protocol::PRODUCT_NAME);
 
         config.serial_number = serial_number();
         config.max_power = 100;

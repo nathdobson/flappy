@@ -16,13 +16,13 @@ use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
 use embassy_time::Timer;
+use glyph_list::LETTERS;
 use heapless::{CapacityError, String, Vec, format};
-use letters::LETTERS;
 use log::{error, info};
-use proto::display::MAX_GLYPH_BYTES;
-use proto::display::MAX_GLYPHS;
-use proto::display::{DisplayRequest, DisplayResponse};
-use proto::setup::{
+use protocol::display::MAX_GLYPH_BYTES;
+use protocol::display::MAX_GLYPHS;
+use protocol::display::{DisplayRequest, DisplayResponse};
+use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
 use static_cell::make_static;
@@ -255,7 +255,8 @@ impl Application {
             let request = self.display_request.wait().await;
             match request {
                 DisplayRequest::Run(msg) => {
-                    let mut renderer = render::Renderer::<MAX_GLYPHS>::new(letters::LETTERS);
+                    let mut renderer =
+                        glyph_render::Renderer::<MAX_GLYPHS>::new(glyph_list::LETTERS);
                     if let Err(e) = renderer.append(&msg) {
                         error!("{MODULE} error when rendering message: {:?}", e);
                         continue;
@@ -285,7 +286,7 @@ impl Application {
                     {
                         display.set_settings(self.settings.borrow().display.clone());
 
-                        for index in (0..letters::LETTERS.len()).step_by(3) {
+                        for index in (0..glyph_list::LETTERS.len()).step_by(3) {
                             let mut msg = Vec::<usize, MAX_GLYPHS>::new();
                             for _ in 0..MAX_GLYPHS {
                                 msg.push(index).ok();

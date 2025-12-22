@@ -1,4 +1,4 @@
 use heapless::Vec;
 
-use proto::display::MAX_GLYPHS;
+use protocol::display::MAX_GLYPHS;
 
