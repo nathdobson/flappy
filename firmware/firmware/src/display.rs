@@ -1,21 +1,24 @@
+use crate::display_proto;
 use crate::driver::DriverModule;
 use crate::error::Error;
 use core::cell::RefCell;
 use core::default::Default;
 use core::ops::Index;
 use core::{fmt, iter};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::mutex::Mutex;
 use embassy_time::Timer;
 use heapless::{String, Vec};
 use log::{error, info};
-use crate::display_proto;
-use protocol::setup::DisplaySettings;
 use protocol::display::MAX_GLYPHS;
+use protocol::setup::DisplaySettings;
+use static_cell::make_static;
 
 const MODULE: &'static str = "[DISPL]";
 const STEPS_PER_REV: usize = 2048;
 const FLAP_COUNT: usize = 45;
 
-pub struct DisplayCharacter {
+pub struct DisplayGlyph {
     target: usize,
     position: usize,
 
@@ -26,38 +29,39 @@ pub struct DisplayCharacter {
     charged: bool,
 }
 
-pub struct Display {
+pub struct DisplayModule {
     driver: &'static DriverModule,
-    glyphs: Vec<DisplayCharacter, MAX_GLYPHS>,
+    glyphs: Mutex<NoopRawMutex, Vec<DisplayGlyph, MAX_GLYPHS>>,
     settings: RefCell<DisplaySettings>,
 }
 
-impl Display {
+impl DisplayModule {
     pub fn set_settings(&self, settings: DisplaySettings) {
         *self.settings.borrow_mut() = settings;
     }
 }
 
-impl Display {
-    pub fn new(driver: &'static DriverModule) -> Self {
-        Display {
+impl DisplayModule {
+    pub fn new(driver: &'static DriverModule) -> &'static Self {
+        make_static!(DisplayModule {
             driver,
-            glyphs: Vec::new(),
+            glyphs: Mutex::new(Vec::new()),
             settings: RefCell::new(DisplaySettings::default()),
-        }
+        })
     }
-    pub async fn run(&mut self, message: &[usize]) -> Result<(), Error> {
+    pub async fn run(&self, message: &[usize]) -> Result<(), Error> {
+        let ref mut glyphs = self.glyphs.lock().await;
         self.driver.set_enabled(true);
         let count = self.driver.count()?;
         if count > MAX_GLYPHS {
             return Err("Too many characters in series".into());
         }
-        while self.glyphs.len() > count {
-            self.glyphs.pop();
+        while glyphs.len() > count {
+            glyphs.pop();
         }
-        while self.glyphs.len() < count {
-            self.glyphs
-                .push(DisplayCharacter {
+        while glyphs.len() < count {
+            glyphs
+                .push(DisplayGlyph {
                     target: 0,
                     position: 0,
                     prev_hall: None,
@@ -68,13 +72,13 @@ impl Display {
                 .ok()
                 .unwrap();
         }
-        for char in self.glyphs.iter_mut() {
+        for char in glyphs.iter_mut() {
             char.position = 0;
             char.homed = false;
             char.prev_hall = None;
             char.charged = true;
         }
-        for (index, char) in self.glyphs.iter_mut().enumerate() {
+        for (index, char) in glyphs.iter_mut().enumerate() {
             let calibration = self
                 .settings
                 .borrow()
@@ -82,14 +86,16 @@ impl Display {
                 .get(index)
                 .cloned()
                 .unwrap_or(0);
-            char.target =
-                (calibration + message.get(index).cloned().unwrap_or(0) * STEPS_PER_REV / FLAP_COUNT) % STEPS_PER_REV;
+            info!("Calibration = {}", calibration);
+            char.target = (calibration
+                + message.get(index).cloned().unwrap_or(0) * STEPS_PER_REV / FLAP_COUNT)
+                % STEPS_PER_REV;
             info!("{MODULE} Flap {index} has target {:?}", char.target);
         }
         for step in 0.. {
             let timer = Timer::after_micros(3000);
             let mut done = true;
-            for char in &mut self.glyphs {
+            for char in &mut **glyphs {
                 if !char.charged {
                     continue;
                 }
@@ -107,7 +113,7 @@ impl Display {
                 char.phase = (char.phase + 1) % 4;
             }
             let mut output_buffer = Vec::<u8, { (MAX_GLYPHS + 1) / 2 }>::new();
-            for cs in self.glyphs.chunks_mut(2) {
+            for cs in glyphs.chunks_mut(2) {
                 let mut b = 0;
                 for (i, c) in cs.iter_mut().enumerate() {
                     let mut mask = 0;
@@ -147,15 +153,15 @@ impl Display {
                 if !fault {
                     error!("{MODULE} Motor fault {}", i);
                 }
-                if Some(hall) != self.glyphs[i].prev_hall {
-                    if let Some(prev_hall) = self.glyphs[i].prev_hall {
+                if Some(hall) != glyphs[i].prev_hall {
+                    if let Some(prev_hall) = glyphs[i].prev_hall {
                         if !prev_hall {
-                            self.glyphs[i].homed = true;
-                            info!("{MODULE} Flap {} homed at {:?}", i, self.glyphs[i].position);
-                            self.glyphs[i].position = 0;
+                            glyphs[i].homed = true;
+                            info!("{MODULE} Flap {} homed at {:?}", i, glyphs[i].position);
+                            glyphs[i].position = 0;
                         }
                     }
-                    self.glyphs[i].prev_hall = Some(hall);
+                    glyphs[i].prev_hall = Some(hall);
                 }
             }
             if done {
@@ -164,7 +170,7 @@ impl Display {
             timer.await;
         }
         self.driver.set_enabled(false);
-        for (index, char) in self.glyphs.iter().enumerate() {
+        for (index, char) in glyphs.iter().enumerate() {
             if !char.homed {
                 error!("Failed to home {}", index);
             }

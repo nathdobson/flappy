@@ -1,9 +1,9 @@
 use heapless::CapacityError;
 use io_adapters::tokio::TokioErrorAdapter;
-use mqtt_client::error::ProtocolError;
 use mqtt_core::protocol::ReasonCode;
 use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsValue;
+use mqtt_core::error::ProtocolError;
 
 #[derive(Debug)]
 pub enum Error {

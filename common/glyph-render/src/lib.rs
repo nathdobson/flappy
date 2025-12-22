@@ -27,9 +27,11 @@ impl<'a, const CAP: usize> Renderer<'a, CAP> {
     pub fn append(&mut self, text: &str) -> Result<(), CapacityError> {
         #[cfg(not(feature = "unicode"))]
         for c in text.chars() {
-            self.append_match(|s| {
+            if !self.append_match(|s| {
                 Ok(s.len() == 1 && s.chars().next().unwrap().eq_ignore_ascii_case(&c))
-            })?;
+            })? {
+                self.glyphs.push(0).ok().ok_or(CapacityError::default())?;
+            }
         }
         #[cfg(feature = "unicode")]
         for grapheme in UnicodeSegmentation::graphemes(text, true) {
@@ -142,6 +144,13 @@ fn test_exact() {
         .append("n\u{00F1}n\u{0303}N\u{00D1}N\u{0303}")
         .unwrap();
     assert_eq!(renderer.finish(), [1, 2, 3, 4, 5, 6]);
+}
+
+#[test]
+fn test_unknown() {
+    let mut renderer = Renderer::<10>::new(&[" ", "a", "b", "c", "d"]);
+    renderer.append("!@#$").unwrap();
+    assert_eq!(renderer.finish(), [0, 0, 0, 0]);
 }
 
 #[test]

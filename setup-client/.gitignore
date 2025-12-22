@@ -6,4 +6,4 @@
 .vscode
 .idea
 *.iml
-secret.json
+settings/

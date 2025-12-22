@@ -462,7 +462,6 @@ impl MqttModule {
                 self.status.sender().send(MqttServiceStatus::Connected);
                 loop {
                     let response = self.display_response.wait().await;
-                    info!("Sending response: {:?}", response);
                     match serde_json_core::to_vec::<DisplayMessage, 128>(&DisplayMessage::Response(
                         response,
                     )) {
@@ -473,7 +472,6 @@ impl MqttModule {
                                 payload: &encoded,
                             };
                             sender.publish(&request).await.map_err(convert_mqtt_error)?;
-                            info!("Sent response");
                         }
                         Err(e) => {
                             warn!("Cannot encode response {:?}", e);

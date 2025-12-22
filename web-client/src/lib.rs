@@ -21,7 +21,9 @@ use embassy_futures::select::{select, select4, select5, Either, Either4, Either5
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
 use log::{error, info, warn};
-use protocol::display::{DisplayMessage, DisplayRequest, DisplayResponse, MAX_GLYPH_BYTES};
+use protocol::display::{
+    DisplayMessage, DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPH_BYTES,
+};
 use serde::{Deserialize, Serialize};
 use std::future::pending;
 use std::ops::Add;
@@ -92,16 +94,6 @@ impl Display {
             dots,
         })
     }
-    // pub fn start(&self) {
-    //     for inner in &self.inners {
-    //         inner.set_text_content(Some("⋮"));
-    //     }
-    // }
-    // pub fn stop(&self, text: &[heapless::String<MAX_GLYPH_BYTES>]) {
-    //     for (inner, glyph) in self.inners.iter().zip(text.iter()) {
-    //         inner.set_text_content(Some(glyph));
-    //     }
-    // }
     pub fn set_on_submit(&self, mut on_submit: impl FnMut(&str)) {
         let closure = Closure::wrap(Box::new(move || {
             on_submit(&self.input.value());
@@ -139,8 +131,10 @@ async fn main() -> Result<(), Error> {
     let (request_send, request_recv) = channel::<DisplayRequest>(10);
     let (response_send, mut response_recv) = channel::<DisplayResponse>(10);
     display.set_on_submit(|value| {
+        let mut value: String = value.to_owned();
+        value.truncate(DISPLAY_REQUEST_CAPACITY);
         if let Err::<(), Error>(e) =
-            try { request_send.try_send(DisplayRequest::Run(heapless::String::from_str(value)?))? }
+            try { request_send.try_send(DisplayRequest::Run(heapless::String::from_str(&value)?))? }
         {
             error!("{:?}", e);
         }

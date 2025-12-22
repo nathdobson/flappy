@@ -5,7 +5,6 @@ use embassy_executor::SpawnError;
 use embassy_time::TimeoutError;
 use embassy_usb::driver::EndpointError;
 use heapless::CapacityError;
-use trouble_host::types::gatt_traits::FromGattError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -43,7 +42,7 @@ pub enum Error {
     EndpointError(EndpointError),
     NotEnoughReceivers,
     #[cfg(feature = "radio")]
-    FromGattError(FromGattError),
+    FromGattError(trouble_host::types::gatt_traits::FromGattError),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -221,6 +220,7 @@ impl From<EndpointError> for Error {
     }
 }
 
+#[cfg(feature = "radio")]
 impl From<TimeoutError> for Error {
     fn from(value: TimeoutError) -> Self {
         Error::DeadlineExceeded
@@ -228,8 +228,8 @@ impl From<TimeoutError> for Error {
 }
 
 #[cfg(feature = "radio")]
-impl From<FromGattError> for Error {
-    fn from(value: FromGattError) -> Self {
+impl From<trouble_host::types::gatt_traits::FromGattError> for Error {
+    fn from(value: trouble_host::types::gatt_traits::FromGattError) -> Self {
         Error::FromGattError(value)
     }
 }

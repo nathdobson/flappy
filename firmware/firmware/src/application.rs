@@ -43,6 +43,8 @@ pub struct Application {
     mqtt: &'static crate::mqtt::MqttModule,
     #[cfg(feature = "display")]
     driver: &'static crate::driver::DriverModule,
+    #[cfg(feature = "display")]
+    display: &'static crate::display::DisplayModule,
     display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
     display_response: &'static Signal<NoopRawMutex, DisplayResponse>,
     settings: RefCell<AppSettings>,
@@ -106,6 +108,8 @@ impl Application {
         let driver = crate::driver::DriverModule::new(peri.driver_peri).await?;
         #[cfg(feature = "display")]
         driver.write(&[0; 128])?;
+        #[cfg(feature = "display")]
+        let mut display = crate::display::DisplayModule::new(driver);
         let mut rng = RoscRng;
         #[cfg(feature = "flash")]
         let flash = crate::flash::FlashModule::new(peri.flash_peri).await?;
@@ -145,6 +149,8 @@ impl Application {
             mqtt,
             #[cfg(feature = "display")]
             driver,
+            #[cfg(feature = "display")]
+            display,
             settings: RefCell::new(state.clone()),
             display_request,
             display_response,
@@ -165,6 +171,8 @@ impl Application {
         }
         if old.display != settings.display {
             old.display = settings.display.clone();
+            #[cfg(feature = "display")]
+            self.display.set_settings(settings.display.clone());
         }
         #[cfg(feature = "flash")]
         self.flash.save(settings)?;
@@ -178,6 +186,7 @@ impl Application {
 
             self.wifi.set_settings(state.wifi.clone());
             self.mqtt.set_settings(state.mqtt.clone());
+            self.display.set_settings(state.display.clone());
         }
         Ok(())
     }
@@ -212,7 +221,7 @@ impl Application {
             }
             handle_setup(self)?
         });
-        #[cfg(feature = "setup")]
+        #[cfg(all(feature = "setup", feature = "radio"))]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_setup(application: &'static Application) {
@@ -226,7 +235,7 @@ impl Application {
             }
             handle_setup(self)?
         });
-        #[cfg(feature = "radio")]
+        #[cfg(feature = "setup")]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn update_mqtt_status(application: &'static Application) {
@@ -236,7 +245,7 @@ impl Application {
             }
             update_mqtt_status(self)?
         });
-        #[cfg(feature = "radio")]
+        #[cfg(all(feature = "setup", feature = "radio"))]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn update_wifi_status(application: &'static Application) {
@@ -249,8 +258,6 @@ impl Application {
         Ok(())
     }
     async fn display_message(&'static self) {
-        #[cfg(feature = "display")]
-        let mut display = crate::display::Display::new(self.driver);
         loop {
             let request = self.display_request.wait().await;
             match request {
@@ -259,7 +266,6 @@ impl Application {
                         glyph_render::Renderer::<MAX_GLYPHS>::new(glyph_list::LETTERS);
                     if let Err(e) = renderer.append(&msg) {
                         error!("{MODULE} error when rendering message: {:?}", e);
-                        continue;
                     }
                     let glyphs = renderer.finish();
                     let glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = glyphs
@@ -274,7 +280,7 @@ impl Application {
                     {
                         info!("{MODULE} Displaying {}", msg);
                         // display.set_settings(self.state.borrow().display.clone());
-                        if let Err(e) = display.run(&glyphs).await {
+                        if let Err(e) = self.display.run(&glyphs).await {
                             error!("{MODULE} error when displaying message: {:?}", e);
                         }
                     }
@@ -284,14 +290,12 @@ impl Application {
                 DisplayRequest::Test => {
                     #[cfg(feature = "display")]
                     {
-                        display.set_settings(self.settings.borrow().display.clone());
-
                         for index in (0..glyph_list::LETTERS.len()).step_by(3) {
                             let mut msg = Vec::<usize, MAX_GLYPHS>::new();
                             for _ in 0..MAX_GLYPHS {
                                 msg.push(index).ok();
                             }
-                            if let Err(e) = display.run(&msg).await {
+                            if let Err(e) = self.display.run(&msg).await {
                                 error!("{MODULE} error when displaying message: {:?}", e);
                             }
                             Timer::after_millis(1000).await;
@@ -389,7 +393,7 @@ impl Application {
             responses.send(response).await;
         }
     }
-    #[cfg(feature = "radio")]
+    #[cfg(feature = "setup")]
     async fn update_mqtt_status(&self) -> Result<(), Error> {
         let mut mqtt_status = self.mqtt.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
@@ -397,12 +401,13 @@ impl Application {
             self.runtime.usb.usb_setup.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
             });
+            #[cfg(feature = "radio")]
             self.ble.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
             });
         }
     }
-    #[cfg(feature = "radio")]
+    #[cfg(all(feature = "setup", feature = "radio"))]
     async fn update_wifi_status(&self) -> Result<(), Error> {
         let mut wifi_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
