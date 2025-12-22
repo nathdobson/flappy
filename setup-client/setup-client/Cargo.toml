@@ -1,5 +1,5 @@
 [package]
-name = "setup"
+name = "setup-client"
 version = "0.1.0"
 edition = "2024"
 
@@ -16,5 +16,6 @@ futures-core = "0.3.31"
 futures-util = "0.3.31"
 btleplug = "0.11.8"
 uuid = "1.19.0"
-#bluest = {version="0.6.9",features=["unstable","l2cap"]}
+
+[target.'cfg(darwin)'.dependencies]
 objc2={version="0.6.1",features=["disable-encoding-assertions"]}

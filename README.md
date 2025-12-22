@@ -106,7 +106,7 @@ The repository is divided into several hardware and software components:
 1. Set up an MQTT broker (e.g. with https://www.emqx.com/).
 1. Connect the Pico to a computer with a USB cable. Flash the firmware with:
    `picotool load -f -u -v -x -t elf firmware.elf`
-1. Configure the device by executing the appropriate `setup-*` binary.
+1. Configure the device by executing the appropriate `setup-client-*` binary.
 1. Navigate to https://flappy-7d77d.web.app/www/ or set up custom web hosting by unzipping `web-client.zip` and
    uploading to a web host.
 1. Connect to the display by specifying the parameters for the MQTT broker.

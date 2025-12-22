@@ -1,0 +1,6 @@
+[workspace]
+members = ["setup-client"]
+
+resolver = "3"
+
+[patch.crates-io]
