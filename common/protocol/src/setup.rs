@@ -2,12 +2,26 @@ use crate::display::MAX_GLYPHS;
 use core::fmt::{Display, Formatter};
 use heapless::{String, Vec};
 
-pub const VENDOR_ID: u16 = 0x2E8A;
-pub const PRODUCT_ID: u16 = 0x000A;
-pub const CUSTOM_CLASS_ID: u8 = 0xFF;
-pub const CUSTOM_SUBCLASS_ID: u8 = 0xF1;
-
 pub const MAX_SETUP_MESSAGE_SIZE: usize = 1024;
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SetupRequest {
+    DeviceInfo,
+    ReadSettings,
+    WriteSettings(AppSettings),
+    TouchAppStatus,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SetupResponse {
+    DeviceInfo(DeviceInfo),
+    ReadSettings(AppSettings),
+    WriteSettings(Result<(), WriteSettingsError>),
+    TouchAppStatus,
+}
+
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MqttSettings {
@@ -36,24 +50,6 @@ pub struct AppSettings {
     pub wifi: WifiSettings,
     pub mqtt: MqttSettings,
     pub display: DisplaySettings,
-}
-
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SetupRequest {
-    DeviceInfo,
-    ReadSettings,
-    WriteSettings(AppSettings),
-    TouchAppStatus,
-}
-
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SetupResponse {
-    DeviceInfo(DeviceInfo),
-    ReadSettings(AppSettings),
-    WriteSettings(Result<(), WriteSettingsError>),
-    TouchAppStatus,
 }
 
 #[derive(Debug, Clone)]

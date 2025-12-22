@@ -18,7 +18,7 @@ use jsonformat::Indentation;
 use nusb::list_devices;
 use nusb::transfer::{Bulk, Direction, Out};
 use protocol::setup::{AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
-use protocol::setup::{CUSTOM_CLASS_ID, SetupRequest, SetupResponse};
+use protocol::setup::{SetupRequest, SetupResponse};
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;

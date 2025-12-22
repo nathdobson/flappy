@@ -9,6 +9,7 @@ use embassy_rp::usb::Driver;
 use embassy_rp::{Peri, bind_interrupts};
 use embassy_usb::{Builder, Config, UsbDevice};
 use log::error;
+use protocol::usb::{PRODUCT_ID, VENDOR_ID};
 use static_cell::make_static;
 
 pub const MAX_PACKET_SIZE: u8 = 64;
@@ -48,7 +49,7 @@ impl UsbModule {
     ) -> Result<(), Error> {
         let driver = Driver::new(peri, UsbIrqs);
 
-        let mut config = Config::new(protocol::setup::VENDOR_ID, protocol::setup::PRODUCT_ID);
+        let mut config = Config::new(VENDOR_ID, PRODUCT_ID);
         config.manufacturer = Some(protocol::PRODUCT_MANUFACTURER);
         config.product = Some(protocol::PRODUCT_NAME);
 
