@@ -19,3 +19,9 @@
 [submodule "submodules/serde-json-core"]
 	path = submodules/serde-json-core
 	url = https://github.com/nathdobson/serde-json-core.git
+[submodule "submodules/bluest"]
+	path = submodules/bluest
+	url = https://github.com/nathdobson/bluest.git
+[submodule "submodules/objc2"]
+	path = submodules/objc2
+	url = https://github.com/nathdobson/objc2.git

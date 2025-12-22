@@ -2,28 +2,43 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
-mod display;
+#![feature(try_blocks)]
+mod ble;
 mod error;
+mod usb;
 
-use crate::display::{DisplayInfo, DisplaySetup, DisplayStatus};
+use crate::ble::{BleAddress, BleConnection};
 use crate::error::Error;
-use clap::Parser;
+use crate::usb::{UsbAddress, UsbConnection};
+// use btleplug::api::Peripheral;
+use clap::{Parser, ValueEnum};
+use futures_util::stream::StreamExt;
 use itertools::Itertools;
 use jsonformat::Indentation;
 use nusb::list_devices;
 use nusb::transfer::{Bulk, Direction, Out};
-use proto::setup::MAX_SETUP_MESSAGE_SIZE;
+use proto::setup::{AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
 use proto::setup::{CUSTOM_CLASS_ID, SetupRequest, SetupResponse};
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::io::stdin;
 use tokio::io::{AsyncReadExt, AsyncWrite};
+use uuid::Uuid;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
+    #[clap(long)]
+    transport: Transport,
     #[command(subcommand)]
     subcommand: Subcommand,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+enum Transport {
+    Usb,
+    Ble,
 }
 
 #[derive(Parser, Debug)]
@@ -31,40 +46,63 @@ enum Subcommand {
     List,
     Read(ReadCommand),
     Write(WriteCommand),
+    Info(InfoCommand),
     Monitor(MonitorCommand),
 }
 
 #[derive(Parser, Debug)]
 struct ReadCommand {
-    serial: String,
+    #[clap(long)]
+    address: String,
+    #[clap(long)]
     output: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
 struct WriteCommand {
-    serial: String,
-    input: Option<PathBuf>,
+    #[clap(long)]
+    address: String,
+    #[clap(long)]
+    file: Option<PathBuf>,
 }
 
 #[derive(Parser, Debug)]
 struct MonitorCommand {
-    serial: String,
+    #[clap(long)]
+    address: String,
 }
 
-async fn connect(serial: &str) -> Result<(DisplaySetup, DisplayStatus), Error> {
-    let list = DisplayInfo::list().await?;
-    match list
-        .iter()
-        .filter(|x| x.serial_number() == Some(&serial))
-        .exactly_one()
-    {
-        Ok(found) => Ok(found.connect().await?),
-        Err(mut e) => {
-            if e.next().is_some() {
-                Err(Error::DuplicateSerialNumber)
-            } else {
-                Err(Error::DisplayNotFound)
-            }
+#[derive(Parser, Debug)]
+struct InfoCommand {
+    #[clap(long)]
+    address: String,
+}
+
+enum Connection {
+    Usb(UsbConnection),
+    Ble(BleConnection),
+}
+
+impl Transport {
+    async fn connect(&self, address: &str) -> Result<Connection, Error> {
+        match self {
+            Transport::Usb => Ok(Connection::Usb(UsbConnection::new(address).await?)),
+            Transport::Ble => Ok(Connection::Ble(BleConnection::new(address).await?)),
+        }
+    }
+}
+
+impl Connection {
+    pub async fn invoke(&mut self, request: &SetupRequest) -> Result<SetupResponse, Error> {
+        match self {
+            Connection::Usb(conn) => conn.invoke(request).await,
+            Connection::Ble(conn) => conn.invoke(request).await,
+        }
+    }
+    pub async fn receive(&mut self) -> Result<AppStatus, Error> {
+        match self {
+            Connection::Usb(conn) => conn.receive().await,
+            Connection::Ble(conn) => conn.receive().await,
         }
     }
 }
@@ -73,16 +111,25 @@ async fn connect(serial: &str) -> Result<(DisplaySetup, DisplayStatus), Error> {
 async fn main() -> Result<(), Error> {
     let args = Args::parse();
     match &args.subcommand {
-        Subcommand::List => {
-            for display in DisplayInfo::list().await? {
-                if let Some(serial) = display.serial_number() {
-                    println!("{}", serial);
+        Subcommand::List => match args.transport {
+            Transport::Usb => {
+                for display in UsbAddress::list().await? {
+                    if let Some(serial) = display.serial_number() {
+                        println!("{}", serial);
+                    }
                 }
             }
-        }
+            Transport::Ble => {
+                let mut list = BleAddress::list().await?;
+                while let Some(next) = list.next().await {
+                    let next = next?;
+                    println!("{}", next);
+                }
+            }
+        },
         Subcommand::Read(read) => {
-            let (mut setup, _) = connect(&read.serial).await?;
-            let resp = setup.invoke(&SetupRequest::ReadSettings).await?;
+            let mut conn = args.transport.connect(&read.address).await?;
+            let resp = conn.invoke(&SetupRequest::ReadSettings).await?;
             match resp {
                 SetupResponse::ReadSettings(config) => {
                     let content = serde_json_core::to_string::<_, MAX_SETUP_MESSAGE_SIZE>(&config)?;
@@ -97,8 +144,8 @@ async fn main() -> Result<(), Error> {
             }
         }
         Subcommand::Write(write) => {
-            let (mut setup, _) = connect(&write.serial).await?;
-            let settings = if let Some(input) = &write.input {
+            let mut conn = args.transport.connect(&write.address).await?;
+            let settings = if let Some(input) = &write.file {
                 fs::read(input).await?
             } else {
                 let mut buf = vec![];
@@ -108,13 +155,34 @@ async fn main() -> Result<(), Error> {
             let settings =
                 serde_json_core::from_slice_escaped(&settings, &mut [0u8; MAX_SETUP_MESSAGE_SIZE])?
                     .0;
-            let resp = setup.invoke(&SetupRequest::WriteSettings(settings)).await?;
+            let resp = conn.invoke(&SetupRequest::WriteSettings(settings)).await?;
         }
         Subcommand::Monitor(monitor) => {
-            let (mut setup, mut status) = connect(&monitor.serial).await?;
-            setup.invoke(&SetupRequest::TouchAppStatus).await?;
+            let mut conn = args.transport.connect(&monitor.address).await?;
+            match conn.invoke(&SetupRequest::TouchAppStatus).await? {
+                SetupResponse::TouchAppStatus => {}
+                _ => unreachable!(),
+            }
             loop {
-                println!("status = {:?}", status.receive().await?);
+                println!("status = {:?}", conn.receive().await?);
+            }
+        }
+        Subcommand::Info(info) => {
+            let mut conn = args.transport.connect(&info.address).await?;
+            match conn.invoke(&SetupRequest::DeviceInfo).await? {
+                SetupResponse::DeviceInfo(x) => {
+                    let DeviceInfo {
+                        serial,
+                        git_version,
+                        git_dirty,
+                        git_head_ref,
+                    } = x;
+                    println!("serial: {}", serial);
+                    println!("git_version: {}", git_version);
+                    println!("git_dirty: {:?}", git_dirty);
+                    println!("git_head_ref: {}", git_head_ref);
+                }
+                _ => unreachable!(),
             }
         }
     }

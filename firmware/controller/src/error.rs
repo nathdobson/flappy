@@ -2,8 +2,10 @@ use core::fmt;
 use core::fmt::{Display, Formatter};
 use core::num::ParseIntError;
 use embassy_executor::SpawnError;
+use embassy_time::TimeoutError;
 use embassy_usb::driver::EndpointError;
 use heapless::CapacityError;
+use trouble_host::types::gatt_traits::FromGattError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -40,6 +42,8 @@ pub enum Error {
     ParseIntError,
     EndpointError(EndpointError),
     NotEnoughReceivers,
+    #[cfg(feature = "radio")]
+    FromGattError(FromGattError),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -80,6 +84,8 @@ impl Display for Error {
             Error::ParseIntError => write!(f, "Parse int error"),
             Error::EndpointError(e) => write!(f, "Endpoint error: {:?}", e),
             Error::NotEnoughReceivers => write!(f, "Not enough receivers"),
+            #[cfg(feature = "radio")]
+            Error::FromGattError(e) => write!(f, "Error converting GATT data: {:?}", e),
         }
     }
 }
@@ -212,5 +218,18 @@ impl From<ParseIntError> for Error {
 impl From<EndpointError> for Error {
     fn from(value: EndpointError) -> Self {
         Error::EndpointError(value)
+    }
+}
+
+impl From<TimeoutError> for Error {
+    fn from(value: TimeoutError) -> Self {
+        Error::DeadlineExceeded
+    }
+}
+
+#[cfg(feature = "radio")]
+impl From<FromGattError> for Error {
+    fn from(value: FromGattError) -> Self {
+        Error::FromGattError(value)
     }
 }

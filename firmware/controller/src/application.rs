@@ -1,6 +1,7 @@
 use crate::cli::{Adjustment, Command, MqttField, WifiField};
 use crate::error::Error;
 use crate::peripherals::AppPeripherals;
+use crate::product;
 use crate::product::{built_info, serial_number};
 use crate::runtime::RuntimeModule;
 use core::cell::RefCell;
@@ -9,7 +10,9 @@ use core::mem;
 use core::num::ParseIntError;
 use embassy_executor::Spawner;
 use embassy_rp::clocks::RoscRng;
+use embassy_rp::otp::get_chipid;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::channel::{DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
 use embassy_time::Timer;
@@ -19,7 +22,9 @@ use log::{error, info};
 use proto::display::MAX_GLYPH_BYTES;
 use proto::display::MAX_GLYPHS;
 use proto::display::{DisplayRequest, DisplayResponse};
-use proto::setup::{AppSettings, AppStatus, SetupRequest, SetupResponse, WriteSettingsError};
+use proto::setup::{
+    AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
+};
 use static_cell::make_static;
 
 pub const MODULE: &'static str = "[APP  ]";
@@ -170,15 +175,7 @@ impl Application {
         #[cfg(feature = "radio")]
         {
             let state = self.settings.borrow();
-            let service = &self.ble.server().flappy_service;
-            self.ble.set(&service.wifi_ssid, &state.wifi.ssid);
-            self.ble.set(&service.wifi_password, &state.wifi.password);
-            self.ble.set(&service.mqtt_hostname, &state.mqtt.hostname);
-            self.ble
-                .set(&service.mqtt_port, &format!("\"{}\"", &state.mqtt.port)?);
-            self.ble.set(&service.mqtt_username, &state.mqtt.username);
-            self.ble.set(&service.mqtt_password, &state.mqtt.password);
-            self.ble.set(&service.mqtt_topic, &state.mqtt.topic);
+
             self.wifi.set_settings(state.wifi.clone());
             self.mqtt.set_settings(state.mqtt.clone());
         }
@@ -187,14 +184,6 @@ impl Application {
     fn spawn_tasks(&'static self) -> Result<(), Error> {
         #[cfg(feature = "radio")]
         self.ble.start(self)?;
-        // #[cfg(feature = "radio")]
-        // self.spawner.spawn({
-        //     #[embassy_executor::task]
-        //     async fn notify_mqtt_status(application: &'static Application) {
-        //         application.notify_mqtt_status().await;
-        //     }
-        //     notify_mqtt_status(self)?
-        // });
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn display_message(application: &'static Application) {
@@ -213,7 +202,27 @@ impl Application {
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_setup(application: &'static Application) {
-                application.handle_setup().await;
+                application
+                    .handle_setup(
+                        application.runtime.usb.usb_setup.requests(),
+                        application.runtime.usb.usb_setup.responses(),
+                        true,
+                    )
+                    .await;
+            }
+            handle_setup(self)?
+        });
+        #[cfg(feature = "setup")]
+        self.spawner.spawn({
+            #[embassy_executor::task]
+            async fn handle_setup(application: &'static Application) {
+                application
+                    .handle_setup(
+                        application.ble.requests(),
+                        application.ble.responses(),
+                        false,
+                    )
+                    .await;
             }
             handle_setup(self)?
         });
@@ -239,29 +248,13 @@ impl Application {
         });
         Ok(())
     }
-    // #[cfg(feature = "radio")]
-    // async fn notify_mqtt_status(&'static self) {
-    //     let Some(mut receiver) = self.mqtt.watch_status() else {
-    //         error!("not enough receivers");
-    //         return;
-    //     };
-    //     loop {
-    //         let status = receiver.changed().await;
-    //         self.ble
-    //             .set_and_notify(
-    //                 &self.ble.server().flappy_service.mqtt_status,
-    //                 &format!("{}", status).unwrap_or_default(),
-    //             )
-    //             .await;
-    //     }
-    // }
     async fn display_message(&'static self) {
         #[cfg(feature = "display")]
         let mut display = crate::display::Display::new(self.driver);
         loop {
             let request = self.display_request.wait().await;
             match request {
-                proto::display::DisplayRequest::Run(msg) => {
+                DisplayRequest::Run(msg) => {
                     let mut renderer = render::Renderer::<MAX_GLYPHS>::new(letters::LETTERS);
                     if let Err(e) = renderer.append(&msg) {
                         error!("{MODULE} error when rendering message: {:?}", e);
@@ -287,7 +280,7 @@ impl Application {
                     self.display_response
                         .signal(DisplayResponse::Stop(glyph_strs));
                 }
-                proto::display::DisplayRequest::Test => {
+                DisplayRequest::Test => {
                     #[cfg(feature = "display")]
                     {
                         display.set_settings(self.settings.borrow().display.clone());
@@ -336,56 +329,6 @@ impl Application {
     async fn handle_command(&'static self, command: Command<'_>) {
         let usb_serial = self.runtime.usb.usb_serial;
         match command {
-            // Command::CalibrateRead => {
-            //     let calibration = self.state.borrow().display.calibration.clone();
-            //     usb_serial
-            //         .write_feedback_line(format_args!("calibration = {:?}", calibration))
-            //         .await;
-            // }
-            // Command::CalibrateReadOne(index) => {
-            //     let calibration = self
-            //         .state
-            //         .borrow()
-            //         .display
-            //         .calibration
-            //         .get(index)
-            //         .cloned()
-            //         .unwrap_or(0);
-            //     usb_serial
-            //         .write_feedback_line(format_args!("calibration = {}", calibration))
-            //         .await;
-            // }
-            // Command::CalibrateWriteOne(index, adj, value) => {
-            //     let mut state = self.state.borrow_mut();
-            //     let calibration = &mut state.display.calibration;
-            //     if calibration.len() < index + 1 {
-            //         if let Err(_) = calibration.resize(index + 1, 0) {
-            //             let cap = calibration.capacity();
-            //             mem::drop(state);
-            //             usb_serial
-            //                 .write_feedback_line(format_args!(
-            //                     "Index {} out of bounds {}",
-            //                     index, cap
-            //                 ))
-            //                 .await;
-            //             return;
-            //         }
-            //     }
-            //     match adj {
-            //         Adjustment::Add => calibration[index] += value,
-            //         Adjustment::Sub => calibration[index] -= value,
-            //         Adjustment::Set => calibration[index] = value,
-            //     }
-            //     let calibration = calibration[index];
-            //     #[cfg(feature = "flash")]
-            //     if let Err(e) = self.flash.save(&state) {
-            //         error!("{MODULE} failed to update settings in flash {}", e);
-            //     }
-            //     mem::drop(state);
-            //     usb_serial
-            //         .write_feedback_line(format_args!("calibration = {}", calibration))
-            //         .await;
-            // }
             Command::Help => {
                 usb_serial
                     .write_feedback_line(format_args!("commands: help, display"))
@@ -395,102 +338,54 @@ impl Application {
                 self.display_request
                     .signal(DisplayRequest::Run(msg.try_into().unwrap_or_default()));
             }
-            // Command::WifiRead => {
-            //     let settings = self.state.borrow().wifi.clone();
-            //     usb_serial
-            //         .write_feedback_line(format_args!("WiFi settings: {:?}", settings))
-            //         .await;
-            // }
-            // Command::WifiWrite(param, value) => {
-            //     let mut state = self.state.borrow_mut();
-            //     let settings = &mut state.wifi;
-            //     if let Err::<(), Error>(e) = try {
-            //         match param {
-            //             WifiField::Ssid => {
-            //                 settings.ssid = value.try_into()?;
-            //             }
-            //             WifiField::Password => {
-            //                 settings.password = value.try_into()?;
-            //             }
-            //         }
-            //     } {
-            //         mem::drop(state);
-            //         usb_serial
-            //             .write_feedback_line(format_args!("Bad input: {}", e))
-            //             .await;
-            //         return;
-            //     }
-            //     #[cfg(feature = "flash")]
-            //     if let Err(e) = self.flash.save(&state) {
-            //         error!("{MODULE} failed to update settings in flash {}", e);
-            //     }
-            //     #[cfg(feature = "radio")]
-            //     self.wifi.set_settings(state.wifi.clone());
-            // }
-            // Command::MqttRead => {
-            //     let settings = self.state.borrow().mqtt.clone();
-            //     usb_serial
-            //         .write_feedback_line(format_args!("MQTT settings: {:?}", settings))
-            //         .await;
-            // }
-            // Command::MqttWrite(param, value) => {
-            //     let mut state = self.state.borrow_mut();
-            //     let settings = &mut state.mqtt;
-            //     if let Err::<(), Error>(e) = try {
-            //         match param {
-            //             MqttField::Hostname => {
-            //                 settings.hostname = value.try_into()?;
-            //             }
-            //             MqttField::Port => {
-            //                 settings.port = value.parse()?;
-            //             }
-            //             MqttField::Username => {
-            //                 settings.username = value.try_into()?;
-            //             }
-            //             MqttField::Password => {
-            //                 settings.password = value.try_into()?;
-            //             }
-            //             MqttField::Topic => {
-            //                 settings.topic = value.try_into()?;
-            //             }
-            //         }
-            //     } {
-            //         mem::drop(state);
-            //         usb_serial
-            //             .write_feedback_line(format_args!("Bad input: {}", e))
-            //             .await;
-            //         return;
-            //     }
-            //     #[cfg(feature = "flash")]
-            //     if let Err(e) = self.flash.save(&state) {
-            //         error!("{MODULE} failed to update settings in flash {}", e);
-            //     }
-            //     #[cfg(feature = "radio")]
-            //     self.mqtt.set_settings(state.mqtt.clone());
-            // }
             Command::Test => {
                 self.display_request.signal(DisplayRequest::Test);
             }
         }
     }
     #[cfg(feature = "setup")]
-    async fn handle_setup(&'static self) {
+    async fn handle_setup(
+        &'static self,
+        requests: DynamicReceiver<'static, SetupRequest>,
+        responses: DynamicSender<'static, SetupResponse>,
+        secure: bool,
+    ) {
         loop {
-            let request = self.runtime.usb.usb_setup.receive_request().await;
+            let request = requests.receive().await;
             let response;
             match request {
                 SetupRequest::ReadSettings => {
-                    response = SetupResponse::ReadSettings(self.settings.borrow().clone());
+                    let mut settings = self.settings.borrow().clone();
+                    if !secure {
+                        settings.wifi.password.clear();
+                        settings.mqtt.password.clear();
+                    }
+                    response = SetupResponse::ReadSettings(settings);
                 }
                 SetupRequest::WriteSettings(settings) => {
                     response = SetupResponse::WriteSettings(self.set_settings(&settings));
                 }
                 SetupRequest::TouchAppStatus => {
                     self.runtime.usb.usb_setup.update_status(|x| {});
+                    self.ble.update_status(|x| {});
                     response = SetupResponse::TouchAppStatus;
                 }
+                SetupRequest::DeviceInfo => {
+                    response = SetupResponse::DeviceInfo(DeviceInfo {
+                        serial: get_chipid().ok().unwrap_or(0),
+                        git_version: built_info::GIT_VERSION
+                            .unwrap_or("<unknown>")
+                            .try_into()
+                            .unwrap_or("<overflow>".try_into().unwrap()),
+                        git_dirty: built_info::GIT_DIRTY,
+                        git_head_ref: built_info::GIT_HEAD_REF
+                            .unwrap_or("<unknown>")
+                            .try_into()
+                            .unwrap_or("<overflow>".try_into().unwrap()),
+                    })
+                }
             }
-            self.runtime.usb.usb_setup.send_response(&response).await;
+            responses.send(response).await;
         }
     }
     #[cfg(feature = "radio")]
@@ -501,15 +396,21 @@ impl Application {
             self.runtime.usb.usb_setup.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
             });
+            self.ble.update_status(|status| {
+                status.mqtt_status = mqtt_status.clone();
+            });
         }
     }
     #[cfg(feature = "radio")]
     async fn update_wifi_status(&self) -> Result<(), Error> {
-        let mut mqtt_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
+        let mut wifi_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
-            let mqtt_status = mqtt_status.changed().await;
+            let wifi_status = wifi_status.changed().await;
             self.runtime.usb.usb_setup.update_status(|status| {
-                status.wifi_status = mqtt_status.clone();
+                status.wifi_status = wifi_status.clone();
+            });
+            self.ble.update_status(|status| {
+                status.wifi_status = wifi_status.clone();
             });
         }
     }
@@ -522,6 +423,10 @@ pub async fn main_task(spawner: Spawner, runtime: &'static RuntimeModule, peri: 
         info!(
             "{MODULE} GIT_VERSION: {}",
             built_info::GIT_VERSION.unwrap_or("<unknown>")
+        );
+        info!(
+            "{MODULE} GIT_COMMIT_HASH: {}",
+            built_info::GIT_COMMIT_HASH.unwrap_or("<unknown>")
         );
         info!(
             "{MODULE} GIT_DIRTY: {}",

@@ -5,7 +5,7 @@ use embassy_executor::Spawner;
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::{Driver, Endpoint, In, Out};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::Channel;
+use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::{DynReceiver, DynSender, Watch};
 use embassy_usb::Builder;
@@ -147,10 +147,10 @@ impl UsbSetupModule {
             .sender()
             .send_modify(move |x| f(x.get_or_insert_default()))
     }
-    pub async fn receive_request(&self) -> SetupRequest {
-        self.setup_request.receive().await
+    pub fn requests(&'static self) -> DynamicReceiver<'static, SetupRequest> {
+        self.setup_request.dyn_receiver()
     }
-    pub async fn send_response(&self, response: &SetupResponse) {
-        self.setup_response.send(response.clone()).await
+    pub fn responses(&'static self) -> DynamicSender<'static, SetupResponse> {
+        self.setup_response.dyn_sender()
     }
 }

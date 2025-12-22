@@ -1,4 +1,6 @@
+use crate::Connection;
 use crate::error::Error;
+use itertools::Itertools;
 use nusb::io::{EndpointRead, EndpointWrite};
 use nusb::transfer::{Bulk, Direction, In, Out};
 use nusb::{Device, DeviceInfo, Endpoint, list_devices};
@@ -10,36 +12,33 @@ use std::io::Read;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt};
 
 #[derive(Debug)]
-pub struct DisplayInfo {
+pub struct UsbAddress {
     device: DeviceInfo,
 }
 
-pub struct DisplaySetup {
+pub struct UsbConnection {
     request: EndpointWrite<Bulk>,
     response: EndpointRead<Bulk>,
-}
-
-pub struct DisplayStatus {
     status: EndpointRead<Bulk>,
 }
 
 const BUFFER_SIZE: usize = 64;
 
-impl DisplayInfo {
-    pub async fn list() -> Result<Vec<DisplayInfo>, Error> {
+impl UsbAddress {
+    pub async fn list() -> Result<Vec<UsbAddress>, Error> {
         Ok(list_devices()
             .await?
             .filter(|device| {
                 device.vendor_id() == proto::setup::VENDOR_ID
                     && device.product_id() == proto::setup::PRODUCT_ID
             })
-            .map(|device| DisplayInfo { device })
+            .map(|device| UsbAddress { device })
             .collect())
     }
     pub fn serial_number(&self) -> Option<&str> {
         self.device.serial_number()
     }
-    pub async fn connect(&self) -> Result<(DisplaySetup, DisplayStatus), Error> {
+    pub async fn connect(&self) -> Result<UsbConnection, Error> {
         let dev = self.device.open().await?;
         let config = dev.active_configuration()?;
         for int in config.interfaces() {
@@ -63,7 +62,11 @@ impl DisplayInfo {
                                 ep.next().ok_or(Error::MissingEndpoint)?.address(),
                             )?
                             .reader(BUFFER_SIZE);
-                        return Ok((DisplaySetup { request, response }, DisplayStatus { status }));
+                        return Ok(UsbConnection {
+                            request,
+                            response,
+                            status,
+                        });
                     }
                 }
             }
@@ -72,7 +75,24 @@ impl DisplayInfo {
     }
 }
 
-impl DisplaySetup {
+impl UsbConnection {
+    pub async fn new(address: &str) -> Result<Self, Error> {
+        let list = UsbAddress::list().await?;
+        match list
+            .iter()
+            .filter(|x| x.serial_number() == Some(address))
+            .exactly_one()
+        {
+            Ok(found) => Ok(found.connect().await?),
+            Err(mut e) => {
+                if e.next().is_some() {
+                    Err(Error::DuplicateSerialNumber)
+                } else {
+                    Err(Error::DisplayNotFound)
+                }
+            }
+        }
+    }
     pub async fn invoke(&mut self, req: &SetupRequest) -> Result<SetupResponse, Error> {
         let mut tmp = [0; MAX_SETUP_MESSAGE_SIZE];
         self.request
@@ -86,9 +106,7 @@ impl DisplaySetup {
         let (resp, _) = serde_json_core::from_slice_escaped::<SetupResponse>(&response, &mut tmp)?;
         Ok(resp)
     }
-}
 
-impl DisplayStatus {
     pub async fn receive(&mut self) -> Result<AppStatus, Error> {
         let mut tmp = [0; MAX_SETUP_MESSAGE_SIZE];
         let mut response = vec![];

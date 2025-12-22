@@ -41,6 +41,7 @@ pub struct AppSettings {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SetupRequest {
+    DeviceInfo,
     ReadSettings,
     WriteSettings(AppSettings),
     TouchAppStatus,
@@ -49,9 +50,19 @@ pub enum SetupRequest {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SetupResponse {
+    DeviceInfo(DeviceInfo),
     ReadSettings(AppSettings),
     WriteSettings(Result<(), WriteSettingsError>),
     TouchAppStatus,
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DeviceInfo {
+    pub serial: u64,
+    pub git_version: String<64>,
+    pub git_dirty: Option<bool>,
+    pub git_head_ref: String<64>,
 }
 
 #[derive(Debug, Clone)]

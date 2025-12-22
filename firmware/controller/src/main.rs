@@ -24,8 +24,6 @@ use cortex_m_rt::entry;
 mod application;
 #[cfg(feature = "radio")]
 mod ble;
-#[cfg(feature = "radio")]
-mod ble_gatt;
 mod cli;
 #[cfg(feature = "display")]
 mod display;

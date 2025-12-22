@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use static_cell::make_static;
 
 const MODULE: &'static str = "[FLASH]";
-const ADDR_OFFSET: u32 = 0x310000;
+const ADDR_OFFSET: u32 = 0x3E0000;
 const FLASH_SIZE: usize = 4 * 1024 * 1024;
 
 #[allow(non_snake_case)]
