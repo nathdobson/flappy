@@ -391,8 +391,7 @@ impl MqttModule {
         .map_err(convert_tls_error)?;
         info!("{MODULE} [TLS] Handshake complete");
 
-        // let mut state = SplitConnectionState::default();
-        let (read, write): (_, TlsWriter<_, _>) = tls.split(); //&mut state
+        let (read, write): (_, TlsWriter<_, _>) = tls.split();
         let sender = MqttSender::<_, 1024, 1, 1>::new(write);
         let mut receiver = MqttReceiver::new(read);
         match select5(
