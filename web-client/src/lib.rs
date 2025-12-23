@@ -22,8 +22,10 @@ use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
 use log::{error, info, warn};
 use protocol::display::{
-    DisplayMessage, DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPH_BYTES,
+    DisplayMessage, DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS,
+    MAX_GLYPH_BYTES,
 };
+use protocol::setup::DeviceInfo;
 use serde::{Deserialize, Serialize};
 use std::future::pending;
 use std::ops::Add;
@@ -53,19 +55,14 @@ struct Display {
     dots: Vec<char>,
 }
 
+#[derive(Clone)]
+enum State {
+    Running,
+    Stopped(heapless::Vec<heapless::String<MAX_GLYPH_BYTES>, MAX_GLYPHS>),
+}
+
 impl Display {
     pub fn new() -> Result<Self, Error> {
-        let display: HtmlDivElement = try_get_element_by_id("display")?;
-        let mut inners = vec![];
-        for i in 0..10 {
-            let letter_outer = create_element::<"div">()?;
-            letter_outer.set_class_name("letter-outer");
-            let letter_inner: HtmlDivElement = create_element::<"div">()?;
-            letter_inner.set_class_name("letter-inner");
-            letter_outer.append_child(&letter_inner)?;
-            display.append_child(&letter_outer)?;
-            inners.push(letter_inner);
-        }
         let form: HtmlFormElement = try_get_element_by_id("form")?;
         let input: HtmlInputElement = try_get_element_by_id("content")?;
         let mut dots = vec![];
@@ -90,7 +87,7 @@ impl Display {
         Ok(Display {
             form,
             input,
-            inners,
+            inners: vec![],
             dots,
         })
     }
@@ -103,9 +100,9 @@ impl Display {
             .set_onsubmit(Some(&closure.as_ref().unchecked_ref()));
         closure.forget();
     }
-    pub async fn handle_response(&self, resp: DisplayResponse) -> Result<!, Error> {
+    pub async fn handle_state(&self, resp: State) -> Result<!, Error> {
         match resp {
-            DisplayResponse::Start(_) => {
+            State::Running => {
                 for step in 0.. {
                     for inner in &self.inners {
                         inner.set_text_content(Some(&format!(
@@ -116,7 +113,7 @@ impl Display {
                     sleep(100).await;
                 }
             }
-            DisplayResponse::Stop(text) => {
+            State::Stopped(text) => {
                 for (index, inner) in self.inners.iter().enumerate() {
                     inner.set_text_content(Some(text.get(index).map_or(" ", |x| &**x)));
                 }
@@ -124,12 +121,42 @@ impl Display {
         }
         pending().await
     }
+    pub fn build(&mut self, info: &DeviceInfo) -> Result<(), Error> {
+        info!("DeviceInfo = {:?}", info);
+        let display: HtmlDivElement = try_get_element_by_id("display")?;
+        display
+            .style()
+            .set_property("color", &format!("#{}", info.foreground))?;
+        let mut inners = vec![];
+        for i in 0..info.glyphs {
+            let letter_outer = create_element::<"div">()?;
+            letter_outer.set_class_name("letter-outer");
+            letter_outer
+                .style()
+                .set_property("background", &format!("#{}", info.background))?;
+            let letter_inner: HtmlDivElement = create_element::<"div">()?;
+            letter_inner
+                .style()
+                .set_property("color", &format!("#{}", info.foreground))?;
+            letter_outer
+                .style()
+                .set_property("color", &format!("#{}", info.foreground))?;
+            letter_inner.set_class_name("letter-inner");
+
+            letter_outer.append_child(&letter_inner)?;
+            display.append_child(&letter_outer)?;
+            inners.push(letter_inner);
+        }
+        self.inners = inners;
+        Ok(())
+    }
 }
 
 async fn main() -> Result<(), Error> {
-    let display = Display::new()?;
+    let mut display = Display::new()?;
     let (request_send, request_recv) = channel::<DisplayRequest>(10);
     let (response_send, mut response_recv) = channel::<DisplayResponse>(10);
+    request_send.send(DisplayRequest::DeviceInfo).await?;
     display.set_on_submit(|value| {
         let mut value: String = value.to_owned();
         value.truncate(DISPLAY_REQUEST_CAPACITY);
@@ -140,11 +167,20 @@ async fn main() -> Result<(), Error> {
         }
     });
     spawn_local(async move {
-        let mut response = DisplayResponse::Stop(heapless::Vec::new());
+        let mut state = State::Stopped(heapless::Vec::new());
         loop {
-            match select(response_recv.recv(), display.handle_response(response)).await {
+            match select(response_recv.recv(), display.handle_state(state.clone())).await {
                 Either::First(None) => return,
-                Either::First(Some(new)) => response = new,
+                Either::First(Some(new)) => {
+                    //
+                    match new {
+                        DisplayResponse::Start(_) => state = State::Running,
+                        DisplayResponse::Stop(text) => state = State::Stopped(text),
+                        DisplayResponse::DeviceInfo(info) => {
+                            display.build(&info).unwrap_or_else(|e| error!("{:?}", e))
+                        }
+                    }
+                }
                 Either::Second(x) => {
                     error!("{:?}", x.into_err());
                     return;

@@ -45,6 +45,8 @@ pub struct WifiSettings {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DisplaySettings {
     pub calibration: Vec<usize, MAX_GLYPHS>,
+    pub background: String<6>,
+    pub foreground: String<6>,
 }
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -61,6 +63,9 @@ pub struct DeviceInfo {
     pub git_version: String<64>,
     pub git_dirty: Option<bool>,
     pub git_head_ref: String<64>,
+    pub glyphs: usize,
+    pub background: String<6>,
+    pub foreground: String<6>,
 }
 
 #[derive(Debug, Clone)]

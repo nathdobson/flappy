@@ -179,11 +179,17 @@ async fn main() -> Result<(), Error> {
                         git_version,
                         git_dirty,
                         git_head_ref,
+                        glyphs,
+                        background,
+                        foreground,
                     } = x;
                     println!("serial: {:016X}", serial);
                     println!("git_version: {}", git_version);
                     println!("git_dirty: {:?}", git_dirty);
                     println!("git_head_ref: {}", git_head_ref);
+                    println!("glyphs: {}", glyphs);
+                    println!("background: {}", background);
+                    println!("foreground: {}", foreground);
                 }
                 _ => unreachable!(),
             }

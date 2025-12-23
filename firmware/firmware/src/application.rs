@@ -12,7 +12,7 @@ use embassy_executor::Spawner;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::otp::get_chipid;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::channel::{DynamicReceiver, DynamicSender};
+use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
 use embassy_time::Timer;
@@ -46,7 +46,7 @@ pub struct Application {
     #[cfg(feature = "display")]
     display: &'static crate::display::DisplayModule,
     display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
-    display_response: &'static Signal<NoopRawMutex, DisplayResponse>,
+    display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1>,
     settings: RefCell<AppSettings>,
 }
 
@@ -124,8 +124,8 @@ impl Application {
         let wifi = crate::wifi::WifiModule::new(spawner, radio, net_device, &mut rng).await?;
         let display_request: &'static Signal<NoopRawMutex, DisplayRequest> =
             make_static!(Signal::new());
-        let display_response: &'static Signal<NoopRawMutex, DisplayResponse> =
-            make_static!(Signal::new());
+        let display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1> =
+            make_static!(Channel::new());
         #[cfg(feature = "radio")]
         let mqtt =
             crate::mqtt::MqttModule::new(spawner, &wifi.stack(), display_request, display_response)
@@ -273,7 +273,8 @@ impl Application {
                         .map(|i| LETTERS[*i].try_into().unwrap_or(" ".try_into().unwrap()))
                         .collect();
                     self.display_response
-                        .signal(DisplayResponse::Start(glyph_strs.clone()));
+                        .send(DisplayResponse::Start(glyph_strs.clone()))
+                        .await;
                     #[cfg(not(feature = "display"))]
                     Timer::after_millis(1000).await;
                     #[cfg(feature = "display")]
@@ -285,7 +286,8 @@ impl Application {
                         }
                     }
                     self.display_response
-                        .signal(DisplayResponse::Stop(glyph_strs));
+                        .send(DisplayResponse::Stop(glyph_strs))
+                        .await;
                 }
                 DisplayRequest::Test => {
                     #[cfg(feature = "display")]
@@ -301,6 +303,11 @@ impl Application {
                             Timer::after_millis(1000).await;
                         }
                     }
+                }
+                DisplayRequest::DeviceInfo => {
+                    self.display_response
+                        .send(DisplayResponse::DeviceInfo(self.device_info()))
+                        .await;
                 }
             }
         }
@@ -376,21 +383,27 @@ impl Application {
                     response = SetupResponse::TouchAppStatus;
                 }
                 SetupRequest::DeviceInfo => {
-                    response = SetupResponse::DeviceInfo(DeviceInfo {
-                        serial: get_chipid().ok().unwrap_or(0),
-                        git_version: built_info::GIT_VERSION
-                            .unwrap_or("<unknown>")
-                            .try_into()
-                            .unwrap_or("<overflow>".try_into().unwrap()),
-                        git_dirty: built_info::GIT_DIRTY,
-                        git_head_ref: built_info::GIT_HEAD_REF
-                            .unwrap_or("<unknown>")
-                            .try_into()
-                            .unwrap_or("<overflow>".try_into().unwrap()),
-                    })
+                    response = SetupResponse::DeviceInfo(self.device_info())
                 }
             }
             responses.send(response).await;
+        }
+    }
+    fn device_info(&self) -> DeviceInfo {
+        DeviceInfo {
+            serial: get_chipid().ok().unwrap_or(0),
+            git_version: built_info::GIT_VERSION
+                .unwrap_or("<unknown>")
+                .try_into()
+                .unwrap_or("<overflow>".try_into().unwrap()),
+            git_dirty: built_info::GIT_DIRTY,
+            git_head_ref: built_info::GIT_HEAD_REF
+                .unwrap_or("<unknown>")
+                .try_into()
+                .unwrap_or("<overflow>".try_into().unwrap()),
+            glyphs: self.driver.count().unwrap_or(0),
+            background: self.settings.borrow().display.background.clone(),
+            foreground: self.settings.borrow().display.foreground.clone(),
         }
     }
     #[cfg(feature = "setup")]

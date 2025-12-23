@@ -55,7 +55,7 @@ pub struct MqttModule {
     stack: &'static embassy_net::Stack<'static>,
     settings: Signal<NoopRawMutex, MqttSettings>,
     display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
-    display_response: &'static Signal<NoopRawMutex, DisplayResponse>,
+    display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1>,
     status: Watch<NoopRawMutex, MqttServiceStatus, 1>,
 }
 
@@ -224,7 +224,7 @@ impl MqttModule {
         spawner: Spawner,
         stack: &'static embassy_net::Stack<'static>,
         display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
-        display_response: &'static Signal<NoopRawMutex, DisplayResponse>,
+        display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1>,
     ) -> Result<&'static MqttModule, Error> {
         let module = make_static!(MqttModule {
             spawner,
@@ -437,8 +437,7 @@ impl MqttModule {
                 self.status.sender().send(MqttServiceStatus::MqttConnect);
                 info!(
                     "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
-                    settings.client_id,
-                    settings.username
+                    settings.client_id, settings.username
                 );
                 sender
                     .connect(&ConnectRequest {
@@ -461,8 +460,8 @@ impl MqttModule {
 
                 self.status.sender().send(MqttServiceStatus::Connected);
                 loop {
-                    let response = self.display_response.wait().await;
-                    match serde_json_core::to_vec::<DisplayMessage, 128>(&DisplayMessage::Response(
+                    let response = self.display_response.receive().await;
+                    match serde_json_core::to_vec::<DisplayMessage, PACKET_SIZE>(&DisplayMessage::Response(
                         response,
                     )) {
                         Ok(encoded) => {
