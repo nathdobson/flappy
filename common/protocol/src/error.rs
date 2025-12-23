@@ -117,6 +117,7 @@ pub enum TlsError {
     EncodeError,
     DecodeError,
     Io(EmbeddedIoErrorKind),
+    InvalidPrivateKey,
 }
 
 #[derive(Debug, Clone)]

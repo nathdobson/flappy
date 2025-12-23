@@ -22,8 +22,8 @@ use embedded_io::ErrorKind;
 use embedded_io_async::{ErrorType, Read, Write};
 use embedded_tls::alert::{AlertDescription, AlertLevel};
 use embedded_tls::{
-    Aes128GcmSha256, Certificate, NoVerify, SplitConnectionState, TlsConfig, TlsConnection,
-    TlsContext, TlsError, TlsVerifier, TlsWriter,
+    Aes128GcmSha256, Certificate, NoClock, NoVerify, TlsCipherSuite, TlsConfig, TlsConnection,
+    TlsContext, TlsError, TlsVerifier, TlsWriter, UnsecureProvider,
 };
 use log::{error, info, warn};
 use mqtt_client::receiver::MqttReceiver;
@@ -209,6 +209,7 @@ fn convert_tls_error(error: TlsError) -> MqttServiceError {
         TlsError::EncodeError => protocol::error::TlsError::EncodeError,
         TlsError::DecodeError => protocol::error::TlsError::DecodeError,
         TlsError::Io(error) => protocol::error::TlsError::Io(convert_tls_io_error(error)),
+        TlsError::InvalidPrivateKey => protocol::error::TlsError::InvalidPrivateKey,
     })
 }
 
@@ -371,7 +372,7 @@ impl MqttModule {
 
         let mut read_record_buffer = [0; 16384];
         let mut write_record_buffer = [0; 16384];
-        let config = TlsConfig::<Aes128GcmSha256>::new()
+        let config = TlsConfig::new()
             .with_server_name(dns)
             .enable_rsa_signatures();
         let mut tls = TlsConnection::new(
@@ -382,13 +383,16 @@ impl MqttModule {
 
         self.status.sender().send(MqttServiceStatus::TlsConnect);
         info!("{MODULE} [TLS] Starting handshake");
-        tls.open::<_, NoVerify>(TlsContext::new(&config, &mut RoscRng))
-            .await
-            .map_err(convert_tls_error)?;
+        tls.open::<_>(TlsContext::new(
+            &config,
+            UnsecureProvider::<(), _>::new::<Aes128GcmSha256>(&mut RoscRng),
+        ))
+        .await
+        .map_err(convert_tls_error)?;
         info!("{MODULE} [TLS] Handshake complete");
 
-        let mut state = SplitConnectionState::default();
-        let (read, write): (_, TlsWriter<_, _, _>) = tls.split_with(&mut state);
+        // let mut state = SplitConnectionState::default();
+        let (read, write): (_, TlsWriter<_, _>) = tls.split(); //&mut state
         let sender = MqttSender::<_, 1024, 1, 1>::new(write);
         let mut receiver = MqttReceiver::new(read);
         match select5(
@@ -461,9 +465,9 @@ impl MqttModule {
                 self.status.sender().send(MqttServiceStatus::Connected);
                 loop {
                     let response = self.display_response.receive().await;
-                    match serde_json_core::to_vec::<DisplayMessage, PACKET_SIZE>(&DisplayMessage::Response(
-                        response,
-                    )) {
+                    match serde_json_core::to_vec::<DisplayMessage, PACKET_SIZE>(
+                        &DisplayMessage::Response(response),
+                    ) {
                         Ok(encoded) => {
                             let request = PublishRequest {
                                 qos: Qos::AtMostOnce,

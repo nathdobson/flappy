@@ -53,12 +53,12 @@ serde-json-core = { path="../../submodules/serde-json-core", optional = true }
 rand_core = "0.9.3"
 uuid = { version = "1.18.1", default-features = false, optional = true }
 heapless = { version = "0.9.2" }
-embedded-tls = { version = "0.17.0", default-features = false, optional = true }
+embedded-tls = { git="https://github.com/drogue-iot/embedded-tls.git",rev="51ddb1b518038f53b9abab0bf91744dd99505209", default-features = false, optional = true, features = [] }
 embedded-hal = "1.0.0"
 glyph-list = { path = "../../common/glyph-list" }
 smoltcp = { version = "0.12.0", default-features = false, optional = true }
-embedded-io-async = { version = "0.6.1", optional = true }
-embedded-io = { version = "0.6.1", optional = true }
+embedded-io-async = { version = "0.7.0", optional = true }
+embedded-io = { version = "0.7.1", optional = true }
 mqtt-client = { path = "../../common/mqtt-client", optional = true }
 arena = { path = "../../common/arena", optional = true }
 protocol = { path = "../../common/protocol" }

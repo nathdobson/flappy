@@ -110,7 +110,7 @@ impl WifiModule {
                 )
                 .await
             {
-                warn!("{MODULE} Failed to join WiFi network ({})", err.status);
+                warn!("{MODULE} Failed to join WiFi network ({:?})", err);
                 continue;
             }
             self.status.sender().send(WifiStatus::Connected);

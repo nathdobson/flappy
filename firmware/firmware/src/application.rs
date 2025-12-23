@@ -186,6 +186,7 @@ impl Application {
 
             self.wifi.set_settings(state.wifi.clone());
             self.mqtt.set_settings(state.mqtt.clone());
+            #[cfg(feature = "display")]
             self.display.set_settings(state.display.clone());
         }
         Ok(())
@@ -401,7 +402,10 @@ impl Application {
                 .unwrap_or("<unknown>")
                 .try_into()
                 .unwrap_or("<overflow>".try_into().unwrap()),
+            #[cfg(feature = "display")]
             glyphs: self.driver.count().unwrap_or(0),
+            #[cfg(not(feature = "display"))]
+            glyphs: 0,
             background: self.settings.borrow().display.background.clone(),
             foreground: self.settings.borrow().display.foreground.clone(),
         }

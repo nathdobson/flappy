@@ -19,3 +19,6 @@
 [submodule "submodules/serde-json-core"]
 	path = submodules/serde-json-core
 	url = https://github.com/nathdobson/serde-json-core.git
+[submodule "submodules/ring"]
+	path = submodules/ring
+	url = https://github.com/nathdobson/ring.git
