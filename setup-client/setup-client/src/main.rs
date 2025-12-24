@@ -12,12 +12,13 @@ use crate::error::Error;
 use crate::usb::{UsbAddress, UsbConnection};
 // use btleplug::api::Peripheral;
 use clap::{Parser, ValueEnum};
+use crypto_fetch::fetch_certificate_list_sha256;
 use futures_util::stream::StreamExt;
 use itertools::Itertools;
 use jsonformat::Indentation;
 use nusb::list_devices;
 use nusb::transfer::{Bulk, Direction, Out};
-use protocol::setup::{AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
+use protocol::setup::{AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
 use protocol::setup::{SetupRequest, SetupResponse};
 use std::path::PathBuf;
 use tokio::fs;
@@ -155,9 +156,16 @@ async fn main() -> Result<(), Error> {
                 stdin().read_to_end(&mut buf).await?;
                 buf
             };
-            let settings =
+            let mut settings: AppSettings =
                 serde_json_core::from_slice_escaped(&settings, &mut [0u8; MAX_SETUP_MESSAGE_SIZE])?
                     .0;
+            settings.mqtt.certificate_list_sha256 = Some(
+                fetch_certificate_list_sha256(
+                    settings.mqtt.hostname.to_string(),
+                    settings.mqtt.port,
+                )
+                .await?,
+            );
             let resp = conn.invoke(&SetupRequest::WriteSettings(settings)).await?;
         }
         Subcommand::Monitor(monitor) => {

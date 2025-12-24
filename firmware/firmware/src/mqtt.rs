@@ -1,5 +1,4 @@
 use crate::error::Error;
-use arena::ArenaStorage;
 use core::cell::Cell;
 use core::fmt;
 use core::fmt::{Display, Formatter, write};
@@ -32,7 +31,8 @@ use mqtt_core::protocol::{Packet, PublishPacket, Qos};
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
 use static_cell::make_static;
-use trouble_host::prelude::HeaplessString;
+use arena::ArenaStorage;
+use crypto_verifier::FixedProvider;
 // use rust_mqtt::client::client::MqttClient;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
@@ -43,12 +43,14 @@ const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
 const PACKET_SIZE: usize = 1024;
 
+use crate::product::serial_number;
 use protocol::display::DisplayRequest;
 use protocol::error::{
     DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel,
     TlsParseError,
 };
 use protocol::setup::{AppSettings, MqttServiceStatus, MqttSettings};
+use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
 
 pub struct MqttModule {
     spawner: Spawner,
@@ -375,7 +377,7 @@ impl MqttModule {
         let config = TlsConfig::new()
             .with_server_name(dns)
             .enable_rsa_signatures();
-        let mut tls = TlsConnection::new(
+        let mut tls = TlsConnection::<_, Aes128GcmSha256>::new(
             &socket_mutex,
             &mut read_record_buffer,
             &mut write_record_buffer,
@@ -385,7 +387,12 @@ impl MqttModule {
         info!("{MODULE} [TLS] Starting handshake");
         tls.open::<_>(TlsContext::new(
             &config,
-            UnsecureProvider::<(), _>::new::<Aes128GcmSha256>(&mut RoscRng),
+            FixedProvider::<_, _>::new(
+                RoscRng,
+                settings
+                    .certificate_list_sha256
+                    .ok_or(MqttServiceError::NoCertificateListSha256)?,
+            ),
         ))
         .await
         .map_err(convert_tls_error)?;
@@ -439,12 +446,15 @@ impl MqttModule {
             async {
                 self.status.sender().send(MqttServiceStatus::MqttConnect);
                 info!(
-                    "{MODULE} Connecting to broker with client_id '{}' and username '{}'",
+                    "{MODULE} Connecting to broker with client_id '{:?}' and username '{}'",
                     settings.client_id, settings.username
                 );
                 sender
                     .connect(&ConnectRequest {
-                        client_id: &settings.client_id,
+                        client_id: settings
+                            .client_id
+                            .as_deref()
+                            .unwrap_or(serial_number().unwrap_or(PRODUCT_NAME)),
                         username: Some(&settings.username),
                         password: Some(&settings.password),
                         keepalive: 0,

@@ -22,3 +22,6 @@
 [submodule "submodules/ring"]
 	path = submodules/ring
 	url = https://github.com/nathdobson/ring.git
+[submodule "submodules/embedded-tls"]
+	path = submodules/embedded-tls
+	url = https://github.com/nathdobson/embedded-tls.git

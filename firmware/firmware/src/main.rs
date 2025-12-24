@@ -17,12 +17,13 @@
 #![feature(str_split_remainder)]
 #![allow(unreachable_code)]
 
+use core::future::pending;
 use crate::application::main_task;
 use crate::peripherals::build_peripherals;
 use crate::runtime::RuntimeModule;
 use cortex_m_rt::entry;
 mod application;
-#[cfg(feature = "radio")]
+#[cfg(feature = "ble")]
 mod ble;
 mod cli;
 #[cfg(feature = "display")]
@@ -37,21 +38,24 @@ mod flash;
 mod global_alloc;
 #[cfg(feature = "radio")]
 mod led;
-#[cfg(feature = "radio")]
+#[cfg(feature = "mqtt")]
 mod mqtt;
 mod peripherals;
 mod product;
 #[cfg(feature = "radio")]
 mod radio;
 mod runtime;
+mod settings_channel;
+#[cfg(feature = "usb")]
 mod usb;
+#[cfg(feature = "usb")]
 mod usb_reset;
+#[cfg(feature = "usb")]
 mod usb_serial;
 #[cfg(feature = "setup")]
 mod usb_setup;
-#[cfg(feature = "radio")]
+#[cfg(feature = "wifi")]
 mod wifi;
-mod settings_channel;
 
 extern crate alloc;
 
@@ -63,3 +67,4 @@ unsafe fn main() -> ! {
         move |spawner, runtime| spawner.spawn(main_task(spawner, runtime, ap).unwrap()),
     );
 }
+

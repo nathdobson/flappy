@@ -1,16 +1,15 @@
-
-
-use cyw43::bluetooth::BtDriver;
+use core::mem;
 use cyw43::{Control, NetDriver};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
-use embassy_rp::pio::Pio;
-use embassy_rp::{bind_interrupts, Peri};
+use embassy_rp::pio::{Common, Pio};
+use embassy_rp::{Peri, bind_interrupts};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
+use embassy_time::{Duration, Timer};
 use log::info;
 use static_cell::make_static;
 
@@ -34,13 +33,21 @@ pub struct RadioPeripherals {
 
 pub struct RadioModule {
     pub control: Mutex<NoopRawMutex, Control<'static>>,
+    // Dropping this causes weird stuff to happen
+    common: Common<'static, PIO0>,
+}
+
+pub struct RadioDrivers {
+    pub module: &'static RadioModule,
+    #[cfg(feature = "ble")]
+    pub ble: cyw43::bluetooth::BtDriver<'static>,
+    #[cfg(feature = "wifi")]
+    pub net: NetDriver<'static>,
 }
 
 impl RadioModule {
-    pub async fn new(
-        spawner: Spawner,
-        peri: RadioPeripherals,
-    ) -> Result<(&'static RadioModule, BtDriver<'static>, NetDriver<'static>), SpawnError> {
+    pub async fn new(spawner: Spawner, peri: RadioPeripherals) -> Result<RadioDrivers, SpawnError> {
+        let module: &'static mut RadioModule;
         info!("[Radio] Connecting to CYW43 radio transceiver over PIO-SPI");
         let pwr = Output::new(peri.PIN_23, Level::Low);
         let cs = Output::new(peri.PIN_25, Level::High);
@@ -59,6 +66,7 @@ impl RadioModule {
         );
 
         let state = make_static!(cyw43::State::new());
+        #[cfg(feature = "ble")]
         let (net_device, bt_device, mut control, runner) = cyw43::new_with_bluetooth(
             state,
             pwr,
@@ -66,7 +74,10 @@ impl RadioModule {
             cyw43_firmware::CYW43_43439A0,
             cyw43_firmware::CYW43_43439A0_BTFW,
         )
-            .await;
+        .await;
+        #[cfg(not(feature = "ble"))]
+        let (net_device, mut control, runner) =
+            cyw43::new(state, pwr, spi, cyw43_firmware::CYW43_43439A0).await;
 
         spawner.spawn({
             #[embassy_executor::task]
@@ -78,14 +89,20 @@ impl RadioModule {
 
         control.init(cyw43_firmware::CYW43_43439A0_CLM).await;
         control
-            .set_power_management(cyw43::PowerManagementMode::None)
+            .set_power_management(cyw43::PowerManagementMode::PowerSave)
             .await;
-        let module = make_static!(RadioModule {
+
+        module = make_static!(RadioModule {
             control: Mutex::new(control),
+            common: pio.common,
         });
         info!("{MODULE} Connected");
-        yield_now().await;
-
-        Ok((module, bt_device, net_device))
+        Ok(RadioDrivers {
+            module,
+            #[cfg(feature = "ble")]
+            ble: bt_device,
+            #[cfg(feature = "wifi")]
+            net: net_device,
+        })
     }
 }

@@ -24,6 +24,7 @@ pub enum Error {
     UuidError(uuid::Error),
     StringSerError(StringSerializerError),
     StringDeError(StringDeserializerError),
+    CryptoFetchError(crypto_fetch::Error),
 }
 
 impl From<nusb::Error> for Error {
@@ -83,5 +84,11 @@ impl From<StringSerializerError> for Error {
 impl From<StringDeserializerError> for Error {
     fn from(value: StringDeserializerError) -> Self {
         Error::StringDeError(value)
+    }
+}
+
+impl From<crypto_fetch::Error> for Error{
+    fn from(value: crypto_fetch::Error) -> Self {
+        Error::CryptoFetchError(value)
     }
 }

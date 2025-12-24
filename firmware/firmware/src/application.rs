@@ -26,6 +26,7 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
 use static_cell::make_static;
+use embassy_time::Duration;
 
 pub const MODULE: &'static str = "[APP  ]";
 pub struct Application {
@@ -33,13 +34,13 @@ pub struct Application {
     runtime: &'static RuntimeModule,
     #[cfg(feature = "flash")]
     flash: &'static crate::flash::FlashModule,
-    #[cfg(feature = "radio")]
+    #[cfg(feature = "ble")]
     ble: &'static crate::ble::BleModule,
     #[cfg(feature = "radio")]
     led: &'static crate::led::LedModule,
-    #[cfg(feature = "radio")]
+    #[cfg(feature = "wifi")]
     wifi: &'static crate::wifi::WifiModule,
-    #[cfg(feature = "radio")]
+    #[cfg(feature = "mqtt")]
     mqtt: &'static crate::mqtt::MqttModule,
     #[cfg(feature = "display")]
     driver: &'static crate::driver::DriverModule,
@@ -55,47 +56,6 @@ fn trim_null<const N: usize>(mut x: String<N>) -> String<N> {
         x.pop();
     }
     x
-}
-
-#[cfg(feature = "radio")]
-impl crate::ble::BleHandler for Application {
-    fn ble_handle_gatt_write(&self, id: u16) {
-        todo!();
-        // let service = &self.ble.server().flappy_service;
-        // let ref mut state = self.settings.borrow().clone();
-        // let mut updated = false;
-        // if id == service.wifi_password.handle {
-        //     updated = true;
-        //     state.wifi.ssid = trim_null(self.ble.get(&service.wifi_ssid).unwrap_or_default());
-        //     state.wifi.password =
-        //         trim_null(self.ble.get(&service.wifi_password).unwrap_or_default());
-        //     self.wifi.set_settings(state.wifi.clone());
-        //     info!("{MODULE} Updating WiFi settings");
-        // } else if id == service.mqtt_topic.handle {
-        //     updated = true;
-        //     state.mqtt.hostname =
-        //         trim_null(self.ble.get(&service.mqtt_hostname).unwrap_or_default());
-        //     let port = trim_null(self.ble.get(&service.mqtt_port).unwrap_or_default());
-        //     let port = &port;
-        //     let port = port.strip_prefix("\"").unwrap_or(port);
-        //     let port = port.strip_suffix("\"").unwrap_or(port);
-        //     let port: u16 = port.parse().unwrap_or_default();
-        //     state.mqtt.port = port;
-        //     state.mqtt.username =
-        //         trim_null(self.ble.get(&service.mqtt_username).unwrap_or_default());
-        //     state.mqtt.password =
-        //         trim_null(self.ble.get(&service.mqtt_password).unwrap_or_default());
-        //     state.mqtt.topic = trim_null(self.ble.get(&service.mqtt_topic).unwrap_or_default());
-        //     self.mqtt.set_settings(state.mqtt.clone());
-        //     info!("{MODULE} Updating MQTT settings");
-        // }
-        // if updated {
-        //     #[cfg(feature = "flash")]
-        //     if let Err(e) = self.flash.save(state) {
-        //         error!("{MODULE} failed to update settings in flash {}", e);
-        //     }
-        // }
-    }
 }
 
 impl Application {
@@ -114,19 +74,24 @@ impl Application {
         #[cfg(feature = "flash")]
         let flash = crate::flash::FlashModule::new(peri.flash_peri).await?;
         #[cfg(feature = "radio")]
-        let (radio, bt_device, net_device) =
-            crate::radio::RadioModule::new(spawner, peri.radio_peri).await?;
+        let radio_drivers = crate::radio::RadioModule::new(spawner, peri.radio_peri).await?;
         #[cfg(feature = "radio")]
-        let led = crate::led::LedModule::new(spawner, radio).await?;
-        #[cfg(feature = "radio")]
-        let ble = crate::ble::BleModule::new(spawner, bt_device).await?;
-        #[cfg(feature = "radio")]
-        let wifi = crate::wifi::WifiModule::new(spawner, radio, net_device, &mut rng).await?;
+        let led = crate::led::LedModule::new(spawner, radio_drivers.module).await?;
+        #[cfg(feature = "ble")]
+        let ble = crate::ble::BleModule::new(spawner, radio_drivers.ble).await?;
+        #[cfg(feature = "wifi")]
+        let wifi = crate::wifi::WifiModule::new(
+            spawner,
+            radio_drivers.module,
+            radio_drivers.net,
+            &mut rng,
+        )
+        .await?;
         let display_request: &'static Signal<NoopRawMutex, DisplayRequest> =
             make_static!(Signal::new());
         let display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1> =
             make_static!(Channel::new());
-        #[cfg(feature = "radio")]
+        #[cfg(feature = "mqtt")]
         let mqtt =
             crate::mqtt::MqttModule::new(spawner, &wifi.stack(), display_request, display_response)
                 .await?;
@@ -139,13 +104,13 @@ impl Application {
             runtime,
             #[cfg(feature = "flash")]
             flash,
-            #[cfg(feature = "radio")]
+            #[cfg(feature = "ble")]
             ble,
-            #[cfg(feature = "radio")]
+            #[cfg(feature = "wifi")]
             wifi,
             #[cfg(feature = "radio")]
             led,
-            #[cfg(feature = "radio")]
+            #[cfg(feature = "mqtt")]
             mqtt,
             #[cfg(feature = "display")]
             driver,
@@ -161,12 +126,12 @@ impl Application {
         let mut old = self.settings.borrow_mut();
         if old.wifi != settings.wifi {
             old.wifi = settings.wifi.clone();
-            #[cfg(feature = "radio")]
+            #[cfg(feature = "wifi")]
             self.wifi.set_settings(settings.wifi.clone());
         }
         if old.mqtt != settings.mqtt {
             old.mqtt = settings.mqtt.clone();
-            #[cfg(feature = "radio")]
+            #[cfg(feature = "mqtt")]
             self.mqtt.set_settings(settings.mqtt.clone());
         }
         if old.display != settings.display {
@@ -183,8 +148,9 @@ impl Application {
         #[cfg(feature = "radio")]
         {
             let state = self.settings.borrow();
-
+            #[cfg(feature = "wifi")]
             self.wifi.set_settings(state.wifi.clone());
+            #[cfg(feature = "mqtt")]
             self.mqtt.set_settings(state.mqtt.clone());
             #[cfg(feature = "display")]
             self.display.set_settings(state.display.clone());
@@ -192,8 +158,8 @@ impl Application {
         Ok(())
     }
     fn spawn_tasks(&'static self) -> Result<(), Error> {
-        #[cfg(feature = "radio")]
-        self.ble.start(self)?;
+        #[cfg(feature = "ble")]
+        self.ble.start()?;
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn display_message(application: &'static Application) {
@@ -201,6 +167,7 @@ impl Application {
             }
             display_message(self)?
         });
+        #[cfg(feature = "usb")]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_commands(application: &'static Application) {
@@ -222,7 +189,7 @@ impl Application {
             }
             handle_setup(self)?
         });
-        #[cfg(all(feature = "setup", feature = "radio"))]
+        #[cfg(all(feature = "setup", feature = "radio", feature = "ble"))]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_setup(application: &'static Application) {
@@ -236,7 +203,7 @@ impl Application {
             }
             handle_setup(self)?
         });
-        #[cfg(feature = "setup")]
+        #[cfg(all(feature = "setup", feature = "mqtt"))]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn update_mqtt_status(application: &'static Application) {
@@ -246,7 +213,7 @@ impl Application {
             }
             update_mqtt_status(self)?
         });
-        #[cfg(all(feature = "setup", feature = "radio"))]
+        #[cfg(all(feature = "setup", feature = "radio", feature = "wifi"))]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn update_wifi_status(application: &'static Application) {
@@ -313,6 +280,7 @@ impl Application {
             }
         }
     }
+    #[cfg(feature = "usb")]
     async fn handle_commands(&'static self) {
         let usb_serial = self.runtime.usb.usb_serial;
         loop {
@@ -339,6 +307,7 @@ impl Application {
             self.handle_command(command).await;
         }
     }
+    #[cfg(feature = "usb")]
     async fn handle_command(&'static self, command: Command<'_>) {
         let usb_serial = self.runtime.usb.usb_serial;
         match command {
@@ -380,6 +349,7 @@ impl Application {
                 }
                 SetupRequest::TouchAppStatus => {
                     self.runtime.usb.usb_setup.update_status(|x| {});
+                    #[cfg(feature = "ble")]
                     self.ble.update_status(|x| {});
                     response = SetupResponse::TouchAppStatus;
                 }
@@ -410,7 +380,7 @@ impl Application {
             foreground: self.settings.borrow().display.foreground.clone(),
         }
     }
-    #[cfg(feature = "setup")]
+    #[cfg(all(feature = "setup", feature = "mqtt"))]
     async fn update_mqtt_status(&self) -> Result<(), Error> {
         let mut mqtt_status = self.mqtt.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
@@ -418,13 +388,13 @@ impl Application {
             self.runtime.usb.usb_setup.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
             });
-            #[cfg(feature = "radio")]
+            #[cfg(feature = "ble")]
             self.ble.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
             });
         }
     }
-    #[cfg(all(feature = "setup", feature = "radio"))]
+    #[cfg(all(feature = "setup", feature = "radio", feature = "wifi"))]
     async fn update_wifi_status(&self) -> Result<(), Error> {
         let mut wifi_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
@@ -432,6 +402,7 @@ impl Application {
             self.runtime.usb.usb_setup.update_status(|status| {
                 status.wifi_status = wifi_status.clone();
             });
+            #[cfg(feature = "ble")]
             self.ble.update_status(|status| {
                 status.wifi_status = wifi_status.clone();
             });
@@ -466,7 +437,7 @@ pub async fn main_task(spawner: Spawner, runtime: &'static RuntimeModule, peri: 
         let app = Application::new(spawner, runtime, peri).await?;
         app.initialize_settings()?;
         app.spawn_tasks()?;
-        pending::<!>().await;
+        pending::<!>().await
     } {
         error!("{MODULE} Uncaught error: {:?}", e);
     }

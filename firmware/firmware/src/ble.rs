@@ -86,9 +86,6 @@ type MyRunner = Runner<'static, MyController, MyPacketPool>;
 
 type MyConnection = GattConnection<'static, 'static, MyPacketPool>;
 type MyServer = Server<'static>;
-pub trait BleHandler {
-    fn ble_handle_gatt_write(&self, id: u16);
-}
 
 impl BleModule {
     pub async fn new(spawner: Spawner, driver: MyDriver) -> Result<&'static BleModule, Error> {
@@ -134,17 +131,17 @@ impl BleModule {
 
         Ok(module)
     }
-    pub fn start(&'static self, on_write: &'static dyn BleHandler) -> Result<(), Error> {
+    pub fn start(&'static self) -> Result<(), Error> {
         self.spawner.clone().spawn({
             #[embassy_executor::task]
-            async fn advertise_task(module: &'static BleModule, on_write: &'static dyn BleHandler) {
-                module.advertise_loop(on_write).await;
+            async fn advertise_task(module: &'static BleModule) {
+                module.advertise_loop().await;
             }
-            advertise_task(self, on_write)?
+            advertise_task(self)?
         });
         Ok(())
     }
-    async fn advertise_loop(&'static self, on_write: &'static dyn BleHandler) {
+    async fn advertise_loop(&'static self) {
         let Some(mut peripheral) = self.peri.take() else {
             return;
         };
@@ -153,7 +150,7 @@ impl BleModule {
                 Ok(conn) => {
                     self.conn.borrow_mut().replace(conn);
                     if let Err(e) = self
-                        .handle_connection(self.conn.borrow().as_ref().unwrap(), on_write)
+                        .handle_connection(self.conn.borrow().as_ref().unwrap())
                         .await
                     {
                         error!("{MODULE} error while processing connection: {}", e)
@@ -203,11 +200,7 @@ impl BleModule {
         info!("{MODULE} connection established");
         Ok(conn)
     }
-    async fn handle_connection(
-        &'static self,
-        conn: &MyConnection,
-        on_write: &dyn BleHandler,
-    ) -> Result<(), Error> {
+    async fn handle_connection(&'static self, conn: &MyConnection) -> Result<(), Error> {
         let mut serial_out_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE> = Vec::new();
         let mut serial_in_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE>;
         let mut tmp = [0u8; MAX_SETUP_MESSAGE_SIZE];

@@ -1,11 +1,12 @@
+use crate::radio::RadioModule;
 use core::cell::RefCell;
 use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
 use static_cell::make_static;
-use crate::radio::RadioModule;
 
+const MODULE:&str= "[LED  ]";
 const INCREMENTS: u64 = 20;
 const DELAY_NANOS: f32 = 10_000_000f32;
 
@@ -18,6 +19,8 @@ impl LedModule {
         spawner: Spawner,
         radio: &'static RadioModule,
     ) -> Result<&'static LedModule, SpawnError> {
+        let delay = Duration::from_millis(250);
+        info!("{MODULE} starting");
         let module = make_static!(LedModule { radio });
         spawner.spawn({
             #[embassy_executor::task]
@@ -26,6 +29,7 @@ impl LedModule {
             }
             blink_task(module)?
         });
+        info!("{MODULE} started");
         Ok(module)
     }
     async fn blink(&self) {

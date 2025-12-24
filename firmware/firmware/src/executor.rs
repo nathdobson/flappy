@@ -7,9 +7,12 @@ use embassy_rp::uart::InterruptHandler;
 use embassy_rp::{bind_interrupts, interrupt};
 use static_cell::make_static;
 
+#[cfg(feature = "preemption")]
 static RUNTIME_EXECUTOR: InterruptExecutor = InterruptExecutor::new();
+#[cfg(feature = "preemption")]
 static RUNTIME_STARTED: AtomicBool = AtomicBool::new(false);
 
+#[cfg(feature = "preemption")]
 #[interrupt]
 unsafe fn SWI_IRQ_0() {
     if RUNTIME_STARTED.load(Ordering::SeqCst) {
@@ -17,6 +20,7 @@ unsafe fn SWI_IRQ_0() {
     }
 }
 
+#[cfg(feature = "preemption")]
 pub fn run_program<T>(runtime: impl FnOnce(SendSpawner) -> T, app: impl FnOnce(Spawner, T)) -> ! {
     interrupt::SWI_IRQ_0.set_priority(Priority::P3);
     let runtime_spawner = RUNTIME_EXECUTOR.start(interrupt::SWI_IRQ_0);
@@ -24,4 +28,10 @@ pub fn run_program<T>(runtime: impl FnOnce(SendSpawner) -> T, app: impl FnOnce(S
     let data = runtime(runtime_spawner);
     let application_executor = make_static!(Executor::new());
     application_executor.run(|s| app(s, data))
+}
+
+#[cfg(not(feature = "preemption"))]
+pub fn run_program<T>(runtime: impl FnOnce(SendSpawner) -> T, app: impl FnOnce(Spawner, T)) -> ! {
+    let application_executor = make_static!(Executor::new());
+    application_executor.run(|s| app(s, runtime(s.make_send())));
 }

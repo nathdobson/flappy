@@ -17,9 +17,10 @@ bench = false
 embassy-rp = { path = "../../submodules/embassy/embassy-rp", features = [
   "rp235xa",
   "time-driver",
+   "critical-section-impl", "rp235xa","binary-info"
 ] }
 embassy-time = { path = "../../submodules/embassy/embassy-time", features = [] }
-embassy-usb = { path = "../../submodules/embassy/embassy-usb" }
+embassy-usb = { path = "../../submodules/embassy/embassy-usb" ,optional = true}
 embassy-net = { path = "../../submodules/embassy/embassy-net", features = [
   "tcp",
   "udp",
@@ -39,11 +40,9 @@ embassy-executor = { path = "../../submodules/embassy/embassy-executor", feature
 embassy-sync = { path = "../../submodules/embassy/embassy-sync", features = [] }
 trouble-host = { path = "../../submodules/trouble/host", optional = true }
 
-cortex-m = { version = "0.7.7", features = [
-  "inline-asm",
-  "critical-section-single-core",
-] }
-cortex-m-rt = { version = "0.7.5", features = [] }
+cortex-m = { version = "0.7.6", features = ["inline-asm"] }
+cortex-m-rt = { version = "0.7.0", features = [] }
+critical-section = "1.1"
 log = "0.4.28"
 static_cell = { version = "2.1.1", features = ["nightly"] }
 serde = { version = "1.0.228", features = [
@@ -53,7 +52,7 @@ serde-json-core = { path="../../submodules/serde-json-core", optional = true }
 rand_core = "0.9.3"
 uuid = { version = "1.18.1", default-features = false, optional = true }
 heapless = { version = "0.9.2" }
-embedded-tls = { git="https://github.com/drogue-iot/embedded-tls.git",rev="51ddb1b518038f53b9abab0bf91744dd99505209", default-features = false, optional = true, features = [] }
+embedded-tls = { path="../../submodules/embedded-tls", default-features = false, optional = true, features = [] }
 embedded-hal = "1.0.0"
 glyph-list = { path = "../../common/glyph-list" }
 smoltcp = { version = "0.12.0", default-features = false, optional = true }
@@ -63,39 +62,37 @@ mqtt-client = { path = "../../common/mqtt-client", optional = true }
 arena = { path = "../../common/arena", optional = true }
 protocol = { path = "../../common/protocol" }
 cyw43 = { path = "../../submodules/embassy/cyw43", features = [
-  "bluetooth",
+  "log","firmware-logs"
 ], optional = true }
 cyw43-pio = { path = "../../submodules/embassy/cyw43-pio", features = [
 ], optional = true }
 cyw43-firmware = { version = "0.1.0", optional = true, features = [
   "wifi",
-  "bluetooth",
 ] }
 glyph-render = {path ="../../common/glyph-render", default-features = false}
 mqtt-core = {path="../../common/mqtt-core"}
+crypto-verifier = {path="../../common/crypto-verifier",optional=true}
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }
 
 [features]
-default = ["radio", "flash", "serde", "display","unicode","setup"]
+default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","preemption"]
 serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","protocol/serde"]
 radio = [
   "dep:cyw43",
-  "dep:embedded-tls",
   "dep:cyw43-pio",
   "dep:cyw43-firmware",
-  "dep:mqtt-client",
-  "dep:arena",
-  "embassy-net",
-  "dep:uuid",
-  "dep:smoltcp",
   "dep:embedded-io-async",
   "dep:embedded-io",
-  "dep:trouble-host",
   "serde",
 ]
 flash = ["serde"]
 display = []
 unicode = ["glyph-render/unicode"]
-setup = ["serde"]
+setup = ["serde","usb"]
+ble = ["radio","cyw43/bluetooth","cyw43-firmware/bluetooth","dep:trouble-host",  "dep:uuid", ]
+wifi = ["radio","dep:smoltcp","embassy-net"]
+mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena",  "dep:crypto-verifier"]
+preemption = []
+usb = ["dep:embassy-usb"]

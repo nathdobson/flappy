@@ -129,4 +129,5 @@ pub enum MqttServiceError {
     MqttError(mqtt_core::error::ProtocolError),
     Disconnected,
     DeadlineExceeded,
+    NoCertificateListSha256,
 }

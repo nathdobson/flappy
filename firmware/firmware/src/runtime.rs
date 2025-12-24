@@ -1,7 +1,6 @@
 use crate::error::Error;
 use crate::product;
 use crate::product::serial_number;
-use crate::usb::{MAX_PACKET_SIZE, UsbModule};
 use core::fmt::Arguments;
 use core::intrinsics::abort;
 use core::{fmt, mem};
@@ -18,9 +17,6 @@ use embassy_sync::mutex::Mutex;
 use embassy_sync::pipe::Pipe;
 use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Instant, Timer, block_for};
-use embassy_usb::class::cdc_acm::{CdcAcmClass, ControlChanged, Receiver, Sender, State};
-use embassy_usb::driver::{EndpointError, EndpointIn, EndpointOut};
-use embassy_usb::{Builder, Config, UsbDevice};
 use heapless::{String, Vec};
 use log::{Level, Log, Metadata, Record, error, info, set_logger, set_max_level};
 use static_cell::make_static;
@@ -33,7 +29,8 @@ pub struct RuntimePeripherals {
 }
 
 pub struct RuntimeModule {
-    pub usb: &'static UsbModule,
+    #[cfg(feature = "usb")]
+    pub usb: &'static crate::usb::UsbModule,
 }
 
 #[panic_handler]
@@ -44,8 +41,12 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 impl RuntimeModule {
     pub fn new(spawner: SendSpawner, peri: RuntimePeripherals) -> &'static Self {
-        let usb = UsbModule::new();
-        let module: &'static RuntimeModule = make_static!(RuntimeModule { usb });
+        #[cfg(feature = "usb")]
+        let usb = crate::usb::UsbModule::new();
+        let module: &'static RuntimeModule = make_static!(RuntimeModule {
+            #[cfg(feature = "usb")]
+            usb
+        });
 
         spawner.spawn({
             #[embassy_executor::task]
@@ -60,6 +61,7 @@ impl RuntimeModule {
     }
     async fn start(&self, peri: RuntimePeripherals) -> Result<(), Error> {
         let spawner = unsafe { Spawner::for_current_executor().await };
+        #[cfg(feature = "usb")]
         self.usb.start(spawner, peri.USB).await?;
         Ok(())
     }

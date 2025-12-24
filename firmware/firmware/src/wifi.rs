@@ -5,8 +5,6 @@ use core::fmt::{Display, Formatter};
 use core::str::from_utf8;
 use cyw43::{JoinOptions, NetDriver};
 use embassy_executor::Spawner;
-use embassy_net::dns::DnsSocket;
-use embassy_net::tcp::client::{TcpClient, TcpClientState};
 use embassy_net::{Config, Stack, StackResources};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
@@ -18,7 +16,6 @@ use protocol::setup::{WifiSettings, WifiStatus};
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 use static_cell::make_static;
-use trouble_host::prelude::HeaplessString;
 
 const MODULE: &'static str = "[WiFi ]";
 

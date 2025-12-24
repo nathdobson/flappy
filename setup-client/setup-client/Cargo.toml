@@ -17,6 +17,7 @@ futures-util = "0.3.31"
 btleplug = {version="0.11.8",features = ["serde"]}
 uuid = "1.19.0"
 serde-string = {path="../../common/serde-string"}
+crypto-fetch = {path="../../common/crypto-fetch"}
 
 [target.'cfg(darwin)'.dependencies]
 objc2={version="0.6.1",features=["disable-encoding-assertions"]}

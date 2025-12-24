@@ -28,10 +28,11 @@ pub enum SetupResponse {
 pub struct MqttSettings {
     pub hostname: String<128>,
     pub port: u16,
-    pub client_id: String<128>,
+    pub client_id: Option<String<128>>,
     pub username: String<128>,
     pub password: String<128>,
     pub topic: String<128>,
+    pub certificate_list_sha256: Option<[u8; 32]>,
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
