@@ -7,21 +7,39 @@
 </head>
 <body>
 <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
-<!--<script type="importmap">-->
-<!--    {-->
-<!--        "imports": {-->
-<!--            "web-client": "../pkg/web_client.js"-->
-<!--        }-->
-<!--    }-->
-<!--</script>-->
 <script src="./bootstrap.js"></script>
 <div class="container">
-    <div id="display" class="display">
-
-    </div>
-    <form class="form" id="form" >
-        <input class="form" id="content" type="text" placeholder="Enter text to display">
-        <input class="form" type="submit" value="Send to Display"/>
+    <form class="form" id="settings">
+        <p>
+            <label for="ws_url">MQTT WebSocket URL:</label><br/>
+            <input class="input" id="ws_url" type="text" placeholder="e.g. wss://my_mqq_host.com:8084/mqtt">
+        </p>
+        <p>
+            <label for="username">MQTT Username:</label><br/>
+            <input class="input" id="username" type="text" placeholder="e.g. MyUserName"><br/>
+        </p>
+        <p>
+            <label for="password">MQTT Password:</label><br/>
+            <input class="input" id="password" type="text" placeholder="e.g. CorrectHorseBatteryStaple"><br/>
+        </p>
+        <p>
+            <label for="topic">MQTT Topic:</label><br/>
+            <input class="input" id="topic" type="text" placeholder="e.g. CorrectHorseBatteryStaple"><br/>
+        </p>
+        <p>
+            <input class="input" type="submit" value="Connect"/>
+        </p>
+    </form>
+    <p id="display" class="display"></p>
+    <p>
+    <form class="form" id="form">
+        <p>
+            <label for="content">
+                Text to display:
+            </label><br/>
+            <input class="input" id="content" type="text" placeholder="Enter text to display">
+        </p>
+        <input class="input" type="submit" value="Send"/>
     </form>
 </div>
 </body>

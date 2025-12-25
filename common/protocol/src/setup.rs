@@ -57,7 +57,7 @@ pub struct AppSettings {
     pub display: DisplaySettings,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DeviceInfo {
     pub serial: u64,

@@ -15,6 +15,7 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
+use embassy_time::Duration;
 use embassy_time::Timer;
 use glyph_list::LETTERS;
 use heapless::{CapacityError, String, Vec, format};
@@ -26,7 +27,11 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
 use static_cell::make_static;
-use embassy_time::Duration;
+
+pub struct DisplayResponseContainer {
+    pub response: DisplayResponse,
+    pub retain: bool,
+}
 
 pub const MODULE: &'static str = "[APP  ]";
 pub struct Application {
@@ -47,7 +52,7 @@ pub struct Application {
     #[cfg(feature = "display")]
     display: &'static crate::display::DisplayModule,
     display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
-    display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1>,
+    display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     settings: RefCell<AppSettings>,
 }
 
@@ -89,7 +94,7 @@ impl Application {
         .await?;
         let display_request: &'static Signal<NoopRawMutex, DisplayRequest> =
             make_static!(Signal::new());
-        let display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1> =
+        let display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1> =
             make_static!(Channel::new());
         #[cfg(feature = "mqtt")]
         let mqtt =
@@ -175,7 +180,7 @@ impl Application {
             }
             handle_commands(self)?
         });
-        #[cfg(feature = "setup")]
+        #[cfg(all(feature = "usb", feature = "setup"))]
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_setup(application: &'static Application) {
@@ -223,6 +228,16 @@ impl Application {
             }
             update_wifi_status(self)?
         });
+        #[cfg(all(feature = "mqtt"))]
+        self.spawner.spawn({
+            #[embassy_executor::task]
+            async fn update_mqtt_device_info(application: &'static Application) {
+                if let Err(e) = application.update_mqtt_device_info().await {
+                    error!("{:?}", e);
+                }
+            }
+            update_mqtt_device_info(self)?
+        });
         Ok(())
     }
     async fn display_message(&'static self) {
@@ -241,7 +256,10 @@ impl Application {
                         .map(|i| LETTERS[*i].try_into().unwrap_or(" ".try_into().unwrap()))
                         .collect();
                     self.display_response
-                        .send(DisplayResponse::Start(glyph_strs.clone()))
+                        .send(DisplayResponseContainer {
+                            response: DisplayResponse::Start(glyph_strs.clone()),
+                            retain: false,
+                        })
                         .await;
                     #[cfg(not(feature = "display"))]
                     Timer::after_millis(1000).await;
@@ -254,7 +272,10 @@ impl Application {
                         }
                     }
                     self.display_response
-                        .send(DisplayResponse::Stop(glyph_strs))
+                        .send(DisplayResponseContainer {
+                            response: DisplayResponse::Stop(glyph_strs),
+                            retain: false,
+                        })
                         .await;
                 }
                 DisplayRequest::Test => {
@@ -271,11 +292,6 @@ impl Application {
                             Timer::after_millis(1000).await;
                         }
                     }
-                }
-                DisplayRequest::DeviceInfo => {
-                    self.display_response
-                        .send(DisplayResponse::DeviceInfo(self.device_info()))
-                        .await;
                 }
             }
         }
@@ -348,6 +364,7 @@ impl Application {
                     response = SetupResponse::WriteSettings(self.set_settings(&settings));
                 }
                 SetupRequest::TouchAppStatus => {
+                    #[cfg(all(feature = "usb", feature = "setup"))]
                     self.runtime.usb.usb_setup.update_status(|x| {});
                     #[cfg(feature = "ble")]
                     self.ble.update_status(|x| {});
@@ -406,6 +423,26 @@ impl Application {
             self.ble.update_status(|status| {
                 status.wifi_status = wifi_status.clone();
             });
+        }
+    }
+    #[cfg(all(feature = "mqtt"))]
+    async fn update_mqtt_device_info(&self) -> Result<(), Error> {
+        let mut info = self.device_info();
+        loop {
+            self.display_response
+                .send(DisplayResponseContainer {
+                    response: DisplayResponse::DeviceInfo(info.clone()),
+                    retain: true,
+                })
+                .await;
+            loop {
+                Timer::after(Duration::from_secs(1)).await;
+                let new = self.device_info();
+                if info != new {
+                    info = new;
+                    break;
+                }
+            }
         }
     }
 }

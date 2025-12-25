@@ -10,7 +10,6 @@ pub const DISPLAY_REQUEST_CAPACITY: usize = 128;
 pub enum DisplayRequest {
     Run(String<DISPLAY_REQUEST_CAPACITY>),
     Test,
-    DeviceInfo,
 }
 
 #[derive(Debug)]

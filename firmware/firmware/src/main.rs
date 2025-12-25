@@ -52,7 +52,7 @@ mod usb;
 mod usb_reset;
 #[cfg(feature = "usb")]
 mod usb_serial;
-#[cfg(feature = "setup")]
+#[cfg(all(feature="usb",feature = "setup"))]
 mod usb_setup;
 #[cfg(feature = "wifi")]
 mod wifi;

@@ -1,9 +1,11 @@
 use crate::error::Error;
+use arena::ArenaStorage;
 use core::cell::Cell;
 use core::fmt;
 use core::fmt::{Display, Formatter, write};
 use core::future::pending;
 use core::intrinsics::unreachable;
+use crypto_verifier::FixedProvider;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, Either4, Either5, select, select4, select5};
 use embassy_futures::yield_now;
@@ -24,15 +26,13 @@ use embedded_tls::{
     Aes128GcmSha256, Certificate, NoClock, NoVerify, TlsCipherSuite, TlsConfig, TlsConnection,
     TlsContext, TlsError, TlsVerifier, TlsWriter, UnsecureProvider,
 };
-use log::{error, info, warn};
+use log::{error, info, trace, warn};
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use mqtt_core::protocol::{Packet, PublishPacket, Qos};
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
 use static_cell::make_static;
-use arena::ArenaStorage;
-use crypto_verifier::FixedProvider;
 // use rust_mqtt::client::client::MqttClient;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
@@ -43,6 +43,7 @@ const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
 const PACKET_SIZE: usize = 1024;
 
+use crate::application::DisplayResponseContainer;
 use crate::product::serial_number;
 use protocol::display::DisplayRequest;
 use protocol::error::{
@@ -57,7 +58,7 @@ pub struct MqttModule {
     stack: &'static embassy_net::Stack<'static>,
     settings: Signal<NoopRawMutex, MqttSettings>,
     display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
-    display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1>,
+    display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     status: Watch<NoopRawMutex, MqttServiceStatus, 1>,
 }
 
@@ -227,7 +228,7 @@ impl MqttModule {
         spawner: Spawner,
         stack: &'static embassy_net::Stack<'static>,
         display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
-        display_response: &'static Channel<NoopRawMutex, DisplayResponse, 1>,
+        display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     ) -> Result<&'static MqttModule, Error> {
         let module = make_static!(MqttModule {
             spawner,
@@ -475,13 +476,14 @@ impl MqttModule {
                 loop {
                     let response = self.display_response.receive().await;
                     match serde_json_core::to_vec::<DisplayMessage, PACKET_SIZE>(
-                        &DisplayMessage::Response(response),
+                        &DisplayMessage::Response(response.response),
                     ) {
                         Ok(encoded) => {
                             let request = PublishRequest {
                                 qos: Qos::AtMostOnce,
                                 topic: &settings.topic,
                                 payload: &encoded,
+                                retain: response.retain,
                             };
                             sender.publish(&request).await.map_err(convert_mqtt_error)?;
                         }
@@ -507,10 +509,10 @@ impl MqttModule {
             warn!("{MODULE} Invalid UTF-8 payload");
             return;
         };
-        info!("{MODULE} Received message on topic {}", publish.topic);
-        info!("{MODULE} {:?}", message);
+        trace!("{MODULE} Received message on topic {}", publish.topic);
+        trace!("{MODULE} {:?}", message);
         for lines in message.lines() {
-            info!("{MODULE}    {}", lines);
+            trace!("{MODULE}    {}", lines);
         }
         let message = match serde_json_core::from_str_escaped::<DisplayMessage>(
             message,
@@ -522,9 +524,11 @@ impl MqttModule {
                 return;
             }
         };
-        info!("{MODULE} Parsed: {:?}", message);
+        trace!("{MODULE} Parsed message: {:?}", message);
         match message {
-            DisplayMessage::Request(req) => self.display_request.signal(req),
+            DisplayMessage::Request(req) => {
+                self.display_request.signal(req);
+            }
             DisplayMessage::Response(_) => {}
         }
     }

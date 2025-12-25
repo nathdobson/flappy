@@ -3,6 +3,7 @@ use crate::product;
 use core::cell::{Cell, RefCell};
 use core::future::{join, pending};
 use core::mem;
+use core::str::Utf8Error;
 use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
 use embassy_futures::select::select;
@@ -207,7 +208,6 @@ impl BleModule {
         loop {
             match conn.next().await {
                 GattConnectionEvent::Disconnected { reason } => {
-                    info!("{MODULE} disconnected from peer: {:?}", reason);
                     break;
                 }
                 GattConnectionEvent::Gatt { event } => {
@@ -218,6 +218,12 @@ impl BleModule {
                                     event.value(&self.server.flappy_service.serial_out)?;
                                 serial_out_buffer.extend_from_slice(&new_data)?;
                                 if new_data.len() < SERIAL_MTU {
+                                    match str::from_utf8(&serial_out_buffer) {
+                                        Ok(x) => info!("{MODULE} request {}", x),
+                                        Err(e) => {
+                                            error!("{MODULE} request {:?}", serial_out_buffer)
+                                        }
+                                    }
                                     let request = serde_json_core::from_slice_escaped::<
                                         SetupRequest,
                                     >(
@@ -246,7 +252,8 @@ impl BleModule {
                                 }
                             }
                         }
-                        _ => {}
+                        GattEvent::Read(event) => {}
+                        GattEvent::Other(other) => {}
                     };
                     match event.accept() {
                         Ok(reply) => reply.send().await,

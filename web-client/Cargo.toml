@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
-wasm-bindgen = "0.2.84"
+wasm-bindgen = "0.2.106"
 mqtt-client = {path="../common/mqtt-client"}
 console_error_panic_hook = { version = "0.1.7", optional = true }
 web-sys = { version = "0.3.83", features = ["console", "Window", "Location", "UrlSearchParams", "HtmlBodyElement", "Document", "HtmlFormElement", "HtmlInputElement", "HtmlDivElement", "CssStyleDeclaration"] }
@@ -31,9 +31,10 @@ tokio={version = "1.48.0",features = ["sync"]}
 serde-json-core = "0.6.0"
 heapless = "0.9.2"
 mqtt-core = {path="../common/mqtt-core"}
+uuid = { version = "1.19.0", features = ["v4","js"] }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.34"
+wasm-bindgen-test = "0.3.56"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.

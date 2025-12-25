@@ -12,6 +12,7 @@ use protocol::display::{DisplayMessage, DisplayRequest, DisplayResponse};
 use serde::{Deserialize, Serialize};
 use std::pin::pin;
 use tokio::sync::mpsc::{Receiver, Sender};
+use uuid::Uuid;
 use ws_stream_wasm::WsMeta;
 
 const KEEPALIVE: u16 = 60;
@@ -81,14 +82,14 @@ pub async fn run_mqtt(
             Ok::<!, Error>(unreachable!())
         },
         async {
-            let client_id = "flappy_web";
+            let client_id = format!("flappy_web_{}", Uuid::new_v4());
             info!(
                 "Connecting to broker with client_id '{}' and username '{}'",
                 client_id, params.username
             );
             sender
                 .connect(&ConnectRequest {
-                    client_id,
+                    client_id: &client_id,
                     username: Some(&params.username),
                     password: Some(&params.password),
                     keepalive: 0,
@@ -107,6 +108,7 @@ pub async fn run_mqtt(
                         payload: &serde_json_core::to_vec::<_, 1024>(&DisplayMessage::Request(
                             next,
                         ))?,
+                        retain: false,
                     })
                     .await?;
                 info!("Published");

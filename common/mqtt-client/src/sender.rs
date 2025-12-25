@@ -1,8 +1,4 @@
-use crate::error::{Error};
-use mqtt_core::protocol::{
-    ConnectPacket, Packet, PingreqPacket, PublishPacket, Qos, ReasonCode, RetainHandling,
-    SubscribePacket, TopicFilter,
-};
+use crate::error::Error;
 use crate::writer::MqttWriter;
 use core::cell::{Cell, RefCell};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
@@ -12,6 +8,10 @@ use embassy_sync::signal::Signal;
 use embedded_io_async::Write;
 use heapless::{Vec, VecView};
 use mqtt_core::error::ProtocolError;
+use mqtt_core::protocol::{
+    ConnectPacket, Packet, PingreqPacket, PublishPacket, Qos, ReasonCode, RetainHandling,
+    SubscribePacket, TopicFilter,
+};
 
 pub struct MqttSender<W, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: usize> {
     writer: Mutex<NoopRawMutex, MqttWriter<W, SEND_CAP>>,
@@ -161,7 +161,7 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
         self.send(&Packet::Publish(PublishPacket {
             dup: false,
             qos: publish.qos,
-            retain: false,
+            retain: publish.retain,
             topic: publish.topic,
             packet_id,
             properties: &[],
@@ -213,4 +213,5 @@ pub struct PublishRequest<'a> {
     pub qos: Qos,
     pub topic: &'a str,
     pub payload: &'a [u8],
+    pub retain: bool,
 }

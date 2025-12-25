@@ -72,12 +72,13 @@ cyw43-firmware = { version = "0.1.0", optional = true, features = [
 glyph-render = {path ="../../common/glyph-render", default-features = false}
 mqtt-core = {path="../../common/mqtt-core"}
 crypto-verifier = {path="../../common/crypto-verifier",optional=true}
+fixed = {version="1.29.0",optional=true}
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }
 
 [features]
-default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","preemption"]
+default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","preemption","usb"]
 serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","protocol/serde"]
 radio = [
   "dep:cyw43",
@@ -86,12 +87,21 @@ radio = [
   "dep:embedded-io-async",
   "dep:embedded-io",
   "serde",
+  "fixed",
 ]
 flash = ["serde"]
 display = []
 unicode = ["glyph-render/unicode"]
-setup = ["serde","usb"]
-ble = ["radio","cyw43/bluetooth","cyw43-firmware/bluetooth","dep:trouble-host",  "dep:uuid", ]
+setup = ["serde"]
+ble = [
+  "radio",
+  "cyw43/bluetooth",
+  "cyw43-firmware/bluetooth",
+  "dep:trouble-host",
+  "dep:uuid",
+  # There's a bug somewhere that corrupts BLE data without this
+  "preemption"
+]
 wifi = ["radio","dep:smoltcp","embassy-net"]
 mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena",  "dep:crypto-verifier"]
 preemption = []

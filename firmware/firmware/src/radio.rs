@@ -5,11 +5,12 @@ use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
-use embassy_rp::pio::{Common, Pio};
+use embassy_rp::pio::{Common, Irq, IrqFlags, Pio, StateMachine};
 use embassy_rp::{Peri, bind_interrupts};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
+use fixed::FixedU32;
 use log::info;
 use static_cell::make_static;
 
@@ -35,6 +36,13 @@ pub struct RadioModule {
     pub control: Mutex<NoopRawMutex, Control<'static>>,
     // Dropping this causes weird stuff to happen
     common: Common<'static, PIO0>,
+    irq_flags: IrqFlags<'static, PIO0>,
+    irq1: Irq<'static, PIO0, 1>,
+    irq2: Irq<'static, PIO0, 2>,
+    irq3: Irq<'static, PIO0, 3>,
+    sm1: StateMachine<'static, PIO0, 1>,
+    sm2: StateMachine<'static, PIO0, 2>,
+    sm3: StateMachine<'static, PIO0, 3>,
 }
 
 pub struct RadioDrivers {
@@ -57,6 +65,10 @@ impl RadioModule {
             pio.sm0,
             // SPI communication won't work if the speed is too high, so we use a divider larger than `DEFAULT_CLOCK_DIVIDER`.
             // See: https://github.com/embassy-rs/embassy/issues/3960.
+            // This value seems to be pretty good to limit BLE corruption.
+            #[cfg(feature = "ble")]
+            FixedU32::from_bits(0x0B00),
+            #[cfg(not(feature = "ble"))]
             RM2_CLOCK_DIVIDER,
             pio.irq0,
             cs,
@@ -89,12 +101,19 @@ impl RadioModule {
 
         control.init(cyw43_firmware::CYW43_43439A0_CLM).await;
         control
-            .set_power_management(cyw43::PowerManagementMode::PowerSave)
+            .set_power_management(cyw43::PowerManagementMode::None)
             .await;
 
         module = make_static!(RadioModule {
             control: Mutex::new(control),
             common: pio.common,
+            irq_flags: pio.irq_flags,
+            irq1: pio.irq1,
+            irq2: pio.irq2,
+            irq3: pio.irq3,
+            sm1: pio.sm1,
+            sm2: pio.sm2,
+            sm3: pio.sm3,
         });
         info!("{MODULE} Connected");
         Ok(RadioDrivers {

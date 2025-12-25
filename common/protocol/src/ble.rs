@@ -1,2 +1,2 @@
 
-pub const SERIAL_MTU: usize = 20;
+pub const SERIAL_MTU: usize = 10;

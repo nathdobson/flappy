@@ -36,7 +36,7 @@ use tokio::sync::mpsc::channel;
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{window, HtmlDivElement, HtmlFormElement, HtmlInputElement, Window};
+use web_sys::{window, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, Window};
 use ws_stream_wasm::WsMeta;
 
 #[wasm_bindgen(start)]
@@ -123,10 +123,13 @@ impl Display {
     }
     pub fn build(&mut self, info: &DeviceInfo) -> Result<(), Error> {
         info!("DeviceInfo = {:?}", info);
-        let display: HtmlDivElement = try_get_element_by_id("display")?;
+        let display: HtmlElement = try_get_element_by_id("display")?;
         display
             .style()
             .set_property("color", &format!("#{}", info.foreground))?;
+        for inner in &self.inners{
+            display.remove_child(inner)?;
+        }
         let mut inners = vec![];
         for i in 0..info.glyphs {
             let letter_outer = create_element::<"div">()?;
@@ -156,7 +159,6 @@ async fn main() -> Result<(), Error> {
     let mut display = Display::new()?;
     let (request_send, request_recv) = channel::<DisplayRequest>(10);
     let (response_send, mut response_recv) = channel::<DisplayResponse>(10);
-    request_send.send(DisplayRequest::DeviceInfo).await?;
     display.set_on_submit(|value| {
         let mut value: String = value.to_owned();
         value.truncate(DISPLAY_REQUEST_CAPACITY);

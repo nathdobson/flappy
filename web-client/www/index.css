@@ -35,4 +35,10 @@ html, body, .container {
 
 .form {
     font-size:24px;
+    text-align: center;
+    border-style:solid;
+}
+
+.input {
+    font-size:24px;
 }
