@@ -27,7 +27,7 @@ cp setup-client/target/i686-unknown-linux-gnu/release/setup-client release/artif
 #cp setup-client/target/aarch64-unknown-linux-musl/release/setup-client release/setup-client-aarch64-unknown-linux-musl
 #cp setup-client/target/x86_64-unknown-linux-musl/release/setup-client release/setup-client-x86_64-unknown-linux-musl
 
-cp web-client/web-client.zip release
+cp web-client/web-client.zip release/artifacts/
 # The order of assets listed of the website depends on upload order, so upload one file at a time
-ls release | xargs -n 1 -I{} gh release upload --clobber $VERSION release/{}
+ls release/artifacts | xargs -n 1 -I{} gh release upload --clobber $VERSION release/artifacts/{}
 
