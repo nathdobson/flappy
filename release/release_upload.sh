@@ -17,12 +17,12 @@ cp firmware/target/thumbv8m.main-none-eabihf/release/controller release/artifact
 cp setup-client/target/aarch64-apple-darwin/release/setup-client release/artifacts/setup-client-aarch64-apple-darwin
 cp setup-client/target/x86_64-apple-darwin/release/setup-client release/artifacts/setup-client-x86_64-apple-darwin
 
-cp setup-client/target/i686-pc-windows-gnu/release/setup-client.exe release/artifacts/setup-client-i686-pc-windows-gnu.exe
+#cp setup-client/target/i686-pc-windows-gnu/release/setup-client.exe release/artifacts/setup-client-i686-pc-windows-gnu.exe
 cp setup-client/target/x86_64-pc-windows-gnu/release/setup-client.exe release/artifacts/setup-client-x86_64-pc-windows-gnu.exe
 
 cp setup-client/target/aarch64-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-aarch64-unknown-linux-gnu
 cp setup-client/target/i686-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-i686-unknown-linux-gnu
-cp setup-client/target/x86_64-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-x86_64-unknown-linux-gnu
+#cp setup-client/target/x86_64-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-x86_64-unknown-linux-gnu
 
 #cp setup-client/target/aarch64-unknown-linux-musl/release/setup-client release/setup-client-aarch64-unknown-linux-musl
 #cp setup-client/target/x86_64-unknown-linux-musl/release/setup-client release/setup-client-x86_64-unknown-linux-musl
