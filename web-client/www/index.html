@@ -9,37 +9,23 @@
 <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
 <script src="./bootstrap.js"></script>
 <div class="container">
-    <form class="form" id="settings">
-        <p>
-            <label for="ws_url">MQTT WebSocket URL:</label><br/>
-            <input class="input" id="ws_url" type="text" placeholder="e.g. wss://my_mqq_host.com:8084/mqtt">
-        </p>
-        <p>
-            <label for="username">MQTT Username:</label><br/>
-            <input class="input" id="username" type="text" placeholder="e.g. MyUserName"><br/>
-        </p>
-        <p>
-            <label for="password">MQTT Password:</label><br/>
-            <input class="input" id="password" type="text" placeholder="e.g. CorrectHorseBatteryStaple"><br/>
-        </p>
-        <p>
-            <label for="topic">MQTT Topic:</label><br/>
-            <input class="input" id="topic" type="text" placeholder="e.g. CorrectHorseBatteryStaple"><br/>
-        </p>
-        <p>
-            <input class="input" type="submit" value="Connect"/>
-        </p>
+    <div id="status" class="status"></div>
+    <div id="display" class="display"></div>
+    <form class="content-form" id="form">
+        <input class="content-input" id="content" type="text" placeholder="e.g. HelloWorld" autofocus>
+        <input class="content-submit" id="submit" type="submit" value="Send To Display" disabled="disabled"/>
     </form>
-    <p id="display" class="display"></p>
-    <p>
-    <form class="form" id="form">
-        <p>
-            <label for="content">
-                Text to display:
-            </label><br/>
-            <input class="input" id="content" type="text" placeholder="Enter text to display">
-        </p>
-        <input class="input" type="submit" value="Send"/>
+    <form class="settings-form" id="settings" method="get">
+        <label class="label" for="ws_url">MQTT WebSocket URL</label>
+        <input class="input" id="ws_url" name="ws_url" type="text" placeholder="e.g. wss://my_mqq_host.com:8084/mqtt">
+        <label class="label" for="username">MQTT Username</label>
+        <input class="input" id="username" name="username" type="text" placeholder="e.g. MyUserName">
+        <label class="label" for="password">MQTT Password</label>
+        <input class="input" id="password" name="password" type="text" placeholder="e.g. CorrectHorseBatteryStaple">
+        <label class="label" for="topic">MQTT Topic</label>
+        <input class="input" id="topic" name="topic" type="text" placeholder="e.g. display/name-of-my-display">
+        <div></div>
+        <input class="input" id="settings-submit" type="submit" value="Update Settings" disabled="disabled"/>
     </form>
 </div>
 </body>

@@ -1,9 +1,11 @@
 use heapless::CapacityError;
 use io_adapters::tokio::TokioErrorAdapter;
+use mqtt_core::error::ProtocolError;
 use mqtt_core::protocol::ReasonCode;
+use std::any::Any;
+use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsValue;
-use mqtt_core::error::ProtocolError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,6 +23,9 @@ pub enum Error {
     TrySendError,
     Disconnect(ReasonCode),
     SendError,
+    UnexpectedEof,
+    RecvError,
+    Panic(Box<dyn Any + Send>),
 }
 
 impl From<JsValue> for Error {
@@ -86,5 +91,50 @@ impl<T> From<TrySendError<T>> for Error {
 impl<T> From<SendError<T>> for Error {
     fn from(value: SendError<T>) -> Self {
         Error::SendError
+    }
+}
+
+impl From<Box<dyn Any + Send>> for Error {
+    fn from(x: Box<(dyn Any + Send + 'static)>) -> Self {
+        Error::Panic(x)
+    }
+}
+
+impl From<tokio::sync::oneshot::error::RecvError> for Error {
+    fn from(_: tokio::sync::oneshot::error::RecvError) -> Self {
+        Error::RecvError
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::JsError(e) => write!(f, "{:?}", e),
+            Error::NoneError => write!(f, "option was none"),
+            Error::UrlError(x) => write!(f, "{}", x),
+            Error::QueryStringError(x) => write!(f, "{}", x),
+            Error::WsError(x) => write!(f, "{}", x),
+            Error::IoError(x) => write!(f, "{}", x),
+            Error::DeadlineExceeded => write!(f, "deadline exceeded"),
+            Error::MqttError(x) => write!(f, "{}", x),
+            Error::TypeError => write!(f, "type error"),
+            Error::JsonSerError(x) => write!(f, "{}", x),
+            Error::CapacityError(x) => write!(f, "{}", x),
+            Error::TrySendError => write!(f, "failed to send internal message"),
+            Error::Disconnect(x) => write!(f, "disconnected: {}", x),
+            Error::SendError => write!(f, "failed to send internal message"),
+            Error::UnexpectedEof => write!(f, "unexpected end of message"),
+            Error::RecvError => write!(f, "failed to receive internal message"),
+            Error::Panic(x) => {
+                let x: &(dyn Any + Send) = &**x;
+                if let Some(x) = x.downcast_ref::<String>() {
+                    write!(f, "panic {}", x)
+                } else if let Some(x) = x.downcast_ref::<&str>() {
+                    write!(f, "panic {}", x)
+                } else {
+                    write!(f, "panic")
+                }
+            }
+        }
     }
 }

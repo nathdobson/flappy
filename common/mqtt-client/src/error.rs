@@ -1,14 +1,16 @@
-use mqtt_core::protocol::ReasonCode;
 use core::alloc::AllocError;
-use core::fmt::{Display, Formatter};
+use core::fmt::{Debug, Display, Formatter};
 use heapless::CapacityError;
 use mqtt_core::error::ProtocolError;
+use mqtt_core::protocol::ReasonCode;
 
 #[derive(Debug)]
 pub enum Error<E> {
     NetworkError(E),
     ProtocolError(ProtocolError),
 }
+
+impl<E: Debug + Display> core::error::Error for Error<E> {}
 
 // impl From<CapacityError> for ProtocolError {
 //     fn from(value: CapacityError) -> Self {
@@ -57,4 +59,3 @@ impl<E: Display> Display for Error<E> {
         }
     }
 }
-

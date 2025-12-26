@@ -1,6 +1,13 @@
 use crate::error::Error;
+use futures_util::future::FutureExt;
+use std::future::Future;
 use std::marker::PhantomData;
+use std::panic::AssertUnwindSafe;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::spawn_local;
 use web_sys::{Document, HtmlDivElement, HtmlElement, HtmlFormElement, Window};
 
 pub fn try_window() -> Result<Window, Error> {
@@ -61,4 +68,40 @@ pub async fn sleep(millis: i32) {
     };
     let p = js_sys::Promise::new(&mut cb);
     wasm_bindgen_futures::JsFuture::from(p).await.unwrap();
+}
+
+pub struct JoinHandle<T>(oneshot::Receiver<Result<T, Error>>);
+
+pub fn spawn_local_joinable<F: 'static + Future>(f: F) -> JoinHandle<F::Output>
+where
+    F::Output: 'static,
+{
+    let (tx, rx) = oneshot::channel();
+    spawn_local(async move {
+        tx.send(
+            AssertUnwindSafe(f)
+                .catch_unwind()
+                .await
+                .map_err(|e| e.into()),
+        )
+        .ok();
+    });
+    JoinHandle(rx)
+}
+
+impl<T> Future for JoinHandle<T> {
+    type Output = Result<T, Error>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match Pin::new(&mut self.get_mut().0).poll(cx) {
+            Poll::Ready(x) => Poll::Ready(Ok(x??)),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+impl<T> JoinHandle<Result<T, Error>> {
+    pub async fn try_join(mut self) -> Result<T, Error> {
+        Ok(self.await??)
+    }
 }

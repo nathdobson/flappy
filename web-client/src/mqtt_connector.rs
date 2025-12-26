@@ -1,4 +1,6 @@
 use crate::error::Error;
+use crate::query_params::FlappyQueryParams;
+use crate::status::{StatusPriority, Status};
 use crate::utils::{sleep, try_window};
 use arena::ArenaStorage;
 use embassy_futures::select::{select, select5, Either, Either5};
@@ -11,27 +13,23 @@ use mqtt_core::protocol::{Packet, Qos};
 use protocol::display::{DisplayMessage, DisplayRequest, DisplayResponse};
 use serde::{Deserialize, Serialize};
 use std::pin::pin;
+use std::rc::Rc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use uuid::Uuid;
 use ws_stream_wasm::WsMeta;
 
 const KEEPALIVE: u16 = 60;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FlappyQueryParams {
-    ws_url: String,
-    username: String,
-    password: String,
-    topic: String,
-}
-
 pub async fn run_mqtt(
+    params: FlappyQueryParams,
+    status: Rc<Status>,
     mut requests: Receiver<DisplayRequest>,
     responses: Sender<DisplayResponse>,
 ) -> Result<!, Error> {
-    let search = try_window()?.location().search()?;
-    let search = search.strip_prefix("?").unwrap_or(&search);
-    let params: FlappyQueryParams = serde_qs::from_str(&search)?;
+    status.set(
+        StatusPriority::Info,
+        format!("Connecting to WebSocket {}", params.ws_url),
+    );
     let (meta, stream) = WsMeta::connect(&params.ws_url, Some(vec!["mqtt"])).await?;
     let (read, write) = split_io(stream.into_io());
     let sender = MqttSender::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
@@ -83,35 +81,43 @@ pub async fn run_mqtt(
         },
         async {
             let client_id = format!("flappy_web_{}", Uuid::new_v4());
-            info!(
-                "Connecting to broker with client_id '{}' and username '{}'",
-                client_id, params.username
+            status.set(
+                StatusPriority::Info,
+                format!(
+                    "Connecting to MQTT with client_id `{}`, username `{}`, and password `{}`",
+                    client_id, params.username, params.password
+                ),
             );
             sender
                 .connect(&ConnectRequest {
                     client_id: &client_id,
                     username: Some(&params.username),
                     password: Some(&params.password),
-                    keepalive: 0,
+                    keepalive: KEEPALIVE,
                 })
                 .await?;
-            info!("Connected to broker");
-            info!("Subscribing to {}", params.topic);
+            status.set(
+                StatusPriority::Info,
+                format!("Subscribing to topic {}", params.topic),
+            );
             sender.subscribe(&params.topic).await?;
-            info!("Subscribed");
+            status.set(
+                StatusPriority::Info,
+                "Waiting for Device Info".to_string(),
+            );
             while let Some(next) = requests.recv().await {
-                info!("Publishing {:?}", next);
+                status.set(StatusPriority::Info, format!("Publishing `{:?}`", next));
                 sender
                     .publish(&PublishRequest {
                         qos: Qos::AtMostOnce,
                         topic: &params.topic,
                         payload: &serde_json_core::to_vec::<_, 1024>(&DisplayMessage::Request(
-                            next,
+                            next.clone(),
                         ))?,
                         retain: false,
                     })
                     .await?;
-                info!("Published");
+                status.set(StatusPriority::Info, format!("Published `{:?}`", next));
             }
             Ok::<!, Error>(unreachable!())
         },

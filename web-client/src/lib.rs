@@ -9,15 +9,31 @@
 #![feature(adt_const_params)]
 #![feature(unwrap_infallible)]
 #![allow(incomplete_features)]
+#![allow(unused_mut)]
+
+mod display;
 mod error;
-mod mqtt_socket;
+mod mqtt_connector;
+mod mqtt_form;
+mod query_params;
+mod send_form;
+mod status;
 mod utils;
 
+use crate::display::{Display, DisplayState};
 use crate::error::Error;
-use crate::mqtt_socket::run_mqtt;
-use crate::utils::{create_element, sleep, try_create_div, try_document, try_get_element_by_id};
+use crate::mqtt_connector::run_mqtt;
+use crate::mqtt_form::MqttForm;
+use crate::query_params::FlappyQueryParams;
+use crate::send_form::SendForm;
+use crate::status::{Status, StatusPriority};
+use crate::utils::{
+    create_element, sleep, spawn_local_joinable, try_create_div, try_document,
+    try_get_element_by_id,
+};
 use arena::ArenaStorage;
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
+use futures_util::AsyncWriteExt;
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
 use log::{error, info, warn};
@@ -27,12 +43,17 @@ use protocol::display::{
 };
 use protocol::setup::DeviceInfo;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::future::pending;
+use std::iter;
 use std::ops::Add;
 use std::pin::pin;
+use std::rc::Rc;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::{channel, Receiver};
+use tokio::try_join;
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
@@ -48,149 +69,72 @@ async fn start() {
     }
 }
 
-struct Display {
-    form: HtmlFormElement,
-    input: HtmlInputElement,
-    inners: Vec<HtmlDivElement>,
-    dots: Vec<char>,
+pub struct Root {
+    send_form: SendForm,
+    status: Rc<Status>,
 }
 
-#[derive(Clone)]
-enum State {
-    Running,
-    Stopped(heapless::Vec<heapless::String<MAX_GLYPH_BYTES>, MAX_GLYPHS>),
-}
-
-impl Display {
-    pub fn new() -> Result<Self, Error> {
-        let form: HtmlFormElement = try_get_element_by_id("form")?;
-        let input: HtmlInputElement = try_get_element_by_id("content")?;
-        let mut dots = vec![];
-        for i in 0..8 {
-            let mut codepoint = 0x2800;
-            for k in 0..4 {
-                let index = match (i + k) % 8 {
-                    0 => 0,
-                    1 => 1,
-                    2 => 2,
-                    3 => 6,
-                    4 => 7,
-                    5 => 5,
-                    6 => 4,
-                    7 => 3,
-                    _ => unreachable!(),
-                };
-                codepoint |= 1 << index;
+impl Root {
+    pub async fn new(status: Rc<Status>) -> Result<!, Error> {
+        let mut display = Display::new()?;
+        let mut send_form = SendForm::new()?;
+        let (request_send, request_recv) = channel::<DisplayRequest>(10);
+        let (response_send, mut response_recv) = channel::<DisplayResponse>(10);
+        send_form.set_on_submit(|value| {
+            let mut value: String = value.to_owned();
+            value.truncate(DISPLAY_REQUEST_CAPACITY);
+            if let Err::<(), Error>(e) = try {
+                request_send.try_send(DisplayRequest::Run(heapless::String::from_str(&value)?))?
+            } {
+                error!("{:?}", e);
             }
-            dots.push(char::from_u32(codepoint).unwrap());
-        }
-        Ok(Display {
-            form,
-            input,
-            inners: vec![],
-            dots,
-        })
-    }
-    pub fn set_on_submit(&self, mut on_submit: impl FnMut(&str)) {
-        let closure = Closure::wrap(Box::new(move || {
-            on_submit(&self.input.value());
-            false
-        }) as Box<dyn FnMut() -> bool>);
-        self.form
-            .set_onsubmit(Some(&closure.as_ref().unchecked_ref()));
-        closure.forget();
-    }
-    pub async fn handle_state(&self, resp: State) -> Result<!, Error> {
-        match resp {
-            State::Running => {
-                for step in 0.. {
-                    for inner in &self.inners {
-                        inner.set_text_content(Some(&format!(
-                            "{}",
-                            self.dots[step % self.dots.len()]
-                        )));
-                    }
-                    sleep(100).await;
-                }
-            }
-            State::Stopped(text) => {
-                for (index, inner) in self.inners.iter().enumerate() {
-                    inner.set_text_content(Some(text.get(index).map_or(" ", |x| &**x)));
-                }
-            }
-        }
-        pending().await
-    }
-    pub fn build(&mut self, info: &DeviceInfo) -> Result<(), Error> {
-        info!("DeviceInfo = {:?}", info);
-        let display: HtmlElement = try_get_element_by_id("display")?;
-        display
-            .style()
-            .set_property("color", &format!("#{}", info.foreground))?;
-        for inner in &self.inners{
-            display.remove_child(inner)?;
-        }
-        let mut inners = vec![];
-        for i in 0..info.glyphs {
-            let letter_outer = create_element::<"div">()?;
-            letter_outer.set_class_name("letter-outer");
-            letter_outer
-                .style()
-                .set_property("background", &format!("#{}", info.background))?;
-            let letter_inner: HtmlDivElement = create_element::<"div">()?;
-            letter_inner
-                .style()
-                .set_property("color", &format!("#{}", info.foreground))?;
-            letter_outer
-                .style()
-                .set_property("color", &format!("#{}", info.foreground))?;
-            letter_inner.set_class_name("letter-inner");
+        });
+        let params = FlappyQueryParams::new()?;
+        let mqtt_form = MqttForm::new(&params)?;
+        let this = Rc::new(Root {
+            send_form,
+            status: status.clone(),
+        });
 
-            letter_outer.append_child(&letter_inner)?;
-            display.append_child(&letter_outer)?;
-            inners.push(letter_inner);
-        }
-        self.inners = inners;
-        Ok(())
+        try_join! {
+            spawn_local_joinable(this.clone().run_display(status.clone(),display,response_recv)).try_join(),
+            spawn_local_joinable(run_mqtt(params,status.clone(),request_recv, response_send)).try_join(),
+        }?;
+        todo!();
     }
-}
-
-async fn main() -> Result<(), Error> {
-    let mut display = Display::new()?;
-    let (request_send, request_recv) = channel::<DisplayRequest>(10);
-    let (response_send, mut response_recv) = channel::<DisplayResponse>(10);
-    display.set_on_submit(|value| {
-        let mut value: String = value.to_owned();
-        value.truncate(DISPLAY_REQUEST_CAPACITY);
-        if let Err::<(), Error>(e) =
-            try { request_send.try_send(DisplayRequest::Run(heapless::String::from_str(&value)?))? }
-        {
-            error!("{:?}", e);
-        }
-    });
-    spawn_local(async move {
-        let mut state = State::Stopped(heapless::Vec::new());
+    async fn run_display(
+        self: Rc<Self>,
+        status: Rc<Status>,
+        mut display: Display,
+        mut response_recv: Receiver<DisplayResponse>,
+    ) -> Result<!, Error> {
+        let mut state = DisplayState::Stopped(
+            iter::repeat_n(heapless::String::from_str(" ").unwrap(), MAX_GLYPHS).collect(),
+        );
         loop {
             match select(response_recv.recv(), display.handle_state(state.clone())).await {
-                Either::First(None) => return,
+                Either::First(None) => return Err(Error::UnexpectedEof),
                 Either::First(Some(new)) => {
                     //
                     match new {
-                        DisplayResponse::Start(_) => state = State::Running,
-                        DisplayResponse::Stop(text) => state = State::Stopped(text),
+                        DisplayResponse::Start(_) => state = DisplayState::Running,
+                        DisplayResponse::Stop(text) => state = DisplayState::Stopped(text),
                         DisplayResponse::DeviceInfo(info) => {
+                            status.set(StatusPriority::Info, "Connected!".to_string());
                             display.build(&info).unwrap_or_else(|e| error!("{:?}", e))
                         }
                     }
                 }
-                Either::Second(x) => {
-                    error!("{:?}", x.into_err());
-                    return;
-                }
+                Either::Second(e) => return e,
             }
         }
-    });
-    run_mqtt(request_recv, response_send).await?;
+    }
+}
+
+async fn main() -> Result<(), Error> {
+    let status = Status::new()?;
+    let Err(e) = Root::new(status.clone()).await;
+    status.set(StatusPriority::Error, format!("{}", e));
     Ok(())
 }
 
