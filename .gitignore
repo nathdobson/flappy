@@ -7,7 +7,7 @@ arduino_secrets.h
 **/fp-info-cache
 **/.idea
 secrets.rs
-release/
+release/artifacts
 
 # Added by cargo
 
