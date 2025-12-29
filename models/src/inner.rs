@@ -3,7 +3,8 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-
+use models::encode_sdf::encode_model;
+use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo3::cylinder::Cylinder;
@@ -18,8 +19,6 @@ use patina_vec::vec3::Vec3;
 use std::f64;
 use std::path::Path;
 use std::time::Instant;
-use patina_bambu::BambuBuilder;
-use models::encode_sdf::encode_model;
 
 pub struct DrumBuilder {
     eps: f64,
@@ -45,10 +44,11 @@ pub struct DrumBuilder {
     letter_count: usize,
     flap_hole_radius: f64,
     flap_pos_radius: f64,
-    magnet_ring_inner_radius: f64,
-    magnet_ring_outer_radius: f64,
+    magnet_distance: f64,
     magnet_depth: f64,
     magnet_radius: f64,
+    magnet_lip_width: f64,
+    magnet_lip_height: f64,
     magnet_height: f64,
 }
 
@@ -200,29 +200,29 @@ impl DrumBuilder {
         }
         sdf.add_sdf(
             &Cylinder::new(
-                Vec3::zero(),
-                Vec3::axis_z() * self.magnet_height,
-                self.magnet_ring_outer_radius,
+                Vec3::new(self.magnet_distance, 0.0, self.flange_height),
+                Vec3::axis_z() * (self.magnet_height - self.flange_height),
+                5.0,
             )
-            .as_sdf()
-            .difference(
-                &Cylinder::new(
-                    Vec3::zero(),
-                    Vec3::axis_z() * self.magnet_height,
-                    self.magnet_ring_inner_radius,
-                )
-                .as_sdf(),
-            ),
+            .as_sdf(),
         );
         sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(
-                    (self.magnet_ring_inner_radius + self.magnet_ring_outer_radius) / 2.0,
+                    self.magnet_distance,
                     0.0,
-                    self.magnet_height,
+                    self.magnet_height - self.magnet_lip_height,
                 ),
-                -Vec3::axis_z() * self.magnet_depth,
+                -Vec3::axis_z() * (self.magnet_depth - self.magnet_lip_height),
                 self.magnet_radius,
+            )
+            .as_sdf(),
+        );
+        sdf.subtract_sdf(
+            &Cylinder::new(
+                Vec3::new(self.magnet_distance, 0.0, self.magnet_height),
+                -Vec3::axis_z() * self.magnet_depth,
+                self.magnet_radius - self.magnet_lip_width,
             )
             .as_sdf(),
         );
@@ -248,17 +248,6 @@ impl DrumBuilder {
         )
         .await?;
         Ok(())
-        // let sdf = ;
-        // let mut marching = MarchingMesh::new();
-        // marching
-        //     // .min_render_depth(6)
-        //     // .max_render_depth(7)
-        //     // .subdiv_max_dot(0.9);
-        //     .min_render_depth(7)
-        //     .max_render_depth(10)
-        //     .subdiv_max_dot(0.999);
-        // let mesh = marching.build(&sdf);
-        // mesh
     }
 }
 
@@ -288,10 +277,11 @@ async fn main() -> anyhow::Result<()> {
         letter_count: 45,
         flap_hole_radius: 2.0 / 2.0,
         flap_pos_radius: 64.0 / 2.0,
-        magnet_ring_inner_radius: 19.0,
-        magnet_ring_outer_radius: 22.0,
-        magnet_depth: 1.0,
-        magnet_radius: 1.2,
+        magnet_distance: 18.0,
+        magnet_depth: 2.2,
+        magnet_radius: 3.02,
+        magnet_lip_width: 0.04,
+        magnet_lip_height: 0.2,
         magnet_height: 16.4,
     }
     .build()

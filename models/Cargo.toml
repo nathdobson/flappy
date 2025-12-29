@@ -19,6 +19,10 @@ path = "src/housing.rs"
 name = "flaps"
 path = "src/flaps.rs"
 
+[[bin]]
+name = "magnet_test"
+path = "src/magnet_test.rs"
+
 [dependencies]
 patina-geo={path="../submodules/patina-rs/patina-geo"}
 patina-mesh ={path="../submodules/patina-rs/patina-mesh"}
