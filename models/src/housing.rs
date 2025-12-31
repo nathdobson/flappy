@@ -82,7 +82,6 @@ struct Tube {
     wire_inlet1: f64,
     wire_inlet2: f64,
     tab_width: f64,
-    start_x: f64,
 }
 
 struct HallMount {
@@ -253,7 +252,10 @@ impl HousingBuilder {
                 ),
             ])
             .as_sdf()
-            .extrude_x(self.tube.start_x + self.port.width..self.aabb.max().x()),
+            .extrude_x(
+                self.hall_port.start_x + self.hall_port.width
+                    ..self.aabb.max().x(),
+            ),
         );
         sdf
     }
@@ -262,7 +264,7 @@ impl HousingBuilder {
         sdf = sdf.union(
             &Aabb::new(
                 Vec3::new(
-                    self.tube.start_x,
+                    self.hall_port.start_x + self.hall_port.width,
                     -self.tube.width / 2.0,
                     self.tube.wall_bottom,
                 ),
@@ -277,7 +279,7 @@ impl HousingBuilder {
         sdf = sdf.union(
             &Aabb::new(
                 Vec3::new(
-                    self.tube.start_x,
+                    self.hall_port.start_x + self.hall_port.width,
                     self.tube.width / 2.0 - self.tube.wire_inlet1,
                     -self.inf,
                 ),
@@ -309,7 +311,7 @@ impl HousingBuilder {
                     -self.inf,
                 ),
                 Vec3::new(
-                    self.hall_port.start_x + self.port.width,
+                    self.hall_port.start_x + self.hall_port.width,
                     self.hall_port.start_y + self.hall_port.length / 2.0,
                     self.inf,
                 ),
@@ -807,9 +809,9 @@ async fn main() -> anyhow::Result<()> {
         },
         hall_port: HallPort {
             start_x: -16.0,
-            start_y: 5.0,
-            width: 7.0,
-            length: 16.0,
+            start_y: 0.0,
+            width: 5.0,
+            length: 12.0,
         },
         tube: Tube {
             width: 14.0,
@@ -818,7 +820,6 @@ async fn main() -> anyhow::Result<()> {
             wire_inlet1: 1.2,
             wire_inlet2: 0.8,
             tab_width: 2.0,
-            start_x: -7.0,
         },
         hall_mount: HallMount {
             width: 10.0,
