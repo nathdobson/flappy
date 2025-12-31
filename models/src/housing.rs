@@ -34,17 +34,15 @@ struct Tab {
     size: f64,
     thickness: f64,
     wall_size: f64,
-    bottom_x: f64,
-    top_x: f64,
-    right_y: f64,
     tab_fitment: f64,
     housing_fitment: f64,
     through_hole_excess_radius: f64,
+    toe_width: f64,
 }
 
 struct Catch {
-    bottom_thickness: f64,
-    indent: f64,
+    bottom_y: f64,
+    indent_x: f64,
 }
 
 struct Mount {
@@ -70,6 +68,13 @@ struct Port {
     length: f64,
 }
 
+struct HallPort {
+    start_x: f64,
+    start_y: f64,
+    width: f64,
+    length: f64,
+}
+
 struct Tube {
     width: f64,
     wall_bottom: f64,
@@ -77,6 +82,7 @@ struct Tube {
     wire_inlet1: f64,
     wire_inlet2: f64,
     tab_width: f64,
+    start_x: f64,
 }
 
 struct HallMount {
@@ -101,24 +107,16 @@ struct DrumGuide {
     seam_cut_depth: f64,
 }
 
-struct HallChannel {
-    width: f64,
-    length: f64,
-}
-
 struct BoardMounts {
     standoff: f64,
     thread: &'static ThreadMetrics,
     brace_width: f64,
     brace_inset: f64,
     board1_vertical: f64,
-    board1_width: f64,
-    board1_height1: f64,
-    board1_height2: f64,
-
     board2_vertical: f64,
-    board2_width: f64,
-    board2_height: f64,
+    board_width: f64,
+    board_height: f64,
+    board_offset_z: f64,
 }
 struct HousingBuilder {
     aabb: Aabb3,
@@ -129,13 +127,14 @@ struct HousingBuilder {
     mount: Mount,
     brace: Brace,
     port: Port,
+    hall_port: HallPort,
     tab: Tab,
     tube: Tube,
     hall_mount: HallMount,
     drum_guide: DrumGuide,
-    hall_channel: HallChannel,
     top_catch: TopCatch,
     board_mounts: BoardMounts,
+    vertical_mounts: VerticalMounts,
 }
 
 impl HousingBuilder {
@@ -153,12 +152,8 @@ impl HousingBuilder {
         );
         sdf.subtract_sdf(
             &Aabb::new(
-                Vec3::new(
-                    -self.inf,
-                    self.aabb.min().y() + self.catch.bottom_thickness,
-                    self.back_thickness,
-                ),
-                Vec3::new(self.aabb.min().x() + self.catch.indent, 0.0, self.inf),
+                Vec3::new(-self.inf, self.catch.bottom_y, self.back_thickness),
+                Vec3::new(self.catch.indent_x, 0.0, self.inf),
             )
             .as_sdf(),
         );
@@ -258,7 +253,7 @@ impl HousingBuilder {
                 ),
             ])
             .as_sdf()
-            .extrude_x(self.port.start_x + self.port.width..self.aabb.max().x()),
+            .extrude_x(self.tube.start_x + self.port.width..self.aabb.max().x()),
         );
         sdf
     }
@@ -266,19 +261,8 @@ impl HousingBuilder {
         let mut sdf = Sdf::empty();
         sdf = sdf.union(
             &Aabb::new(
-                Vec3::new(self.port.start_x, -self.port.length / 2.0, -self.inf),
                 Vec3::new(
-                    self.port.start_x + self.port.width,
-                    self.port.length / 2.0,
-                    self.inf,
-                ),
-            )
-            .as_sdf(),
-        );
-        sdf = sdf.union(
-            &Aabb::new(
-                Vec3::new(
-                    self.port.start_x + self.port.width,
+                    self.tube.start_x,
                     -self.tube.width / 2.0,
                     self.tube.wall_bottom,
                 ),
@@ -293,7 +277,7 @@ impl HousingBuilder {
         sdf = sdf.union(
             &Aabb::new(
                 Vec3::new(
-                    self.port.start_x + self.port.width,
+                    self.tube.start_x,
                     self.tube.width / 2.0 - self.tube.wire_inlet1,
                     -self.inf,
                 ),
@@ -305,22 +289,33 @@ impl HousingBuilder {
             )
             .as_sdf(),
         );
-        sdf = sdf.union(
+        sdf
+    }
+    fn port_neg(&self) -> Sdf3 {
+        Aabb::new(
+            Vec3::new(self.port.start_x, -self.port.length / 2.0, -self.inf),
+            Vec3::new(
+                self.port.start_x + self.port.width,
+                self.port.length / 2.0,
+                self.inf,
+            ),
+        )
+        .as_sdf()
+        .union(
             &Aabb::new(
                 Vec3::new(
-                    self.port.start_x - self.hall_channel.length,
-                    -self.hall_channel.width / 2.0,
-                    self.back_thickness,
+                    self.hall_port.start_x,
+                    self.hall_port.start_y - self.hall_port.length / 2.0,
+                    -self.inf,
                 ),
                 Vec3::new(
-                    self.port.start_x,
-                    self.hall_channel.width / 2.0,
-                    self.back_thickness + self.mount.extra_back,
+                    self.hall_port.start_x + self.port.width,
+                    self.hall_port.start_y + self.hall_port.length / 2.0,
+                    self.inf,
                 ),
             )
             .as_sdf(),
-        );
-        sdf
+        )
     }
     fn tab(&self, sdf: &mut SdfModel, origin: Vec2, axis: Vec3) {
         let axis2 = Vec3::axis_z();
@@ -517,17 +512,17 @@ impl HousingBuilder {
         let mut sdf = Sdf::empty();
         sdf = sdf.union(
             &Cylinder::new(
-                Vec3::new(42.0, 57.0, -self.inf),
+                Vec3::new(43.0, 43.0, -self.inf),
                 Vec3::axis_z() * self.inf * 2.0,
-                10.0,
+                7.0,
             )
             .as_sdf(),
         );
         sdf = sdf.union(
             &Cylinder::new(
-                Vec3::new(44.0, -57.0, -self.inf),
+                Vec3::new(43.0, -43.0, -self.inf),
                 Vec3::axis_z() * self.inf * 2.0,
-                12.0,
+                7.0,
             )
             .as_sdf(),
         );
@@ -585,71 +580,131 @@ impl HousingBuilder {
         );
     }
     fn board_mounts(&self, mut sdf: &mut SdfModel) {
-        let center_x = self.aabb.center().z();
+        let center_x = self.aabb.center().z() + self.board_mounts.board_offset_z;
         self.board_mount(
             Vec2::new(
-                center_x - self.board_mounts.board1_width / 2.0,
+                center_x - self.board_mounts.board_width / 2.0,
                 self.aabb.max().y() - self.board_mounts.board1_vertical,
             ),
             sdf,
         );
         self.board_mount(
             Vec2::new(
-                center_x + self.board_mounts.board1_width / 2.0,
+                center_x + self.board_mounts.board_width / 2.0,
                 self.aabb.max().y() - self.board_mounts.board1_vertical,
             ),
             sdf,
         );
         self.board_mount(
             Vec2::new(
-                center_x - self.board_mounts.board1_width / 2.0,
+                center_x - self.board_mounts.board_width / 2.0,
                 self.aabb.max().y()
                     - self.board_mounts.board1_vertical
-                    - self.board_mounts.board1_height2,
+                    - self.board_mounts.board_height,
             ),
             sdf,
         );
         self.board_mount(
             Vec2::new(
-                center_x + self.board_mounts.board1_width / 2.0,
+                center_x + self.board_mounts.board_width / 2.0,
                 self.aabb.max().y()
                     - self.board_mounts.board1_vertical
-                    - self.board_mounts.board1_height1,
+                    - self.board_mounts.board_height,
             ),
             sdf,
         );
         self.board_mount(
             Vec2::new(
-                center_x + self.board_mounts.board2_width / 2.0,
+                center_x + self.board_mounts.board_width / 2.0,
                 self.aabb.min().y() + self.board_mounts.board2_vertical,
             ),
             sdf,
         );
         self.board_mount(
             Vec2::new(
-                center_x - self.board_mounts.board2_width / 2.0,
+                center_x - self.board_mounts.board_width / 2.0,
                 self.aabb.min().y() + self.board_mounts.board2_vertical,
             ),
             sdf,
         );
         self.board_mount(
             Vec2::new(
-                center_x + self.board_mounts.board2_width / 2.0,
+                center_x + self.board_mounts.board_width / 2.0,
                 self.aabb.min().y()
                     + self.board_mounts.board2_vertical
-                    + self.board_mounts.board2_height,
+                    + self.board_mounts.board_height,
             ),
             sdf,
         );
         self.board_mount(
             Vec2::new(
-                center_x - self.board_mounts.board2_width / 2.0,
+                center_x - self.board_mounts.board_width / 2.0,
                 self.aabb.min().y()
                     + self.board_mounts.board2_vertical
-                    + self.board_mounts.board2_height,
+                    + self.board_mounts.board_height,
             ),
             sdf,
         );
+        sdf.subtract_sdf(
+            &Aabb::new(
+                Vec3::new(-10000.0, -10000.0, -10000.0),
+                Vec3::new(10000.0, 10000.0, 0.0),
+            )
+            .as_sdf(),
+        );
+    }
+    fn vertical_mount(&self, sdf: &mut SdfModel, x0: f64, dx: f64) {
+        let standoff = self.vertical_mounts.thread.countersink_radius * 2.0;
+        let drill_origin1 = Vec3::new(
+            x0 - standoff * dx,
+            self.aabb.min().y() + standoff + self.vertical_mounts.height,
+            self.aabb.center().z() + self.back_thickness / 2.0,
+        );
+        sdf.subtract_sdf(
+            &Cylinder::new(
+                drill_origin1,
+                Vec3::new(
+                    dx * (standoff
+                        + self.vertical_mounts.thread.countersink_radius
+                        + self.vertical_mounts.thread.countersink_depth),
+                    -(standoff
+                        + self.vertical_mounts.thread.countersink_radius
+                        + self.vertical_mounts.thread.countersink_depth),
+                    0.0,
+                ),
+                THREAD_M3.countersink_radius,
+            )
+            .as_sdf(),
+        );
+        sdf.subtract_sdf(
+            &Cylinder::new(
+                drill_origin1,
+                Vec3::new(dx * 100.0, -100.0, 0.0),
+                self.vertical_mounts.thread.through_radius,
+            )
+            .as_sdf(),
+        );
+        let origin2 = drill_origin1 + Vec3::new(0.0, self.aabb.dimensions().y(), 0.0);
+        let countersink_depth2 =
+            standoff + self.vertical_mounts.height + self.vertical_mounts.thread.countersink_radius;
+        let countersink_vector2 = Vec3::new(dx * countersink_depth2, -countersink_depth2, 0.0);
+        sdf.subtract_sdf(
+            &Cylinder::new(
+                origin2,
+                countersink_vector2,
+                self.vertical_mounts.thread.countersink_radius,
+            )
+            .as_sdf(),
+        );
+        sdf.drill_ruthex(
+            origin2 + countersink_vector2,
+            Vec3::new(dx, -1.0, 0.0).normalize(),
+            &self.vertical_mounts.thread,
+        )
+    }
+    fn vertical_mounts(&self, mut sdf: &mut SdfModel) {
+        self.vertical_mount(sdf, self.aabb.min().x(), 1.0);
+        self.vertical_mount(sdf, self.aabb.max().x(), -1.0);
     }
     fn build_sdf(&self) -> SdfModel {
         let mut sdf = self.main_body();
@@ -657,26 +712,34 @@ impl HousingBuilder {
         self.mounts(&mut sdf);
         sdf.subtract_sdf(&self.wiring_neg());
         sdf.add_sdf(&self.wiring_pos());
+        sdf.subtract_sdf(&self.port_neg());
+        let offset = self.tab.size + self.tab.tab_fitment + self.tab.toe_width;
         self.tab(
             &mut sdf,
-            Vec2::new(self.tab.bottom_x, self.aabb.min().y()),
+            Vec2::new(self.aabb.min().x() + offset + 10.0, self.aabb.min().y()),
             Vec3::axis_y(),
         );
         self.tab(
             &mut sdf,
-            Vec2::new(self.tab.top_x, self.aabb.max().y()),
+            Vec2::new(self.aabb.min().x() + offset, self.aabb.max().y()),
             -Vec3::axis_y(),
         );
         self.tab(
             &mut sdf,
-            Vec2::new(self.aabb.max().x(), self.tab.right_y),
-            -Vec3::axis_x(),
+            Vec2::new(self.aabb.max().x() - offset, self.aabb.min().y()),
+            Vec3::axis_y(),
+        );
+        self.tab(
+            &mut sdf,
+            Vec2::new(self.aabb.max().x() - offset, self.aabb.max().y()),
+            -Vec3::axis_y(),
         );
         self.hall_mount(&mut sdf);
         sdf.subtract_sdf(&self.motor_clearance());
         sdf.add_sdf(&self.drum_guide());
         sdf.subtract_sdf(&self.drillium());
         self.board_mounts(&mut sdf);
+        self.vertical_mounts(&mut sdf);
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
@@ -696,28 +759,31 @@ struct TopCatch {
     thickness: f64,
 }
 
+struct VerticalMounts {
+    height: f64,
+    thread: &'static ThreadMetrics,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     HousingBuilder {
         inf: 1000.0,
-        aabb: Aabb::new(Vec3::new(-35.0, -71.0, 0.0), Vec3::new(59.0, 70.0, 50.0)),
+        aabb: Aabb::new(Vec3::new(-35.0, -66.0, 0.0), Vec3::new(54.0, 62.0, 50.0)),
 
-        drum_bounding_radius: 56.0,
+        drum_bounding_radius: 52.0,
         back_thickness: 4.0,
         tab: Tab {
             size: 14.0,
             thickness: 5.0,
             wall_size: 6.0,
-            bottom_x: 20.0,
-            top_x: -20.0,
-            right_y: 45.0,
             tab_fitment: 0.2,
             housing_fitment: 0.35,
             through_hole_excess_radius: 0.25,
+            toe_width: 2.001,
         },
         catch: Catch {
-            bottom_thickness: 15.0,
-            indent: 10.0,
+            bottom_y: -56.0,
+            indent_x: -15.0,
         },
         mount: Mount {
             off_x: 8.0,
@@ -739,6 +805,12 @@ async fn main() -> anyhow::Result<()> {
             width: 7.0,
             length: 16.0,
         },
+        hall_port: HallPort {
+            start_x: -16.0,
+            start_y: 5.0,
+            width: 7.0,
+            length: 16.0,
+        },
         tube: Tube {
             width: 14.0,
             wall_bottom: 1.0,
@@ -746,6 +818,7 @@ async fn main() -> anyhow::Result<()> {
             wire_inlet1: 1.2,
             wire_inlet2: 0.8,
             tab_width: 2.0,
+            start_x: -7.0,
         },
         hall_mount: HallMount {
             width: 10.0,
@@ -766,10 +839,6 @@ async fn main() -> anyhow::Result<()> {
             seam_cut_width: 2.0,
             seam_cut_depth: 0.3,
         },
-        hall_channel: HallChannel {
-            width: 6.0,
-            length: 30.0,
-        },
         top_catch: TopCatch {
             min_y: 35.0,
             max_y: 50.0,
@@ -781,14 +850,15 @@ async fn main() -> anyhow::Result<()> {
             brace_width: 3.0,
             brace_inset: 0.5,
 
-            board1_width: 29.37,
-            board1_vertical: 11.5,
-            board1_height1: 26.39,
-            board1_height2: 27.39,
-
-            board2_width: 31.75,
-            board2_height: 44.45,
-            board2_vertical: 10.0,
+            board1_vertical: 15.0,
+            board2_vertical: 25.0,
+            board_width: 43.0,
+            board_height: 29.0,
+            board_offset_z: 0.0,
+        },
+        vertical_mounts: VerticalMounts {
+            height: 12.0,
+            thread: &THREAD_M3,
         },
     }
     .build()

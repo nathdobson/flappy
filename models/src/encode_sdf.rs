@@ -39,10 +39,17 @@ pub async fn encode_files(
     mut bambu: BambuBuilder,
     aabb: &Aabb3,
 ) -> anyhow::Result<()> {
+    let mut model = model.clone();
     encode_file(&model.mesh, Path::new(&format!("{}/{}.stl", prefix, name))).await?;
     bambu.add_filament(settings_primary_filament());
     bambu.printer_settings_id(Some(settings_machine()));
     bambu.print_settings_id(Some(settings_process()));
+    // Bambu doesn't like it when the bottom vertices aren't at exactly 0.0, so let's just round everything.
+    let precision: f64 = 1e10;
+    for v in model.mesh.vertices_mut() {
+        *v = v.map(|x| (x * precision).round() / precision)
+    }
+
     bambu.add_plate({
         let mut plate = BambuPlate::new();
         let mut object = BambuObject::from_model(model.clone());
