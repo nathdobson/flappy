@@ -28,9 +28,9 @@ use protocol::setup::{
 };
 use static_cell::make_static;
 
-pub struct DisplayResponseContainer {
-    pub response: DisplayResponse,
-    pub retain: bool,
+pub enum DisplayResponseContainer {
+    DisplayResponse(DisplayResponse),
+    DeviceInfo(DeviceInfo),
 }
 
 pub const MODULE: &'static str = "[APP  ]";
@@ -256,10 +256,9 @@ impl Application {
                         .map(|i| LETTERS[*i].try_into().unwrap_or(" ".try_into().unwrap()))
                         .collect();
                     self.display_response
-                        .send(DisplayResponseContainer {
-                            response: DisplayResponse::Start(glyph_strs.clone()),
-                            retain: false,
-                        })
+                        .send(DisplayResponseContainer::DisplayResponse(
+                            DisplayResponse::Start(glyph_strs.clone()),
+                        ))
                         .await;
                     #[cfg(not(feature = "display"))]
                     Timer::after_millis(1000).await;
@@ -272,10 +271,9 @@ impl Application {
                         }
                     }
                     self.display_response
-                        .send(DisplayResponseContainer {
-                            response: DisplayResponse::Stop(glyph_strs),
-                            retain: false,
-                        })
+                        .send(DisplayResponseContainer::DisplayResponse(
+                            DisplayResponse::Stop(glyph_strs),
+                        ))
                         .await;
                 }
                 DisplayRequest::Test => {
@@ -430,10 +428,7 @@ impl Application {
         let mut info = self.device_info();
         loop {
             self.display_response
-                .send(DisplayResponseContainer {
-                    response: DisplayResponse::DeviceInfo(info.clone()),
-                    retain: true,
-                })
+                .send(DisplayResponseContainer::DeviceInfo(info.clone()))
                 .await;
             loop {
                 Timer::after(Duration::from_secs(1)).await;

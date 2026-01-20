@@ -15,7 +15,7 @@ use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use mqtt_core::protocol::{Packet, Qos};
 use protocol::display::MAX_GLYPH_BYTES;
 use protocol::display::MAX_GLYPHS;
-use protocol::display::{DisplayMessage, DisplayRequest, DisplayResponse};
+use protocol::display::{DisplayRequest, DisplayResponse};
 use protocol::setup::DeviceInfo;
 use rustls::pki_types::ServerName;
 use serde_json_core::heapless;
@@ -72,6 +72,9 @@ async fn main() -> anyhow::Result<()> {
     let sender = MqttSender::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
     let mut receiver = MqttReceiver::new(TokioStreamAdapter(read));
     let (request_send, mut request_recv) = tokio::sync::mpsc::unbounded_channel::<DisplayRequest>();
+    let req_topic = format!("{}/request", args.mqtt_topic);
+    let resp_topic = format!("{}/response", args.mqtt_topic);
+    let info_topic = format!("{}/info", args.mqtt_topic);
     match select5(
         async {
             println!("Connecting...");
@@ -84,23 +87,21 @@ async fn main() -> anyhow::Result<()> {
                 })
                 .await?;
             println!("Subscribing...");
-            sender.subscribe(&args.mqtt_topic).await?;
+            sender.subscribe(&req_topic).await?;
             println!("Publishing Device Info...");
-            let device_info: heapless::Vec<u8, 1024> = serde_json_core::to_vec(
-                &DisplayMessage::Response(DisplayResponse::DeviceInfo(DeviceInfo {
-                    serial: 0,
-                    git_version: Default::default(),
-                    git_dirty: None,
-                    git_head_ref: Default::default(),
-                    glyphs: args.glyph_count,
-                    background: (*args.background_color).try_into()?,
-                    foreground: (*args.foreground_color).try_into()?,
-                })),
-            )?;
+            let device_info: heapless::Vec<u8, 1024> = serde_json_core::to_vec(&DeviceInfo {
+                serial: 0,
+                git_version: Default::default(),
+                git_dirty: None,
+                git_head_ref: Default::default(),
+                glyphs: args.glyph_count,
+                background: (*args.background_color).try_into()?,
+                foreground: (*args.foreground_color).try_into()?,
+            })?;
             sender
                 .publish(&PublishRequest {
                     qos: Qos::AtMostOnce,
-                    topic: &args.mqtt_topic,
+                    topic: &info_topic,
                     payload: &device_info,
                     retain: true,
                 })
@@ -116,17 +117,12 @@ async fn main() -> anyhow::Result<()> {
                 let (token, packet): (_, Packet) = receiver.receive(arena.start()).await?;
                 match packet {
                     Packet::Publish(packet) => {
-                        match serde_json_core::from_slice_escaped::<DisplayMessage>(
+                        let request = serde_json_core::from_slice_escaped::<DisplayRequest>(
                             &packet.payload,
                             &mut tmp,
                         )?
-                        .0
-                        {
-                            DisplayMessage::Request(request) => {
-                                request_send.send(request)?;
-                            }
-                            _ => {}
-                        }
+                        .0;
+                        request_send.send(request)?;
                     }
                     _ => {}
                 }
@@ -167,9 +163,9 @@ async fn main() -> anyhow::Result<()> {
                         sender
                             .publish(&PublishRequest {
                                 qos: Qos::AtMostOnce,
-                                topic: &args.mqtt_topic,
+                                topic: &resp_topic,
                                 payload: &serde_json_core::to_vec::<_, 1024>(
-                                    &DisplayMessage::Response(DisplayResponse::Start(rendered.clone())),
+                                    &DisplayResponse::Start(rendered.clone()),
                                 )?,
                                 retain: false,
                             })
@@ -178,11 +174,11 @@ async fn main() -> anyhow::Result<()> {
                         sender
                             .publish(&PublishRequest {
                                 qos: Qos::AtMostOnce,
-                                topic: &args.mqtt_topic,
+                                topic: &resp_topic,
                                 payload: &serde_json_core::to_vec::<_, 1024>(
-                                    &DisplayMessage::Response(DisplayResponse::Stop(rendered)),
+                                    &DisplayResponse::Stop(rendered),
                                 )?,
-                                retain: false,
+                                retain: true,
                             })
                             .await?;
                     }

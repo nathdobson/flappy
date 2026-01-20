@@ -1,4 +1,3 @@
-use crate::setup::DeviceInfo;
 use heapless::{String, Vec};
 
 pub const MAX_GLYPH_BYTES: usize = 12;
@@ -17,12 +16,4 @@ pub enum DisplayRequest {
 pub enum DisplayResponse {
     Start(Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS>),
     Stop(Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS>),
-    DeviceInfo(DeviceInfo),
-}
-
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum DisplayMessage {
-    Request(DisplayRequest),
-    Response(DisplayResponse),
 }

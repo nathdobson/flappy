@@ -130,4 +130,5 @@ pub enum MqttServiceError {
     Disconnected,
     DeadlineExceeded,
     NoCertificateListSha256,
+    TopicTooLong,
 }

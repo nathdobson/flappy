@@ -38,8 +38,7 @@ use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
 use log::{error, info, warn};
 use protocol::display::{
-    DisplayMessage, DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS,
-    MAX_GLYPH_BYTES,
+    DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS, MAX_GLYPH_BYTES,
 };
 use protocol::setup::DeviceInfo;
 use serde::{Deserialize, Serialize};
@@ -74,12 +73,17 @@ pub struct Root {
     status: Rc<Status>,
 }
 
+enum DisplayResponseContainer {
+    DisplayResponse(DisplayResponse),
+    DeviceInfo(DeviceInfo),
+}
+
 impl Root {
     pub async fn new(status: Rc<Status>) -> Result<!, Error> {
         let mut display = Display::new()?;
         let mut send_form = SendForm::new()?;
         let (request_send, request_recv) = channel::<DisplayRequest>(10);
-        let (response_send, mut response_recv) = channel::<DisplayResponse>(10);
+        let (response_send, mut response_recv) = channel::<DisplayResponseContainer>(10);
         send_form.set_on_submit(|value| {
             let mut value: String = value.to_owned();
             value.truncate(DISPLAY_REQUEST_CAPACITY);
@@ -106,7 +110,7 @@ impl Root {
         self: Rc<Self>,
         status: Rc<Status>,
         mut display: Display,
-        mut response_recv: Receiver<DisplayResponse>,
+        mut response_recv: Receiver<DisplayResponseContainer>,
     ) -> Result<!, Error> {
         let mut state = DisplayState::Stopped(
             iter::repeat_n(heapless::String::from_str(" ").unwrap(), MAX_GLYPHS).collect(),
@@ -114,17 +118,16 @@ impl Root {
         loop {
             match select(response_recv.recv(), display.handle_state(state.clone())).await {
                 Either::First(None) => return Err(Error::UnexpectedEof),
-                Either::First(Some(new)) => {
-                    //
-                    match new {
+                Either::First(Some(new)) => match new {
+                    DisplayResponseContainer::DisplayResponse(response) => match response {
                         DisplayResponse::Start(_) => state = DisplayState::Running,
                         DisplayResponse::Stop(text) => state = DisplayState::Stopped(text),
-                        DisplayResponse::DeviceInfo(info) => {
-                            status.set(StatusPriority::Info, "Connected!".to_string());
-                            display.build(&info).unwrap_or_else(|e| error!("{:?}", e))
-                        }
+                    },
+                    DisplayResponseContainer::DeviceInfo(info) => {
+                        status.set(StatusPriority::Info, "Connected!".to_string());
+                        display.build(&info).unwrap_or_else(|e| error!("{:?}", e))
                     }
-                }
+                },
                 Either::Second(e) => return e,
             }
         }

@@ -26,6 +26,7 @@ use embedded_tls::{
     Aes128GcmSha256, Certificate, NoClock, NoVerify, TlsCipherSuite, TlsConfig, TlsConnection,
     TlsContext, TlsError, TlsVerifier, TlsWriter, UnsecureProvider,
 };
+use heapless::{String, format};
 use log::{error, info, trace, warn};
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
@@ -37,7 +38,7 @@ use static_cell::make_static;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 // use rust_mqtt::utils::rng_generator::CountingRng;
-use protocol::display::{DisplayMessage, DisplayResponse};
+use protocol::display::DisplayResponse;
 
 const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
@@ -50,7 +51,7 @@ use protocol::error::{
     DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel,
     TlsParseError,
 };
-use protocol::setup::{AppSettings, MqttServiceStatus, MqttSettings};
+use protocol::setup::{AppSettings, DeviceInfo, MqttServiceStatus, MqttSettings};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
 
 pub struct MqttModule {
@@ -465,9 +466,18 @@ impl MqttModule {
                 info!("{MODULE} Connected to broker");
 
                 self.status.sender().send(MqttServiceStatus::MqttSubscribe);
-                info!("{MODULE} Subscribing to {}", settings.topic);
+                let request_topic: String<128> = format!("{}/request", settings.topic)
+                    .ok()
+                    .ok_or(MqttServiceError::TopicTooLong)?;
+                let response_topic: String<128> = format!("{}/response", settings.topic)
+                    .ok()
+                    .ok_or(MqttServiceError::TopicTooLong)?;
+                let info_topic: String<128> = format!("{}/info", settings.topic)
+                    .ok()
+                    .ok_or(MqttServiceError::TopicTooLong)?;
+                info!("{MODULE} Subscribing to {}", request_topic);
                 sender
-                    .subscribe(&settings.topic)
+                    .subscribe(&request_topic)
                     .await
                     .map_err(convert_mqtt_error)?;
                 info!("{MODULE} Subscribed");
@@ -475,20 +485,43 @@ impl MqttModule {
                 self.status.sender().send(MqttServiceStatus::Connected);
                 loop {
                     let response = self.display_response.receive().await;
-                    match serde_json_core::to_vec::<DisplayMessage, PACKET_SIZE>(
-                        &DisplayMessage::Response(response.response),
-                    ) {
-                        Ok(encoded) => {
-                            let request = PublishRequest {
-                                qos: Qos::AtMostOnce,
-                                topic: &settings.topic,
-                                payload: &encoded,
-                                retain: response.retain,
-                            };
-                            sender.publish(&request).await.map_err(convert_mqtt_error)?;
+                    match response {
+                        DisplayResponseContainer::DisplayResponse(response) => {
+                            match serde_json_core::to_vec::<DisplayResponse, PACKET_SIZE>(&response)
+                            {
+                                Ok(response) => {
+                                    sender
+                                        .publish(&PublishRequest {
+                                            qos: Qos::AtMostOnce,
+                                            topic: &response_topic,
+                                            payload: &response,
+                                            retain: true,
+                                        })
+                                        .await
+                                        .map_err(convert_mqtt_error)?;
+                                }
+                                Err(e) => {
+                                    warn!("Cannot encode response {:?}", e);
+                                }
+                            }
                         }
-                        Err(e) => {
-                            warn!("Cannot encode response {:?}", e);
+                        DisplayResponseContainer::DeviceInfo(info) => {
+                            match serde_json_core::to_vec::<DeviceInfo, PACKET_SIZE>(&info) {
+                                Ok(info) => {
+                                    sender
+                                        .publish(&PublishRequest {
+                                            qos: Qos::AtMostOnce,
+                                            topic: &info_topic,
+                                            payload: &info,
+                                            retain: true,
+                                        })
+                                        .await
+                                        .map_err(convert_mqtt_error)?;
+                                }
+                                Err(e) => {
+                                    warn!("Cannot encode info {:?}", e);
+                                }
+                            }
                         }
                     }
                 }
@@ -514,7 +547,7 @@ impl MqttModule {
         for lines in message.lines() {
             trace!("{MODULE}    {}", lines);
         }
-        let message = match serde_json_core::from_str_escaped::<DisplayMessage>(
+        let request = match serde_json_core::from_str_escaped::<DisplayRequest>(
             message,
             &mut [0; PACKET_SIZE],
         ) {
@@ -525,12 +558,7 @@ impl MqttModule {
             }
         };
         trace!("{MODULE} Parsed message: {:?}", message);
-        match message {
-            DisplayMessage::Request(req) => {
-                self.display_request.signal(req);
-            }
-            DisplayMessage::Response(_) => {}
-        }
+        self.display_request.signal(request);
     }
     pub fn set_settings(&self, settings: MqttSettings) {
         info!("{MODULE} Updating mqtt settings");

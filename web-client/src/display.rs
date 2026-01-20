@@ -2,8 +2,7 @@ use crate::error::Error;
 use crate::utils::{create_element, sleep, try_get_element_by_id};
 use log::info;
 use protocol::display::{
-    DisplayMessage, DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS,
-    MAX_GLYPH_BYTES,
+    DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS, MAX_GLYPH_BYTES,
 };
 use protocol::setup::DeviceInfo;
 use std::future::pending;

@@ -156,8 +156,10 @@ impl BleConnection {
                 .await
                 .ok_or(Error::MissingNotification)?;
             if next.uuid == SERIAL_IN_UUID {
+                println!("chunk {:?}", next.value);
                 receive_buffer.extend_from_slice(&next.value)?;
                 if next.value.len() < SERIAL_MTU {
+                    println!("{}", str::from_utf8(&receive_buffer).unwrap());
                     let response = serde_json_core::from_slice_escaped::<SetupResponse>(
                         &receive_buffer,
                         &mut tmp,

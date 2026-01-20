@@ -8,19 +8,19 @@ pub const MAX_SETUP_MESSAGE_SIZE: usize = 1024;
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SetupRequest {
-    DeviceInfo,
     ReadSettings,
     WriteSettings(AppSettings),
     TouchAppStatus,
+    DeviceInfo,
 }
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SetupResponse {
-    DeviceInfo(DeviceInfo),
     ReadSettings(AppSettings),
     WriteSettings(Result<(), WriteSettingsError>),
     TouchAppStatus,
+    DeviceInfo(DeviceInfo),
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq)]

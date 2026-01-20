@@ -1,7 +1,8 @@
 use crate::error::Error;
 use crate::query_params::FlappyQueryParams;
-use crate::status::{StatusPriority, Status};
+use crate::status::{Status, StatusPriority};
 use crate::utils::{sleep, try_window};
+use crate::DisplayResponseContainer;
 use arena::ArenaStorage;
 use embassy_futures::select::{select, select5, Either, Either5};
 use io_adapters::split::split_io;
@@ -10,7 +11,8 @@ use log::{error, info};
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use mqtt_core::protocol::{Packet, Qos};
-use protocol::display::{DisplayMessage, DisplayRequest, DisplayResponse};
+use protocol::display::{DisplayRequest, DisplayResponse};
+use protocol::setup::DeviceInfo;
 use serde::{Deserialize, Serialize};
 use std::pin::pin;
 use std::rc::Rc;
@@ -24,7 +26,7 @@ pub async fn run_mqtt(
     params: FlappyQueryParams,
     status: Rc<Status>,
     mut requests: Receiver<DisplayRequest>,
-    responses: Sender<DisplayResponse>,
+    responses: Sender<DisplayResponseContainer>,
 ) -> Result<!, Error> {
     status.set(
         StatusPriority::Info,
@@ -34,6 +36,9 @@ pub async fn run_mqtt(
     let (read, write) = split_io(stream.into_io());
     let sender = MqttSender::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
     let mut receiver = MqttReceiver::new(TokioStreamAdapter(read));
+    let req_topic = format!("{}/request", params.topic);
+    let resp_topic = format!("{}/response", params.topic);
+    let info_topic = format!("{}/info", params.topic);
     match select5(
         async {
             let mut arena = ArenaStorage::<1024>::new();
@@ -41,15 +46,27 @@ pub async fn run_mqtt(
                 let (ack, packet) = receiver.receive(arena.start()).await?;
                 match packet {
                     Packet::Publish(publish) => {
-                        match serde_json_core::from_slice::<DisplayMessage>(&publish.payload) {
-                            Ok((m, _)) => match m {
-                                DisplayMessage::Request(_) => {}
-                                DisplayMessage::Response(response) => {
-                                    responses.send(response).await?;
+                        if publish.topic == resp_topic {
+                            match serde_json_core::from_slice::<DisplayResponse>(&publish.payload) {
+                                Ok((response, _)) => {
+                                    responses
+                                        .send(DisplayResponseContainer::DisplayResponse(response))
+                                        .await?
                                 }
-                            },
-                            Err(e) => {
-                                error!("Could not parse message: {:?}", e);
+                                Err(e) => {
+                                    error!("Could not parse message: {:?}", e);
+                                }
+                            }
+                        } else if publish.topic == info_topic {
+                            match serde_json_core::from_slice::<DeviceInfo>(&publish.payload) {
+                                Ok((info, _)) => {
+                                    responses
+                                        .send(DisplayResponseContainer::DeviceInfo(info))
+                                        .await?
+                                }
+                                Err(e) => {
+                                    error!("Could not parse message: {:?}", e);
+                                }
                             }
                         }
                     }
@@ -98,22 +115,22 @@ pub async fn run_mqtt(
                 .await?;
             status.set(
                 StatusPriority::Info,
-                format!("Subscribing to topic {}", params.topic),
+                format!("Subscribing to topic {}", resp_topic),
             );
-            sender.subscribe(&params.topic).await?;
+            sender.subscribe(&resp_topic).await?;
             status.set(
                 StatusPriority::Info,
-                "Waiting for Device Info".to_string(),
+                format!("Subscribing to topic {}", info_topic),
             );
+            sender.subscribe(&info_topic).await?;
+            status.set(StatusPriority::Info, "Waiting for Device Info".to_string());
             while let Some(next) = requests.recv().await {
                 status.set(StatusPriority::Info, format!("Publishing `{:?}`", next));
                 sender
                     .publish(&PublishRequest {
                         qos: Qos::AtMostOnce,
-                        topic: &params.topic,
-                        payload: &serde_json_core::to_vec::<_, 1024>(&DisplayMessage::Request(
-                            next.clone(),
-                        ))?,
+                        topic: &req_topic,
+                        payload: &serde_json_core::to_vec::<DisplayRequest, 1024>(&next)?,
                         retain: false,
                     })
                     .await?;

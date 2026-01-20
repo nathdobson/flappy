@@ -236,6 +236,7 @@ impl BleModule {
                                     serial_in_buffer = serde_json_core::to_vec(&response)?;
                                     for chunk in serial_in_buffer.chunks(SERIAL_MTU) {
                                         let chunk = Vec::from_slice(chunk)?;
+                                        info!("{MODULE} chunk {:?}", chunk);
                                         self.server
                                             .flappy_service
                                             .serial_in
