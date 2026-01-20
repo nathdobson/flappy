@@ -27,6 +27,7 @@ pub struct DrumBuilder {
     flange_radius: f64,
     drum_height: f64,
     flange_height: f64,
+    plate_height: f64,
     post_height: f64,
     post_rad1: f64,
     post_rad2: f64,
@@ -34,7 +35,6 @@ pub struct DrumBuilder {
     strut_thickness: f64,
     screw_off_x: f64,
     screw_off_y: f64,
-    screw_hole_height: f64,
     screw_hole_radius: f64,
     screw_threads: &'static ThreadMetrics,
     axle_round_length: f64,
@@ -56,8 +56,8 @@ impl DrumBuilder {
     pub fn screw(&self, x: f64, y: f64, sdf: &mut SdfModel) {
         sdf.add_sdf(
             &Cylinder::new(
-                Vec3::new(x * 0.96, y, self.flange_height),
-                Vec3::axis_z() * self.screw_hole_height,
+                Vec3::new(x * 0.96, y, self.plate_height),
+                Vec3::axis_z() * self.drum_height,
                 self.screw_hole_radius,
             )
             .as_sdf(),
@@ -65,7 +65,7 @@ impl DrumBuilder {
         sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(x, y, 0.0),
-                Vec3::axis_z() * self.post_height,
+                Vec3::axis_z() * 100.0,
                 self.screw_threads.through_radius,
             )
             .as_sdf(),
@@ -85,7 +85,7 @@ impl DrumBuilder {
         sdf.add_sdf(
             &Cylinder::new(
                 Vec3::zero(),
-                Vec3::axis_z() * self.drum_height,
+                Vec3::axis_z() * (self.drum_height + self.flange_height),
                 self.drum_outer_radius,
             )
             .as_sdf(),
@@ -100,16 +100,16 @@ impl DrumBuilder {
         );
         sdf.subtract_sdf(
             &Cylinder::new(
-                Vec3::axis_z() * self.flange_height,
-                Vec3::axis_z() * self.drum_height,
+                Vec3::axis_z() * self.plate_height,
+                Vec3::axis_z() * (self.drum_height + self.flange_height - self.plate_height),
                 self.drum_inner_radius,
             )
             .as_sdf(),
         );
         sdf.add_sdf(
             &TruncatedCone::new(
-                Vec3::axis_z() * self.flange_height,
-                Vec3::axis_z() * self.post_height,
+                Vec3::axis_z() * self.plate_height,
+                Vec3::axis_z() * (self.post_height - self.plate_height),
                 self.post_rad1,
                 self.post_rad2,
             )
@@ -120,12 +120,12 @@ impl DrumBuilder {
                 Vec3::new(
                     -self.strut_radius,
                     -self.strut_thickness / 2.0,
-                    self.flange_height,
+                    self.plate_height,
                 ),
                 Vec3::new(
                     self.strut_radius,
                     self.strut_thickness / 2.0,
-                    self.magnet_height,
+                    self.magnet_height + self.plate_height,
                 ),
             )
             .as_sdf(),
@@ -135,12 +135,12 @@ impl DrumBuilder {
                 Vec3::new(
                     -self.strut_thickness / 2.0,
                     -self.strut_radius,
-                    self.flange_height,
+                    self.plate_height,
                 ),
                 Vec3::new(
                     self.strut_thickness / 2.0,
                     self.strut_radius,
-                    self.magnet_height,
+                    self.magnet_height + self.plate_height,
                 ),
             )
             .as_sdf(),
@@ -149,7 +149,7 @@ impl DrumBuilder {
         self.screw(self.screw_off_x, self.screw_off_y, &mut sdf);
         sdf.subtract_sdf(
             &Cylinder::new(
-                Vec3::new(0.0, 0.0, self.flange_height + self.post_height),
+                Vec3::new(0.0, 0.0,  self.post_height),
                 -Vec3::axis_z() * self.axle_length,
                 self.axle_radius,
             )
@@ -159,12 +159,12 @@ impl DrumBuilder {
                     Vec3::new(
                         -self.axle_radius,
                         self.axle_flat_width / 2.0,
-                        self.flange_height + self.post_height - self.axle_length,
+                        self.post_height - self.axle_length,
                     ),
                     Vec3::new(
                         self.axle_radius,
                         1000.0,
-                        self.flange_height + self.post_height - self.axle_round_length,
+                        self.post_height - self.axle_round_length,
                     ),
                 )
                 .as_sdf(),
@@ -174,12 +174,12 @@ impl DrumBuilder {
                     Vec3::new(
                         -self.axle_radius,
                         -1000.0,
-                        self.flange_height + self.post_height - self.axle_length,
+                        self.post_height - self.axle_length,
                     ),
                     Vec3::new(
                         self.axle_radius,
                         -self.axle_flat_width / 2.0,
-                        self.flange_height + self.post_height - self.axle_round_length,
+                        self.post_height - self.axle_round_length,
                     ),
                 )
                 .as_sdf(),
@@ -201,7 +201,7 @@ impl DrumBuilder {
         sdf.add_sdf(
             &Cylinder::new(
                 Vec3::new(self.magnet_distance, 0.0, self.flange_height),
-                Vec3::axis_z() * (self.magnet_height - self.flange_height),
+                Vec3::axis_z() * (self.magnet_height),
                 5.0,
             )
             .as_sdf(),
@@ -211,7 +211,7 @@ impl DrumBuilder {
                 Vec3::new(
                     self.magnet_distance,
                     0.0,
-                    self.magnet_height - self.magnet_lip_height,
+                    self.magnet_height + self.flange_height - self.magnet_lip_height,
                 ),
                 -Vec3::axis_z() * (self.magnet_depth - self.magnet_lip_height),
                 self.magnet_radius,
@@ -220,7 +220,11 @@ impl DrumBuilder {
         );
         sdf.subtract_sdf(
             &Cylinder::new(
-                Vec3::new(self.magnet_distance, 0.0, self.magnet_height),
+                Vec3::new(
+                    self.magnet_distance,
+                    0.0,
+                    self.magnet_height + self.flange_height,
+                ),
                 -Vec3::axis_z() * self.magnet_depth,
                 self.magnet_radius - self.magnet_lip_width,
             )
@@ -242,7 +246,7 @@ impl DrumBuilder {
                 Vec3::new(
                     self.flange_radius + self.eps,
                     self.flange_radius + self.eps,
-                    self.post_height + self.flange_height + self.eps,
+                    self.post_height + self.eps,
                 ),
             ),
         )
@@ -258,16 +262,16 @@ async fn main() -> anyhow::Result<()> {
         drum_outer_radius: 55.1 / 2.0,
         drum_inner_radius: 53.0 / 2.0,
         flange_radius: 69.4 / 2.0,
-        drum_height: 8.0,
-        flange_height: 1.6,
-        post_height: 17.5,
+        drum_height: 6.4,
+        flange_height: 3.2,
+        plate_height: 1.0,
+        post_height: 20.7,
         post_rad1: 16.5 / 2.0,
         post_rad2: 10.0 / 2.0,
         strut_radius: 54.8 / 2.0,
         strut_thickness: 1.0,
         screw_off_x: -25.0,
         screw_off_y: -4.0,
-        screw_hole_height: 6.0,
         screw_hole_radius: 3.0,
         screw_threads: &THREAD_M2,
         axle_round_length: 1.6,
@@ -282,7 +286,7 @@ async fn main() -> anyhow::Result<()> {
         magnet_radius: 3.02,
         magnet_lip_width: 0.04,
         magnet_lip_height: 0.2,
-        magnet_height: 16.4,
+        magnet_height: 14.8,
     }
     .build()
     .await?;

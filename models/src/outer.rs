@@ -83,12 +83,22 @@ impl DrumBuilder {
         for side in [-1.0, 1.0] {
             model.add_sdf(
                 &Polygon2::new(vec![
-                    Vec2::new(side * -self.mount_outer, self.guide_z_min + self.mount_rise),
-                    Vec2::new(side * -self.mount_outer, self.guide_z_max),
-                    Vec2::new(side * -self.mount_inner, self.guide_z_max),
+                    Vec2::new(
+                        side * -self.mount_outer,
+                        self.guide_z_min + self.mount_rise + self.flange_height,
+                    ),
+                    Vec2::new(
+                        side * -self.mount_outer,
+                        self.guide_z_max + self.flange_height,
+                    ),
                     Vec2::new(
                         side * -self.mount_inner,
-                        self.guide_z_min + self.mount_inner - self.mount_outer + self.mount_rise,
+                        self.guide_z_max + self.flange_height,
+                    ),
+                    Vec2::new(
+                        side * -self.mount_inner,
+                        self.guide_z_min + self.flange_height + self.mount_inner - self.mount_outer
+                            + self.mount_rise,
                     ),
                 ])
                 .as_sdf()
@@ -104,7 +114,11 @@ impl DrumBuilder {
                 ),
             );
             model.drill_ruthex(
-                Vec3::new(side * self.screw_x, self.screw_y, self.guide_z_max),
+                Vec3::new(
+                    side * self.screw_x,
+                    self.screw_y,
+                    self.guide_z_max + self.flange_height,
+                ),
                 -Vec3::axis_z(),
                 &THREAD_M2,
             );
@@ -148,12 +162,12 @@ impl DrumBuilder {
     }
     fn guide(&self, axis1: Vec3, axis2: Vec3) -> Sdf3 {
         let guide_poly = Polygon2::new(vec![
-            Vec2::new(-self.guide_outer, self.guide_z_min),
-            Vec2::new(-self.guide_outer, self.guide_z_max),
-            Vec2::new(-self.guide_inner, self.guide_z_max),
+            Vec2::new(-self.guide_outer, self.guide_z_min + self.flange_height),
+            Vec2::new(-self.guide_outer, self.guide_z_max + self.flange_height),
+            Vec2::new(-self.guide_inner, self.guide_z_max + self.flange_height),
             Vec2::new(
                 -self.guide_inner,
-                self.guide_z_min + self.guide_inner - self.guide_outer,
+                self.guide_z_min + self.flange_height + self.guide_inner - self.guide_outer,
             ),
         ])
         .as_sdf();
@@ -201,8 +215,8 @@ async fn main() -> anyhow::Result<()> {
     DrumBuilder {
         eps: 0.5,
         flange_radius: 69.0 / 2.0,
-        flange_height: 1.6,
-        height: 41.6,
+        flange_height: 3.2,
+        height: 43.2,
         outer_radius: 58.5 / 2.0,
         inner_radius: 55.4 / 2.0,
         guide_inner: 3.5,
