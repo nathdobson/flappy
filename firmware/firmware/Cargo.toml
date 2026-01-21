@@ -66,9 +66,9 @@ cyw43 = { path = "../../submodules/embassy/cyw43", features = [
 ], optional = true }
 cyw43-pio = { path = "../../submodules/embassy/cyw43-pio", features = [
 ], optional = true }
-cyw43-firmware = { version = "0.1.0", optional = true, features = [
-  "wifi",
-] }
+#cyw43-firmware = { path="../../submodules/cyw43-firmware-rust", optional = true, features = [
+#  "wifi",
+#] }
 glyph-render = {path ="../../common/glyph-render", default-features = false}
 mqtt-core = {path="../../common/mqtt-core"}
 crypto-verifier = {path="../../common/crypto-verifier",optional=true}
@@ -83,7 +83,7 @@ serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","protocol/serde"]
 radio = [
   "dep:cyw43",
   "dep:cyw43-pio",
-  "dep:cyw43-firmware",
+#  "dep:cyw43-firmware",
   "dep:embedded-io-async",
   "dep:embedded-io",
   "serde",
@@ -96,7 +96,7 @@ setup = ["serde"]
 ble = [
   "radio",
   "cyw43/bluetooth",
-  "cyw43-firmware/bluetooth",
+#  "cyw43-firmware/bluetooth",
   "dep:trouble-host",
   "dep:uuid",
   # There's a bug somewhere that corrupts BLE data without this

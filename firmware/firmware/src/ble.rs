@@ -6,7 +6,7 @@ use core::mem;
 use core::str::Utf8Error;
 use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
-use embassy_futures::select::select;
+use embassy_futures::select::{Either, select};
 use embassy_futures::yield_now;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
@@ -202,68 +202,80 @@ impl BleModule {
         Ok(conn)
     }
     async fn handle_connection(&'static self, conn: &MyConnection) -> Result<(), Error> {
-        let mut serial_out_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE> = Vec::new();
-        let mut serial_in_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE>;
-        let mut tmp = [0u8; MAX_SETUP_MESSAGE_SIZE];
-        loop {
-            match conn.next().await {
-                GattConnectionEvent::Disconnected { reason } => {
-                    break;
-                }
-                GattConnectionEvent::Gatt { event } => {
-                    match &event {
-                        GattEvent::Write(event) => {
-                            if event.handle() == self.server.flappy_service.serial_out.handle {
-                                let new_data =
-                                    event.value(&self.server.flappy_service.serial_out)?;
-                                serial_out_buffer.extend_from_slice(&new_data)?;
-                                if new_data.len() < SERIAL_MTU {
-                                    match str::from_utf8(&serial_out_buffer) {
-                                        Ok(x) => info!("{MODULE} request {}", x),
-                                        Err(e) => {
-                                            error!("{MODULE} request {:?}", serial_out_buffer)
+        let receive = async {
+            let mut serial_out_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE> = Vec::new();
+            let mut tmp = [0u8; MAX_SETUP_MESSAGE_SIZE];
+            loop {
+                match conn.next().await {
+                    GattConnectionEvent::Disconnected { reason } => {
+                        break;
+                    }
+                    GattConnectionEvent::Gatt { event } => {
+                        match &event {
+                            GattEvent::Write(event) => {
+                                if event.handle() == self.server.flappy_service.serial_out.handle {
+                                    let new_data =
+                                        event.value(&self.server.flappy_service.serial_out)?;
+                                    serial_out_buffer.extend_from_slice(&new_data)?;
+                                    if new_data.len() < SERIAL_MTU {
+                                        match str::from_utf8(&serial_out_buffer) {
+                                            Ok(x) => info!("{MODULE} request {}", x),
+                                            Err(e) => {
+                                                error!("{MODULE} request {:?}", serial_out_buffer)
+                                            }
                                         }
-                                    }
-                                    let request = serde_json_core::from_slice_escaped::<
-                                        SetupRequest,
-                                    >(
-                                        &serial_out_buffer, &mut tmp
-                                    )?
-                                    .0;
-                                    serial_out_buffer.clear();
-                                    self.setup_request.send(request).await;
-                                    let response = self.setup_response.receive().await;
-                                    serial_in_buffer = serde_json_core::to_vec(&response)?;
-                                    for chunk in serial_in_buffer.chunks(SERIAL_MTU) {
-                                        let chunk = Vec::from_slice(chunk)?;
-                                        info!("{MODULE} chunk {:?}", chunk);
-                                        self.server
-                                            .flappy_service
-                                            .serial_in
-                                            .notify(&conn, &chunk)
-                                            .await?;
-                                    }
-                                    if serial_in_buffer.len() % SERIAL_MTU == 0 {
-                                        self.server
-                                            .flappy_service
-                                            .serial_in
-                                            .notify(&conn, &Vec::new())
-                                            .await?;
+                                        let request = serde_json_core::from_slice_escaped::<
+                                            SetupRequest,
+                                        >(
+                                            &serial_out_buffer, &mut tmp
+                                        )?
+                                        .0;
+                                        serial_out_buffer.clear();
+                                        self.setup_request.send(request).await;
                                     }
                                 }
                             }
-                        }
-                        GattEvent::Read(event) => {}
-                        GattEvent::Other(other) => {}
-                    };
-                    match event.accept() {
-                        Ok(reply) => reply.send().await,
-                        Err(e) => warn!("{MODULE} error sending response: {:?}", e),
-                    };
+                            GattEvent::Read(event) => {}
+                            GattEvent::Other(other) => {}
+                        };
+                        match event.accept() {
+                            Ok(reply) => reply.send().await,
+                            Err(e) => warn!("{MODULE} error sending response: {:?}", e),
+                        };
+                    }
+                    _ => {} // ignore other Gatt Connection Events
                 }
-                _ => {} // ignore other Gatt Connection Events
             }
+            Ok::<(), Error>(())
+        };
+        let send = async {
+            let mut serial_in_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE>;
+            loop {
+                let response = self.setup_response.receive().await;
+                serial_in_buffer = serde_json_core::to_vec(&response)?;
+                for chunk in serial_in_buffer.chunks(SERIAL_MTU) {
+                    let chunk = Vec::from_slice(chunk)?;
+                    self.server
+                        .flappy_service
+                        .serial_in
+                        .notify(&conn, &chunk)
+                        .await?;
+                }
+                if serial_in_buffer.len() % SERIAL_MTU == 0 {
+                    self.server
+                        .flappy_service
+                        .serial_in
+                        .notify(&conn, &Vec::new())
+                        .await?;
+                }
+            }
+            Ok::<(), Error>(())
+        };
+        match select(receive, send).await {
+            Either::First(x) => x?,
+            Either::Second(x) => x?,
         }
+
         Ok(())
     }
     async fn notify_status(&self) -> Result<(), Error> {

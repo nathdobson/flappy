@@ -1,5 +1,5 @@
 use core::mem;
-use cyw43::{Control, NetDriver};
+use cyw43::{A4, Aligned, Control, NetDriver, aligned_bytes};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
 use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
@@ -20,7 +20,8 @@ bind_interrupts!(struct PioIrqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
 });
 
-type MyRunner = cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>;
+type MyRunner =
+    cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>>;
 
 #[allow(non_snake_case)]
 pub struct RadioPeripherals {
@@ -53,6 +54,16 @@ pub struct RadioDrivers {
     pub net: NetDriver<'static>,
 }
 
+static FIRMWARE: &'static Aligned<A4, [u8]> =
+    aligned_bytes!("../../../submodules/embassy/cyw43-firmware/43439A0.bin");
+#[cfg(feature = "ble")]
+static FIRMWARE_BTFW: &'static Aligned<A4, [u8]> =
+    aligned_bytes!("../../../submodules/embassy/cyw43-firmware/43439A0_btfw.bin");
+static FIRMWARE_CLM: &'static Aligned<A4, [u8]> =
+    aligned_bytes!("../../../submodules/embassy/cyw43-firmware/43439A0_clm.bin");
+static FIRMWARE_NVRAM: &'static Aligned<A4, [u8]> =
+    aligned_bytes!("../../../submodules/embassy/cyw43-firmware/nvram_rp2040.bin");
+
 impl RadioModule {
     pub async fn new(spawner: Spawner, peri: RadioPeripherals) -> Result<RadioDrivers, SpawnError> {
         let module: &'static mut RadioModule;
@@ -79,17 +90,12 @@ impl RadioModule {
 
         let state = make_static!(cyw43::State::new());
         #[cfg(feature = "ble")]
-        let (net_device, bt_device, mut control, runner) = cyw43::new_with_bluetooth(
-            state,
-            pwr,
-            spi,
-            cyw43_firmware::CYW43_43439A0,
-            cyw43_firmware::CYW43_43439A0_BTFW,
-        )
-        .await;
+        let (net_device, bt_device, mut control, runner) =
+            cyw43::new_with_bluetooth(state, pwr, spi, FIRMWARE, FIRMWARE_BTFW, FIRMWARE_NVRAM)
+                .await;
         #[cfg(not(feature = "ble"))]
         let (net_device, mut control, runner) =
-            cyw43::new(state, pwr, spi, cyw43_firmware::CYW43_43439A0).await;
+            cyw43::new(state, pwr, spi, FIRMWARE, FIRMWARE_NVRAM).await;
 
         spawner.spawn({
             #[embassy_executor::task]
@@ -99,7 +105,7 @@ impl RadioModule {
             cyw43_task(runner)?
         });
 
-        control.init(cyw43_firmware::CYW43_43439A0_CLM).await;
+        control.init(&FIRMWARE_CLM).await;
         control
             .set_power_management(cyw43::PowerManagementMode::None)
             .await;

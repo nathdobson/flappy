@@ -371,6 +371,9 @@ impl Application {
                 SetupRequest::DeviceInfo => {
                     response = SetupResponse::DeviceInfo(self.device_info())
                 }
+                SetupRequest::Ping => {
+                    response = SetupResponse::Pong;
+                }
             }
             responses.send(response).await;
         }

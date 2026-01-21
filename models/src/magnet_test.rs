@@ -4,7 +4,6 @@ use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo3::cylinder::Cylinder;
 use patina_sdf::sdf::{AsSdf, Sdf3};
-use patina_threads::THREAD_M2;
 use patina_vec::vec3::Vec3;
 
 struct MagnetTestBuilder {

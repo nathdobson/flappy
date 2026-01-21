@@ -136,6 +136,10 @@ impl BleConnection {
         Err(Error::MissingService)
     }
     pub async fn invoke(&mut self, request: &SetupRequest) -> Result<SetupResponse, Error> {
+        self.invoke_raw(&SetupRequest::Ping).await?;
+        self.invoke_raw(request).await
+    }
+    async fn invoke_raw(&mut self, request: &SetupRequest) -> Result<SetupResponse, Error> {
         let mut receive_buffer = heapless::Vec::<u8, MAX_SETUP_MESSAGE_SIZE>::new();
         let mut tmp = [0u8; MAX_SETUP_MESSAGE_SIZE];
         let request = serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(request)?;
@@ -156,15 +160,13 @@ impl BleConnection {
                 .await
                 .ok_or(Error::MissingNotification)?;
             if next.uuid == SERIAL_IN_UUID {
-                println!("chunk {:?}", next.value);
                 receive_buffer.extend_from_slice(&next.value)?;
                 if next.value.len() < SERIAL_MTU {
-                    println!("{}", str::from_utf8(&receive_buffer).unwrap());
                     let response = serde_json_core::from_slice_escaped::<SetupResponse>(
                         &receive_buffer,
                         &mut tmp,
                     )?
-                    .0;
+                        .0;
                     return Ok(response);
                 }
             }

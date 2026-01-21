@@ -25,3 +25,6 @@
 [submodule "submodules/embedded-tls"]
 	path = submodules/embedded-tls
 	url = https://github.com/nathdobson/embedded-tls.git
+[submodule "submodules/cyw43-firmware-rust"]
+	path = submodules/cyw43-firmware-rust
+	url = https://github.com/KizzyCode/cyw43-firmware-rust.git
