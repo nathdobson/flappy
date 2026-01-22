@@ -102,9 +102,9 @@ impl StackBuilder {
         let h_shift = (-h_metrics.advance_width / 2.0) as f64;
         let shift = self.shift_letter + Vec2::new(h_shift, v_shift);
         let mut outline = PolygonOutlineBuilder::new(1.0);
-        let bb = glyph.exact_bounding_box().unwrap_or(Rect::default());
-        let minx = bb.min.x as f64;
-        let maxx = bb.max.x as f64;
+        // let bb = glyph.exact_bounding_box().unwrap_or(Rect::default());
+        // let minx = bb.min.x as f64;
+        // let maxx = bb.max.x as f64;
         glyph.build_outline(&mut outline);
         let outline = outline.build();
         let mut outline_mesh = EdgeMesh2::new();
