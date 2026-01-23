@@ -67,10 +67,10 @@ impl BleAddress {
             let central = central.clone();
             async move {
                 match x {
-                    CentralEvent::DeviceDiscovered(id) => Some(
-                        try {
-                            let peripheral = central.peripheral(&id).await?;
-                            let properties = peripheral.properties().await?;
+                    CentralEvent::DeviceDiscovered(id) => {
+                        let result: Result<BleAddress, Error> = try {
+                            let peripheral = central.peripheral(&id).await.map_err(Error::from)?;
+                            let properties = peripheral.properties().await.map_err(Error::from)?;
                             if let Some(properties) = properties {
                                 if properties.services.contains(&FLAPPY_SERVICE_UUID) {
                                     BleAddress { peripheral }
@@ -80,9 +80,10 @@ impl BleAddress {
                             } else {
                                 return None;
                             }
-                        },
-                    ),
-                    _ => None,
+                        };
+                        Some(result)
+                    }
+                    _ => return None,
                 }
             }
         })))
@@ -166,7 +167,7 @@ impl BleConnection {
                         &receive_buffer,
                         &mut tmp,
                     )?
-                        .0;
+                    .0;
                     return Ok(response);
                 }
             }
