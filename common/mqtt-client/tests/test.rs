@@ -9,9 +9,9 @@ use embedded_io_async::{BufRead, ErrorKind, ErrorType, Read, Write};
 use io_adapters::split::split_io;
 use io_adapters::tokio::{TokioErrorAdapter, TokioStreamAdapter};
 use mqtt_client::error::Error;
-use mqtt_core::protocol::Qos;
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
+use mqtt_core::protocol::Qos;
 use std::env;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -64,6 +64,7 @@ async fn test() -> Result<(), MyError> {
             loop {
                 sender
                     .publish(&PublishRequest {
+                        retain: false,
                         qos: Qos::AtMostOnce,
                         topic: "testtopic/test",
                         payload: b"!!!!",

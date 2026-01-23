@@ -5,6 +5,7 @@
 
 use arena::ArenaStorage;
 use clap::Parser;
+use clap::builder::TypedValueParser;
 use embassy_futures::select::select4;
 use embassy_futures::select::{Either4, Either5, select5};
 use glyph_render::Renderer;
@@ -48,6 +49,8 @@ struct Args {
     background_color: String,
     #[arg(long)]
     foreground_color: String,
+    #[arg(long)]
+    glyphs: Vec<String>,
 }
 
 const KEEPALIVE: u16 = 60;
@@ -145,15 +148,14 @@ async fn main() -> anyhow::Result<()> {
             while let Some(next) = request_recv.recv().await {
                 match next {
                     DisplayRequest::Run(a) => {
-                        let mut renderer = Renderer::<MAX_GLYPHS>::new(&glyph_list::LETTERS);
+                        let glyphs = args.glyphs.iter().map(|x| &**x).collect::<Vec<_>>();
+                        let mut renderer = Renderer::<MAX_GLYPHS>::new(&glyphs);
                         renderer.append(&a)?;
                         let rendered = renderer.finish();
                         let rendered = rendered
                             .iter()
                             .map(|x| {
-                                heapless::String::<MAX_GLYPH_BYTES>::try_from(
-                                    glyph_list::LETTERS[*x],
-                                )
+                                heapless::String::<MAX_GLYPH_BYTES>::try_from(&*args.glyphs[*x])
                             })
                             .collect::<Result<
                                 heapless::Vec<heapless::String<MAX_GLYPH_BYTES>, MAX_GLYPHS>,
