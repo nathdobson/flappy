@@ -1,0 +1,5 @@
+[toolchain]
+# Pinned due to potential compiler bug causing "cycle detected when borrow-checking" error.
+# https://github.com/rust-lang/rust/issues/150464
+channel = "nightly-2025-07-01"
+targets = ["thumbv8m.main-none-eabihf"]
