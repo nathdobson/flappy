@@ -986,7 +986,6 @@ dependencies = [
  "embedded-io-async",
  "embedded-tls",
  "fixed",
- "glyph-list",
  "glyph-render",
  "heapless 0.9.2",
  "log",
@@ -1196,10 +1195,6 @@ dependencies = [
  "log",
  "url",
 ]
-
-[[package]]
-name = "glyph-list"
-version = "0.1.0"
 
 [[package]]
 name = "glyph-render"

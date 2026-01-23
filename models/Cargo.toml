@@ -26,7 +26,7 @@ path = "src/magnet_test.rs"
 [dependencies]
 patina-geo={path="../submodules/patina-rs/patina-geo"}
 patina-mesh ={path="../submodules/patina-rs/patina-mesh"}
-patina-vec={path="../submodules/patina-rs/patina-vec"}
+patina-vec={path="../submodules/patina-rs/patina-vec",features = ["serde"]}
 tokio = {version="1.46.1",features=["rt","macros","rt-multi-thread"]}
 anyhow = "1.0.98"
 patina-sdf= {path="../submodules/patina-rs/patina-sdf"}
@@ -36,8 +36,13 @@ patina-bambu = {path="../submodules/patina-rs/patina-bambu"}
 patina-extrude = {path="../submodules/patina-rs/patina-extrude"}
 patina-font = {path="../submodules/patina-rs/patina-font"}
 patina-3mf = {path="../submodules/patina-rs/patina-3mf"}
-glyph-list = {path="../common/glyph-list"}
+clap={version = "4.5.54",features = ["derive"]}
 
 rusttype = "0.9.3"
 zip = "4.3.0"
 rand = "0.9.2"
+serde_json = "1.0.142"
+serde = { version = "1.0.219", features = ["derive"] }
+
+[profile.release]
+debug=2

@@ -2,21 +2,45 @@ use itertools::Itertools;
 use patina_bambu::{BambuObject, BambuPart, BambuPartType, BambuPlate};
 use patina_extrude::ExtrusionBuilder;
 use patina_font::PolygonOutlineBuilder;
+use patina_geo::geo2::aabb2::Aabb2;
 use patina_mesh::bimesh2::Bimesh2;
 use patina_mesh::edge_mesh2::EdgeMesh2;
-use patina_mesh::ser::{encode_file, encode_test_file};
+use patina_mesh::ser::{Encode, encode_file, encode_test_file};
 use patina_vec::mat4::Mat4;
 use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
 use rusttype::{Font, Point, Rect, Scale};
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::f64;
 use std::iter::repeat_n;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
+
+#[derive(Deserialize)]
+pub struct Config {
+    pub glyphs: Vec<String>,
+    pub glyph_config: GlyphConfig,
+    pub overrides: Vec<GlyphConfig>,
+}
+
+#[derive(Deserialize)]
+pub struct GlyphConfig {
+    pub font: PathBuf,
+    #[serde(default)]
+    pub reverse_winding: bool,
+    #[serde(default)]
+    pub glyphs: Vec<String>,
+    #[serde(default)]
+    pub position: Vec2,
+}
 
 pub struct StackBuilder {
+    pub working_dir: PathBuf,
+
     pub width: f64,
     pub length: f64,
     pub incut: f64,
@@ -28,13 +52,9 @@ pub struct StackBuilder {
     pub support_thickness: f64,
     pub letter_thickness: f64,
 
-    pub letters: Vec<&'static str>,
-    pub font: Font<'static>,
-
     pub flap_separation: f64,
     pub wall_separation: f64,
     pub letter_scale: f32,
-    pub shift_letter: Vec2,
 
     pub wedge_width: f64,
     pub wedge_height: f64,
@@ -43,6 +63,8 @@ pub struct StackBuilder {
     pub max_concurrent_flaps: usize,
     pub horizontal_gap: f64,
     pub replicas: usize,
+    pub config: Config,
+    pub fonts: HashMap<PathBuf, Font<'static>>,
 }
 
 impl StackBuilder {
@@ -86,21 +108,28 @@ impl StackBuilder {
         mesh
     }
     fn letter_poly(&self, index: usize) -> Arc<EdgeMesh2> {
+        let glyph = &self.config.glyphs[index];
+        let config = self
+            .config
+            .overrides
+            .iter()
+            .find(|o| o.glyphs.contains(&glyph))
+            .unwrap_or(&self.config.glyph_config);
+        let font = self.fonts.get(&config.font).expect("missing font");
         let scale = Scale::uniform(self.letter_scale);
-        let v_metrics = self.font.v_metrics(scale);
+        let v_metrics = font.v_metrics(scale);
         let v_shift = (v_metrics.ascent / 2.0) as f64;
-        let glyph = self
-            .font
-            .glyph(
-                self.letters[index]
-                    .chars()
-                    .exactly_one()
-                    .expect("Multi-codepoint glyphs are not yet supported"),
-            )
-            .scaled(scale);
+        let glyph = font.glyph(
+            glyph
+                .chars()
+                .exactly_one()
+                .expect("Multi-codepoint glyphs are not yet supported"),
+        );
+        println!("Glyph id = {}", glyph.id().0);
+        let glyph = glyph.scaled(scale);
         let h_metrics = glyph.h_metrics();
         let h_shift = (-h_metrics.advance_width / 2.0) as f64;
-        let shift = self.shift_letter + Vec2::new(h_shift, v_shift);
+        let shift = config.position + Vec2::new(h_shift, v_shift);
         let mut outline = PolygonOutlineBuilder::new(1.0);
         // let bb = glyph.exact_bounding_box().unwrap_or(Rect::default());
         // let minx = bb.min.x as f64;
@@ -109,7 +138,11 @@ impl StackBuilder {
         let outline = outline.build();
         let mut outline_mesh = EdgeMesh2::new();
         for outline in outline {
-            outline_mesh.add_polygon(outline.points().iter().map(|p| *p + shift));
+            let mut polygon: Vec<_> = outline.points().iter().map(|p| *p + shift).collect();
+            if config.reverse_winding {
+                polygon.reverse();
+            }
+            outline_mesh.add_polygon(polygon.into_iter());
         }
         Arc::new(outline_mesh)
     }
@@ -157,6 +190,7 @@ impl StackBuilder {
             &blank.map_vertices(|v| Vec2::new(v.x(), -v.y() - self.flap_separation / 2.0)),
             true,
         );
+        let mut background = mixed.clone();
         mixed.add_mesh(
             &split[0].map_vertices(|v| Vec2::new(-v.x(), v.y() + self.flap_separation / 2.0)),
             false,
@@ -165,9 +199,23 @@ impl StackBuilder {
             &split[1].map_vertices(|v| Vec2::new(-v.x(), -v.y() - self.flap_separation / 2.0)),
             true,
         );
+
         encode_file(
             &mixed,
-            Path::new(&format!("flaps/letters/letter_{}.svg", index)),
+            &self
+                .working_dir
+                .join(format!("flaps/letters/letter_{}.svg", index)),
+        )
+        .await
+        .unwrap();
+        encode_file(
+            &Preview {
+                foreground: mixed,
+                background,
+            },
+            &self
+                .working_dir
+                .join(format!("flaps/previews/preview_{}.svg", index)),
         )
         .await
         .unwrap();
@@ -188,7 +236,9 @@ impl StackBuilder {
         }
         encode_file(
             &mesh,
-            Path::new(&format!("flaps/supports/support_{}.stl", index)),
+            &self
+                .working_dir
+                .join(format!("flaps/supports/support_{}.stl", index)),
         )
         .await
         .unwrap();
@@ -223,7 +273,9 @@ impl StackBuilder {
         println!("Built mesh in {}", start.elapsed().as_secs_f64());
         encode_file(
             &mesh,
-            Path::new(&format!("flaps/bodies/body_{}.stl", index)),
+            &self
+                .working_dir
+                .join(format!("flaps/bodies/body_{}.stl", index)),
         )
         .await
         .unwrap();
@@ -256,7 +308,9 @@ impl StackBuilder {
         println!("Built mesh in {}", start.elapsed().as_secs_f64());
         encode_file(
             &mesh,
-            Path::new(&format!("flaps/inserts/insert_{}.stl", index)),
+            &self
+                .working_dir
+                .join(format!("flaps/inserts/insert_{}.stl", index)),
         )
         .await
         .unwrap();
@@ -315,15 +369,15 @@ impl StackBuilder {
         let blank = self.blank_poly();
         let support = self.support_poly();
         let mut letters = vec![];
-        for index in 0..self.letters.len() {
+        for index in 0..self.config.glyphs.len() {
             println!("Building letter {}", index);
             let split = self.letter_split(self.letter_poly(index));
             self.render_svg(index, &blank, &split).await;
             letters.push(split);
         }
         let mut plate = BambuPlate::new();
-        let stacks: Vec<Vec<usize>> = (0..self.letters.len())
-            .chunks(self.letters.len() / self.max_concurrent_flaps)
+        let stacks: Vec<Vec<usize>> = (0..self.config.glyphs.len())
+            .chunks(self.config.glyphs.len() / self.max_concurrent_flaps)
             .into_iter()
             .map(|x| {
                 repeat_n(x.collect::<Vec<_>>().into_iter(), self.replicas)
@@ -363,5 +417,78 @@ impl StackBuilder {
             }
         }
         plate
+    }
+}
+
+struct Preview {
+    foreground: EdgeMesh2,
+    background: EdgeMesh2,
+}
+
+impl Encode for Preview {
+    fn extension() -> &'static str {
+        "svg"
+    }
+
+    fn encode<W: Unpin + Send + AsyncWrite>(
+        &self,
+        w: &mut W,
+    ) -> impl Send + Future<Output = anyhow::Result<()>> {
+        async move {
+            let polys = self.foreground.as_polygons();
+            let aabb = self
+                .foreground
+                .vertices()
+                .iter()
+                .cloned()
+                .collect::<Aabb2>();
+            w.write_all(
+                format!(
+                    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"{} {} {} {}\">\n",
+                    aabb.min().x(),
+                    aabb.min().y(),
+                    aabb.dimensions().x(),
+                    aabb.dimensions().y()
+                )
+                .as_bytes(),
+            )
+            .await?;
+            w.write_all(
+                format!(
+                    "<rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" fill=\"#666666\"/>",
+                    aabb.min().x(),
+                    aabb.min().y(),
+                    aabb.dimensions().x(),
+                    aabb.dimensions().y()
+                )
+                .as_bytes(),
+            )
+            .await?;
+            w.write_all("<path d=\"".as_bytes()).await?;
+            for poly in self.background.as_polygons() {
+                w.write_all("M ".as_bytes()).await?;
+                for point in poly.points() {
+                    w.write_all(format!("{},{} ", point.x(), point.y()).as_bytes())
+                        .await?;
+                }
+                w.write_all("z ".as_bytes()).await?;
+            }
+            w.write_all("\" fill=\"#FFFFFF\" fill-rule=\"evenodd\" />\n".as_bytes())
+                .await?;
+            w.write_all("<path d=\"".as_bytes()).await?;
+            for poly in polys {
+                w.write_all("M ".as_bytes()).await?;
+                for point in poly.points() {
+                    w.write_all(format!("{},{} ", point.x(), point.y()).as_bytes())
+                        .await?;
+                }
+                w.write_all("z ".as_bytes()).await?;
+            }
+            w.write_all("\" fill=\"#000000\" fill-rule=\"evenodd\" />\n".as_bytes())
+                .await?;
+            w.write_all("</svg>\n".as_bytes()).await?;
+
+            Ok(())
+        }
     }
 }

@@ -539,7 +539,6 @@ dependencies = [
  "arena",
  "clap",
  "embassy-futures",
- "glyph-list",
  "glyph-render",
  "io-adapters",
  "mqtt-client",
@@ -653,10 +652,6 @@ dependencies = [
  "opaque-debug",
  "polyval",
 ]
-
-[[package]]
-name = "glyph-list"
-version = "0.1.0"
 
 [[package]]
 name = "glyph-render"

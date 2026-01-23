@@ -70,7 +70,7 @@ impl Arena {
     pub fn erase_box<'ar, T>(b: Box<T, &'ar Self>) -> ArenaBox<'ar, T> {
         unsafe {
             ArenaBox::from_raw_in(
-                Box::into_raw(b),
+                Box::into_raw_with_allocator(b).0,
                 ArenaErase {
                     phantom: PhantomData,
                 },

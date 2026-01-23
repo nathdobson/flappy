@@ -1,9 +1,12 @@
+use crate::display::MAX_GLYPH_BYTES;
 use crate::display::MAX_GLYPHS;
 use crate::error::MqttServiceError;
 use core::fmt::{Display, Formatter};
 use heapless::{String, Vec};
 
 pub const MAX_SETUP_MESSAGE_SIZE: usize = 1024;
+
+pub const FLAP_COUNT: usize = 45;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -48,6 +51,7 @@ pub struct WifiSettings {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DisplaySettings {
     pub calibration: Vec<usize, MAX_GLYPHS>,
+    pub glyphs: Vec<String<MAX_GLYPH_BYTES>, FLAP_COUNT>,
     pub background: String<6>,
     pub foreground: String<6>,
 }

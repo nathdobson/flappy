@@ -8,8 +8,10 @@
 
 mod flap_model;
 
-use crate::flap_model::StackBuilder;
-use anyhow::anyhow;
+use crate::flap_model::{Config, StackBuilder};
+use anyhow::{Context, anyhow};
+use clap::Parser;
+use itertools::Itertools;
 use patina_3mf::ModelContainer;
 use patina_3mf::content_types::{ContentTypeDefault, ContentTypes};
 use patina_3mf::model::build::{ModelBuild, ModelItem};
@@ -20,10 +22,7 @@ use patina_3mf::model::resources::{
     ModelComponent, ModelComponents, ModelObject, ModelObjectType, ModelResources,
 };
 use patina_3mf::model::{Model, ModelMetadata, ModelUnit};
-use patina_3mf::model_settings::{
-    Assemble, AssembleItem,  ModelSettings,
-
-};
+use patina_3mf::model_settings::{Assemble, AssembleItem, ModelSettings};
 use patina_3mf::project_settings::color::Color;
 use patina_3mf::project_settings::support_interface_pattern::SupportInterfacePattern;
 use patina_3mf::project_settings::support_style::SupportStyle;
@@ -53,13 +52,14 @@ use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
 use rand::rng;
 use rusttype::{Font, OutlineBuilder, Point, Rect, Scale};
-use std::collections::HashSet;
-use std::env;
+use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
 use std::io::{Cursor, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
+use std::{env, iter};
 use tokio::fs;
 use zip::write::{FileOptions, SimpleFileOptions};
 use zip::{ZipArchive, ZipWriter};
@@ -70,14 +70,46 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn build_output() -> anyhow::Result<()> {
-    let font = Font::try_from_vec(fs::read("fonts/ComicMono.ttf").await?)
-        .ok_or_else(|| anyhow!("bad font"))?;
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(long)]
+    config: PathBuf,
+}
 
-    tokio::fs::create_dir_all("flaps/bodies").await?;
-    tokio::fs::create_dir_all("flaps/inserts").await?;
-    tokio::fs::create_dir_all("flaps/letters").await?;
-    tokio::fs::create_dir_all("flaps/supports").await?;
+async fn build_output() -> anyhow::Result<()> {
+    let args = Args::parse();
+    let config_path = tokio::fs::canonicalize(&args.config)
+        .await
+        .with_context(|| format!("could not resolve {}", args.config.display()))?;
+    let working_dir: PathBuf = args
+        .config
+        .parent()
+        .ok_or_else(|| anyhow!("could not resolve directory containing config"))?
+        .to_path_buf();
+    let config = tokio::fs::read(&config_path)
+        .await
+        .with_context(|| format!("could not read file {}", config_path.display()))?;
+    let config: Config = serde_json::from_slice(&config)
+        .with_context(|| format!("could not parse file {}", config_path.display()))?;
+
+    let mut fonts = HashMap::new();
+    for config in iter::once(&config.glyph_config).chain(&config.overrides) {
+        if !fonts.contains_key(&config.font) {
+            let font = working_dir.join(&config.font);
+            let font = fs::read(&font)
+                .await
+                .with_context(|| format!("could not read font {}", font.display()))?;
+            let font = Font::try_from_vec(font).ok_or_else(|| anyhow!("bad font"))?;
+            fonts.insert(config.font.clone(), font);
+        }
+    }
+
+    tokio::fs::create_dir_all(working_dir.join("flaps/bodies")).await?;
+    tokio::fs::create_dir_all(working_dir.join("flaps/inserts")).await?;
+    tokio::fs::create_dir_all(working_dir.join("flaps/letters")).await?;
+    tokio::fs::create_dir_all(working_dir.join("flaps/previews")).await?;
+    tokio::fs::create_dir_all(working_dir.join("flaps/supports")).await?;
 
     let mut bambu = BambuBuilder::new();
     let printer = Printer::A1Mini;
@@ -123,6 +155,7 @@ async fn build_output() -> anyhow::Result<()> {
         let mut object = BambuObject::new();
         object.name(Some("stack".to_string()));
         StackBuilder {
+            working_dir: working_dir.clone(),
             width: 43.0,
             length: 35.0,
             thickness: 1.0,
@@ -132,12 +165,9 @@ async fn build_output() -> anyhow::Result<()> {
             axle_diameter: 1.2,
             drum_diameter: 18.0,
             letter_thickness: 0.4,
-            letters: glyph_list::LETTERS.iter().cloned().collect(),
-            font,
-            flap_separation: 3.0,
+            flap_separation: 3.01,
             wall_separation: 0.01,
             letter_scale: 78.0,
-            shift_letter: Vec2::new(0.0, -6.3),
             wedge_width: 5.0,
             wedge_height: 0.5,
             flap_grid_width: 3,
@@ -145,6 +175,8 @@ async fn build_output() -> anyhow::Result<()> {
             max_concurrent_flaps: 9,
             horizontal_gap: 2.0,
             replicas: 1,
+            config,
+            fonts,
         }
         .build()
         .await
@@ -177,33 +209,7 @@ async fn build_output() -> anyhow::Result<()> {
         filament.filament_flow_ratio(Some(1.00));
         filament
     });
-    tokio::fs::write("flaps.3mf", bambu.build()?).await?;
-    // let mut command = BambuStudioCommand::new();
-    // command.debug(DebugLevel::Warning);
-    // command.machine(machine.clone());
-    // command.process(process.clone());
-    // command.add_filament(pla_basic.clone());
-    // command.add_filament(pla_matte.clone());
-    // command.slice(Slice::AllPlates);
-    // command.export_3mf(std::path::absolute(Path::new(
-    //     "examples/flap/output/sliced.3mf",
-    // ))?);
-    // command.input("examples/flap/output/original.3mf".into());
-    // command.enable_timelapse();
-    // command.timelapse_type(1);
-    // command.run().await?;
+    tokio::fs::write(&working_dir.join("flaps.3mf"), bambu.build()?).await?;
 
-    // let sliced_out = tokio::fs::read("examples/flap/output/sliced.3mf").await?;
-    // let mut zip = ZipArchive::new(Cursor::new(sliced_out.as_slice()))?;
-    // for i in 0..zip.len() {
-    //     let mut file = zip.by_index(i)?;
-    //     if file.name().ends_with("gcode") {
-    //         let mut contents = vec![];
-    //         file.read_to_end(&mut contents)?;
-    //         let path = file.enclosed_name().ok_or_else(|| anyhow!("bad path"))?;
-    //         let path = path.file_name().ok_or_else(|| anyhow!("bad filename"))?;
-    //         tokio::fs::write(Path::new("examples/flap/output/").join(path), contents).await?;
-    //     }
-    // }
     Ok(())
 }

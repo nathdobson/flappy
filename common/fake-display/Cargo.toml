@@ -18,4 +18,3 @@ embassy-futures = "0.1.2"
 serde-json-core = {path="../../submodules/serde-json-core"}
 protocol = {path="../protocol", features = ["serde"]}
 glyph-render = {path="../glyph-render"}
-glyph-list = {path="../glyph-list"}

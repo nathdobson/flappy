@@ -17,12 +17,12 @@ use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
 use embassy_time::Duration;
 use embassy_time::Timer;
-use glyph_list::LETTERS;
 use heapless::{CapacityError, String, Vec, format};
 use log::{error, info};
 use protocol::display::MAX_GLYPH_BYTES;
 use protocol::display::MAX_GLYPHS;
 use protocol::display::{DisplayRequest, DisplayResponse};
+use protocol::setup::FLAP_COUNT;
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
@@ -240,24 +240,34 @@ impl Application {
         });
         Ok(())
     }
+    fn render(
+        &'static self,
+        msg: &str,
+    ) -> (
+        Vec<usize, MAX_GLYPHS>,
+        Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS>,
+    ) {
+        let glyphs_owned = self.settings.borrow().display.glyphs.clone();
+        let glyphs: Vec<&'static str, FLAP_COUNT> = glyphs_owned.iter().map(|x| &**x).collect();
+        let mut renderer = glyph_render::Renderer::<MAX_GLYPHS>::new(&glyphs);
+        if let Err(e) = renderer.append(&msg) {
+            error!("{MODULE} error when rendering message: {:?}", e);
+        }
+        let message = renderer.finish();
+        let glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = message
+            .iter()
+            .map(|i| glyphs[*i].try_into().unwrap_or(" ".try_into().unwrap()))
+            .collect();
+    }
     async fn display_message(&'static self) {
         loop {
             let request = self.display_request.wait().await;
             match request {
                 DisplayRequest::Run(msg) => {
-                    let mut renderer =
-                        glyph_render::Renderer::<MAX_GLYPHS>::new(glyph_list::LETTERS);
-                    if let Err(e) = renderer.append(&msg) {
-                        error!("{MODULE} error when rendering message: {:?}", e);
-                    }
-                    let glyphs = renderer.finish();
-                    let glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = glyphs
-                        .iter()
-                        .map(|i| LETTERS[*i].try_into().unwrap_or(" ".try_into().unwrap()))
-                        .collect();
+                    let (message, message_strs) = self.render(&msg);
                     self.display_response
                         .send(DisplayResponseContainer::DisplayResponse(
-                            DisplayResponse::Start(glyph_strs.clone()),
+                            DisplayResponse::Start(message_strs.clone()),
                         ))
                         .await;
                     #[cfg(not(feature = "display"))]
@@ -266,20 +276,20 @@ impl Application {
                     {
                         info!("{MODULE} Displaying {}", msg);
                         // display.set_settings(self.state.borrow().display.clone());
-                        if let Err(e) = self.display.run(&glyphs).await {
+                        if let Err(e) = self.display.run(&message).await {
                             error!("{MODULE} error when displaying message: {:?}", e);
                         }
                     }
                     self.display_response
                         .send(DisplayResponseContainer::DisplayResponse(
-                            DisplayResponse::Stop(glyph_strs),
+                            DisplayResponse::Stop(message_strs),
                         ))
                         .await;
                 }
                 DisplayRequest::Test => {
                     #[cfg(feature = "display")]
                     {
-                        for index in (0..glyph_list::LETTERS.len()).step_by(3) {
+                        for index in (0..FLAP_COUNT).step_by(3) {
                             let mut msg = Vec::<usize, MAX_GLYPHS>::new();
                             for _ in 0..MAX_GLYPHS {
                                 msg.push(index).ok();
