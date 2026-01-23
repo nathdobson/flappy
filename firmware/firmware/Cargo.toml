@@ -44,7 +44,7 @@ cortex-m = { version = "0.7.6", features = ["inline-asm"] }
 cortex-m-rt = { version = "0.7.0", features = [] }
 critical-section = "1.1"
 log = "0.4.28"
-static_cell = { version = "2.1.1", features = ["nightly"] }
+static_cell = { version = "2.1.1", features = [] }
 serde = { version = "1.0.228", features = [
   "derive",
 ], default-features = false, optional = true }

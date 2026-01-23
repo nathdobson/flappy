@@ -1,12 +1,12 @@
+use crate::make_static;
 use crate::radio::RadioModule;
 use core::cell::RefCell;
 use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
-use static_cell::make_static;
 
-const MODULE:&str= "[LED  ]";
+const MODULE: &str = "[LED  ]";
 const INCREMENTS: u64 = 20;
 const DELAY_NANOS: f32 = 10_000_000f32;
 
@@ -21,7 +21,7 @@ impl LedModule {
     ) -> Result<&'static LedModule, SpawnError> {
         let delay = Duration::from_millis(250);
         info!("{MODULE} starting");
-        let module = make_static!(LedModule { radio });
+        let module = make_static!(LedModule, LedModule { radio });
         spawner.spawn({
             #[embassy_executor::task]
             async fn blink_task(module: &'static LedModule) {
@@ -34,11 +34,10 @@ impl LedModule {
     }
     async fn blink(&self) {
         for i in 0u64.. {
-            let intensity = ((1.0
-                + unsafe { core::intrinsics::sinf32((i as f32) / (INCREMENTS as f32)) })
+            let intensity = ((1.0 + core::intrinsics::sinf32((i as f32) / (INCREMENTS as f32)))
                 / 2.0)
                 .clamp(0.0, 1.0);
-            let duty = unsafe { core::intrinsics::powf32(intensity, 2.0) };
+            let duty = core::intrinsics::powf32(intensity, 2.0);
             let wait1 = (DELAY_NANOS * duty) as u64;
             let wait2 = (DELAY_NANOS * (1.0 - duty)) as u64;
             let wait1 = Duration::from_nanos(wait1);

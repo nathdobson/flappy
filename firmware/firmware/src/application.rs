@@ -1,9 +1,9 @@
 use crate::cli::{Adjustment, Command, MqttField, WifiField};
 use crate::error::Error;
 use crate::peripherals::AppPeripherals;
-use crate::product;
 use crate::product::{built_info, serial_number};
 use crate::runtime::RuntimeModule;
+use crate::{make_static, product};
 use core::cell::RefCell;
 use core::future::pending;
 use core::mem;
@@ -26,7 +26,6 @@ use protocol::setup::FLAP_COUNT;
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
-use static_cell::make_static;
 
 pub enum DisplayResponseContainer {
     DisplayResponse(DisplayResponse),
@@ -92,10 +91,9 @@ impl Application {
             &mut rng,
         )
         .await?;
-        let display_request: &'static Signal<NoopRawMutex, DisplayRequest> =
-            make_static!(Signal::new());
-        let display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1> =
-            make_static!(Channel::new());
+        let display_request = make_static!(Signal<NoopRawMutex, DisplayRequest>, Signal::new());
+        let display_response =
+            make_static!(Channel<NoopRawMutex, DisplayResponseContainer, 1>, Channel::new());
         #[cfg(feature = "mqtt")]
         let mqtt =
             crate::mqtt::MqttModule::new(spawner, &wifi.stack(), display_request, display_response)
@@ -104,27 +102,30 @@ impl Application {
         let state = flash.load().await?;
         #[cfg(not(feature = "flash"))]
         let state = AppSettings::default();
-        let application = make_static!(Application {
-            spawner,
-            runtime,
-            #[cfg(feature = "flash")]
-            flash,
-            #[cfg(feature = "ble")]
-            ble,
-            #[cfg(feature = "wifi")]
-            wifi,
-            #[cfg(feature = "radio")]
-            led,
-            #[cfg(feature = "mqtt")]
-            mqtt,
-            #[cfg(feature = "display")]
-            driver,
-            #[cfg(feature = "display")]
-            display,
-            settings: RefCell::new(state.clone()),
-            display_request,
-            display_response,
-        });
+        let application = make_static!(
+            Application,
+            Application {
+                spawner,
+                runtime,
+                #[cfg(feature = "flash")]
+                flash,
+                #[cfg(feature = "ble")]
+                ble,
+                #[cfg(feature = "wifi")]
+                wifi,
+                #[cfg(feature = "radio")]
+                led,
+                #[cfg(feature = "mqtt")]
+                mqtt,
+                #[cfg(feature = "display")]
+                driver,
+                #[cfg(feature = "display")]
+                display,
+                settings: RefCell::new(state.clone()),
+                display_request,
+                display_response,
+            }
+        );
         Ok(application)
     }
     pub fn set_settings(&self, settings: &AppSettings) -> Result<(), WriteSettingsError> {

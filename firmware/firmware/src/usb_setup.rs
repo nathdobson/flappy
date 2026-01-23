@@ -17,7 +17,7 @@ use protocol::setup::{
     AppStatus, MAX_SETUP_MESSAGE_SIZE, MqttServiceStatus, SetupRequest, SetupResponse,
 };
 use protocol::usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID};
-use static_cell::make_static;
+use crate::make_static;
 
 pub struct UsbSetupModule {
     setup_request: Channel<CriticalSectionRawMutex, SetupRequest, 1>,
@@ -27,7 +27,7 @@ pub struct UsbSetupModule {
 
 impl UsbSetupModule {
     pub fn new() -> &'static Self {
-        make_static!(UsbSetupModule {
+        make_static!(UsbSetupModule, UsbSetupModule {
             setup_request: Channel::new(),
             setup_response: Channel::new(),
             setup_status: Watch::new(),

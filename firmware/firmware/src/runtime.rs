@@ -1,6 +1,6 @@
 use crate::error::Error;
-use crate::product;
 use crate::product::serial_number;
+use crate::{make_static, product};
 use core::fmt::Arguments;
 use core::intrinsics::abort;
 use core::{fmt, mem};
@@ -19,7 +19,6 @@ use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Instant, Timer, block_for};
 use heapless::{String, Vec};
 use log::{Level, Log, Metadata, Record, error, info, set_logger, set_max_level};
-use static_cell::make_static;
 
 const MODULE: &'static str = "[RUN  ]";
 
@@ -43,10 +42,13 @@ impl RuntimeModule {
     pub fn new(spawner: SendSpawner, peri: RuntimePeripherals) -> &'static Self {
         #[cfg(feature = "usb")]
         let usb = crate::usb::UsbModule::new();
-        let module: &'static RuntimeModule = make_static!(RuntimeModule {
-            #[cfg(feature = "usb")]
-            usb
-        });
+        let module: &'static RuntimeModule = make_static!(
+            RuntimeModule,
+            RuntimeModule {
+                #[cfg(feature = "usb")]
+                usb
+            }
+        );
 
         spawner.spawn({
             #[embassy_executor::task]

@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::product;
+use crate::{make_static, product};
 use core::cell::{Cell, RefCell};
 use core::future::{join, pending};
 use core::mem;
@@ -18,7 +18,6 @@ use log::{error, info, warn};
 use protocol::ble::SERIAL_MTU;
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
-use static_cell::make_static;
 use trouble_host::advertise::{
     AdStructure, Advertisement, AdvertisementParameters, BR_EDR_NOT_SUPPORTED,
     LE_GENERAL_DISCOVERABLE, PhyKind, TxPower,
@@ -92,14 +91,14 @@ impl BleModule {
     pub async fn new(spawner: Spawner, driver: MyDriver) -> Result<&'static BleModule, Error> {
         info!("{MODULE} Starting Bluetooth Low Energy");
         let controller = MyController::new(driver);
-        let resources: &mut MyResources = make_static!(MyResources::new());
-        let stack: &MyStack = make_static!(trouble_host::new(controller, resources));
+        let resources: &mut MyResources = make_static!(MyResources, MyResources::new());
+        let stack: &MyStack = make_static!(MyStack, trouble_host::new(controller, resources));
         let mut host = stack.build();
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
             name: protocol::PRODUCT_NAME,
             appearance: &appearance::domestic_appliance::COFFEE_MAKER,
         }))?;
-        let module: &BleModule = make_static!(BleModule {
+        let module: &BleModule = make_static!(BleModule, BleModule {
             spawner,
             stack,
             conn: RefCell::new(None),

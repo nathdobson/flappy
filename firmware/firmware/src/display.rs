@@ -1,4 +1,4 @@
-use crate::display_proto;
+use crate::{display_proto, make_static};
 use crate::driver::DriverModule;
 use crate::error::Error;
 use core::cell::RefCell;
@@ -12,7 +12,6 @@ use heapless::{String, Vec};
 use log::{error, info};
 use protocol::display::MAX_GLYPHS;
 use protocol::setup::DisplaySettings;
-use static_cell::make_static;
 
 const MODULE: &'static str = "[DISPL]";
 const STEPS_PER_REV: usize = 2048;
@@ -43,7 +42,7 @@ impl DisplayModule {
 
 impl DisplayModule {
     pub fn new(driver: &'static DriverModule) -> &'static Self {
-        make_static!(DisplayModule {
+        make_static!(DisplayModule, DisplayModule {
             driver,
             glyphs: Mutex::new(Vec::new()),
             settings: RefCell::new(DisplaySettings::default()),

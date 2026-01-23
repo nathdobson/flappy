@@ -6,7 +6,7 @@ use embassy_rp::usb::Driver;
 use embassy_usb::control::{InResponse, OutResponse, Recipient, Request, RequestType};
 use embassy_usb::types::{InterfaceNumber, StringIndex};
 use embassy_usb::{Builder, Handler};
-use static_cell::make_static;
+use crate::make_static;
 
 /// Implement a USB interface for picotool to instruct the device to restart in BOOTSEL mode for
 /// firmware updates.
@@ -25,7 +25,7 @@ const RESET_REQUEST_BOOTSEL: u8 = 0x01;
 
 impl UsbResetModule {
     pub fn new() -> &'static Self {
-        make_static!(UsbResetModule {})
+        make_static!(UsbResetModule, UsbResetModule {})
     }
     pub async fn start(
         &self,
@@ -47,7 +47,7 @@ impl UsbResetModule {
             Some(str_idx),
         );
         drop(func);
-        builder.handler(make_static!(UsbResetHandler { comm_if, str_idx }));
+        builder.handler(make_static!(UsbResetHandler, UsbResetHandler { comm_if, str_idx }));
         Ok(())
     }
 }

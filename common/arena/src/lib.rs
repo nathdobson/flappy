@@ -1,6 +1,5 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(allocator_api)]
-#![feature(alloc_layout_extra)]
 #![feature(slice_ptr_get)]
 #![feature(raw_slice_split)]
 #![deny(unused_must_use)]

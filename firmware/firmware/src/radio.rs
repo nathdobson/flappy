@@ -12,7 +12,7 @@ use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use fixed::FixedU32;
 use log::info;
-use static_cell::make_static;
+use crate::make_static;
 
 const MODULE: &'static str = "[Radio]";
 
@@ -88,7 +88,7 @@ impl RadioModule {
             peri.DMA_CH0,
         );
 
-        let state = make_static!(cyw43::State::new());
+        let state = make_static!(cyw43::State, cyw43::State::new());
         #[cfg(feature = "ble")]
         let (net_device, bt_device, mut control, runner) =
             cyw43::new_with_bluetooth(state, pwr, spi, FIRMWARE, FIRMWARE_BTFW, FIRMWARE_NVRAM)
@@ -110,7 +110,7 @@ impl RadioModule {
             .set_power_management(cyw43::PowerManagementMode::None)
             .await;
 
-        module = make_static!(RadioModule {
+        module = make_static!(RadioModule, RadioModule {
             control: Mutex::new(control),
             common: pio.common,
             irq_flags: pio.irq_flags,

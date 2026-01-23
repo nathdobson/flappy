@@ -5,7 +5,7 @@ use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::UART0;
 use embassy_rp::uart::InterruptHandler;
 use embassy_rp::{bind_interrupts, interrupt};
-use static_cell::make_static;
+use crate::make_static;
 
 #[cfg(feature = "preemption")]
 static RUNTIME_EXECUTOR: InterruptExecutor = InterruptExecutor::new();
@@ -26,7 +26,7 @@ pub fn run_program<T>(runtime: impl FnOnce(SendSpawner) -> T, app: impl FnOnce(S
     let runtime_spawner = RUNTIME_EXECUTOR.start(interrupt::SWI_IRQ_0);
     RUNTIME_STARTED.store(true, Ordering::SeqCst);
     let data = runtime(runtime_spawner);
-    let application_executor = make_static!(Executor::new());
+    let application_executor = make_static!(Executor, Executor::new());
     application_executor.run(|s| app(s, data))
 }
 

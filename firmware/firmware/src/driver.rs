@@ -11,7 +11,8 @@ use embassy_time::{Delay, Timer};
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
 use log::info;
-use static_cell::make_static;
+use crate::make_static;
+
 const MODULE: &str = "[DRIVE]";
 
 #[allow(non_snake_case)]
@@ -107,7 +108,7 @@ impl DriverModule {
         let mut enable = Output::new(peri.PIN_6, Level::High);
         let mut reset = Output::new(peri.PIN_5, Level::Low);
 
-        let module = make_static!(DriverModule {
+        let module = make_static!(DriverModule, DriverModule {
             inner: RefCell::new(DriverInner {
                 spi,
                 load,

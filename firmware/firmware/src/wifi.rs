@@ -15,7 +15,7 @@ use log::{error, info, warn};
 use protocol::setup::{WifiSettings, WifiStatus};
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
-use static_cell::make_static;
+use crate::make_static;
 
 const MODULE: &'static str = "[WiFi ]";
 
@@ -37,7 +37,7 @@ impl WifiModule {
         info!("{MODULE} Starting WiFi");
         let config = Config::dhcpv4(Default::default());
         let seed = rng.next_u64();
-        let resources = make_static!(StackResources::<5>::new());
+        let resources = make_static!(StackResources::<5>, StackResources::new());
         let (stack, runner) = embassy_net::new(net_device, config, resources, seed);
         spawner.spawn({
             #[embassy_executor::task]
@@ -48,7 +48,7 @@ impl WifiModule {
             }
             run_runner(runner)?
         });
-        let module = make_static!(WifiModule {
+        let module = make_static!(WifiModule, WifiModule {
             spawner,
             stack,
             radio,

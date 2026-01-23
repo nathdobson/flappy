@@ -33,7 +33,6 @@ use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use mqtt_core::protocol::{Packet, PublishPacket, Qos};
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
-use static_cell::make_static;
 // use rust_mqtt::client::client::MqttClient;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
@@ -53,6 +52,7 @@ use protocol::error::{
 };
 use protocol::setup::{AppSettings, DeviceInfo, MqttServiceStatus, MqttSettings};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
+use crate::make_static;
 
 pub struct MqttModule {
     spawner: Spawner,
@@ -231,7 +231,7 @@ impl MqttModule {
         display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
         display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     ) -> Result<&'static MqttModule, Error> {
-        let module = make_static!(MqttModule {
+        let module = make_static!(MqttModule, MqttModule {
             spawner,
             stack,
             settings: Signal::new(),
@@ -252,8 +252,8 @@ impl MqttModule {
 
     async fn run(&'static self) {
         let mut settings = self.settings.wait().await;
-        let mut rx_buffer = make_static!([0; PACKET_SIZE]);
-        let mut tx_buffer = make_static!([0; PACKET_SIZE]);
+        let mut rx_buffer = make_static!([u8; PACKET_SIZE], [0; PACKET_SIZE]);
+        let mut tx_buffer = make_static!([u8; PACKET_SIZE], [0; PACKET_SIZE]);
         loop {
             if let Some(s) = self.settings.try_take() {
                 settings = s;

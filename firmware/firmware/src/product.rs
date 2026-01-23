@@ -1,7 +1,6 @@
 use embassy_rp::otp::get_chipid;
 use embassy_sync::lazy_lock::LazyLock;
 use heapless::{String, format};
-use static_cell::make_static;
 
 pub mod built_info {
     // The file has been placed there by the build script.

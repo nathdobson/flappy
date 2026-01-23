@@ -56,6 +56,7 @@ mod usb_serial;
 mod usb_setup;
 #[cfg(feature = "wifi")]
 mod wifi;
+mod make_static;
 
 extern crate alloc;
 

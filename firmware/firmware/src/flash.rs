@@ -10,7 +10,7 @@ use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, FLASH};
 use log::{error, info};
 use protocol::setup::{AppSettings, WriteSettingsError};
 use serde::{Deserialize, Serialize};
-use static_cell::make_static;
+use crate::make_static;
 
 const MODULE: &'static str = "[FLASH]";
 const ADDR_OFFSET: u32 = 0x3E0000;
@@ -32,7 +32,7 @@ pub struct FlashModule {
 impl FlashModule {
     pub async fn new(peri: FlashPeripherals) -> Result<&'static FlashModule, Error> {
         let mut flash = Flash::<_, Async, FLASH_SIZE>::new(peri.FLASH, peri.DMA_CH1);
-        let module = make_static!(FlashModule {
+        let module = make_static!(FlashModule, FlashModule {
             flash: RefCell::new(flash),
         });
         Ok(module)

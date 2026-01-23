@@ -17,7 +17,7 @@ use embassy_usb::driver::EndpointError;
 use embassy_usb::{Builder, UsbDevice};
 use heapless::Vec;
 use log::{Level, Log, Metadata, Record, info, set_logger, set_max_level};
-use static_cell::make_static;
+use crate::make_static;
 
 const LOG_BUFFER: usize = 4096;
 const RECEIVE_BUFFER: usize = 4096;
@@ -52,7 +52,7 @@ pub struct UsbSerialModule {
 
 impl UsbSerialModule {
     pub fn new() -> &'static Self {
-        let module = make_static!(UsbSerialModule {
+        let module = make_static!(UsbSerialModule, UsbSerialModule {
             send_lock: Mutex::new(()),
             send_buffer: Pipe::new(),
             receive_buffer: Pipe::new(),
@@ -68,7 +68,7 @@ impl UsbSerialModule {
         spawner: Spawner,
         builder: &mut Builder<'static, Driver<'static, USB>>,
     ) -> Result<(), Error> {
-        let state = make_static!(State::new());
+        let state = make_static!(State, State::new());
         let class = CdcAcmClass::new(builder, state, MAX_PACKET_SIZE as u16);
 
         let (mut sender, mut receiver, control) = class.split_with_control();

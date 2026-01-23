@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::make_static;
 use crate::product::serial_number;
 use crate::runtime::RuntimePeripherals;
 use crate::usb_reset::UsbResetModule;
@@ -10,7 +11,7 @@ use embassy_rp::{Peri, bind_interrupts};
 use embassy_usb::{Builder, Config, UsbDevice};
 use log::error;
 use protocol::usb::{PRODUCT_ID, VENDOR_ID};
-use static_cell::make_static;
+use static_cell::StaticCell;
 
 pub const MAX_PACKET_SIZE: u8 = 64;
 
@@ -34,12 +35,15 @@ bind_interrupts!(struct UsbIrqs {
 
 impl UsbModule {
     pub fn new() -> &'static Self {
-        let module = make_static!(UsbModule {
-            usb_serial: UsbSerialModule::new(),
-            usb_reset: UsbResetModule::new(),
-            #[cfg(feature = "setup")]
-            usb_setup: crate::usb_setup::UsbSetupModule::new(),
-        });
+        let module = make_static!(
+            UsbModule,
+            UsbModule {
+                usb_serial: UsbSerialModule::new(),
+                usb_reset: UsbResetModule::new(),
+                #[cfg(feature = "setup")]
+                usb_setup: crate::usb_setup::UsbSetupModule::new(),
+            }
+        );
         module
     }
     pub async fn start(
@@ -62,12 +66,15 @@ impl UsbModule {
         config.device_protocol = 0x01;
         config.composite_with_iads = true;
 
-        let state = make_static!(RuntimeState {
-            config_descriptor: [0; 128],
-            bos_descriptor: [0; 16],
-            msos_descriptor: [0; 256],
-            control_buf: [0; 64],
-        });
+        let state: &'static mut RuntimeState = make_static!(
+            RuntimeState,
+            RuntimeState {
+                config_descriptor: [0; 128],
+                bos_descriptor: [0; 16],
+                msos_descriptor: [0; 256],
+                control_buf: [0; 64],
+            }
+        );
         let mut builder = Builder::new(
             driver,
             config,
