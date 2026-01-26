@@ -1,4 +1,4 @@
-use crate::cli::{Adjustment, Command, MqttField, WifiField};
+use crate::cli::{Adjustment, Command, MqttField, TestType, WifiField};
 use crate::error::Error;
 use crate::peripherals::AppPeripherals;
 use crate::product::{built_info, serial_number};
@@ -346,9 +346,14 @@ impl Application {
                 self.display_request
                     .signal(DisplayRequest::Run(msg.try_into().unwrap_or_default()));
             }
-            Command::Test => {
-                self.display_request.signal(DisplayRequest::Test);
-            }
+            Command::Test(typ) => match typ {
+                TestType::Spin => {
+                    self.display_request.signal(DisplayRequest::Test);
+                }
+                TestType::Read => {
+                    self.driver.run_read_test().await;
+                }
+            },
         }
     }
     #[cfg(feature = "setup")]

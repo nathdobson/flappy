@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::make_static;
 use core::cell::RefCell;
 use cortex_m::asm::delay;
 use embassy_futures::yield_now;
@@ -10,8 +11,7 @@ use embassy_rp::{Peri, spi};
 use embassy_time::{Delay, Timer};
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
-use log::info;
-use crate::make_static;
+use log::{error, info};
 
 const MODULE: &str = "[DRIVE]";
 
@@ -108,15 +108,29 @@ impl DriverModule {
         let mut enable = Output::new(peri.PIN_6, Level::High);
         let mut reset = Output::new(peri.PIN_5, Level::Low);
 
-        let module = make_static!(DriverModule, DriverModule {
-            inner: RefCell::new(DriverInner {
-                spi,
-                load,
-                latch,
-                enable,
-                reset,
-            }),
-        });
+        let module = make_static!(
+            DriverModule,
+            DriverModule {
+                inner: RefCell::new(DriverInner {
+                    spi,
+                    load,
+                    latch,
+                    enable,
+                    reset,
+                }),
+            }
+        );
         Ok(module)
+    }
+    pub async fn run_read_test(&self) {
+        loop {
+            let mut buf = [0u8; 20];
+            if let Err(e) = self.read(&mut buf) {
+                error!("{:?}", e);
+                return;
+            }
+            info!("read = {:?}", buf);
+            Timer::after_millis(500).await;
+        }
     }
 }

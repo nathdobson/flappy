@@ -27,6 +27,12 @@ pub enum MqttField {
 }
 
 #[derive(Debug)]
+pub enum TestType {
+    Spin,
+    Read,
+}
+
+#[derive(Debug)]
 pub enum Command<'a> {
     // WifiRead,
     // WifiWrite(WifiField, &'a str),
@@ -37,7 +43,7 @@ pub enum Command<'a> {
     // CalibrateWriteOne(usize, Adjustment, usize),
     Help,
     Display(&'a str),
-    Test,
+    Test(TestType),
 }
 
 pub struct CommandError(String<32>);
@@ -155,6 +161,14 @@ impl<'a> Command<'a> {
     //     Ok(Command::MqttWrite(field, value))
     // }
     fn parse_test(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
-        Ok(Command::Test)
+        let typ = input
+            .next()
+            .ok_or(CommandError::from("missing test type"))?;
+        let typ = match typ {
+            "spin" => TestType::Spin,
+            "read" => TestType::Read,
+            _ => return Err(CommandError::from("unknown test type")),
+        };
+        Ok(Command::Test(typ))
     }
 }
