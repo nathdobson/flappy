@@ -85,7 +85,7 @@ impl DrumBuilder {
         sdf.add_sdf(
             &Cylinder::new(
                 Vec3::zero(),
-                Vec3::axis_z() * (self.drum_height + self.flange_height),
+                Vec3::axis_z() * (self.drum_height + self.plate_height),
                 self.drum_outer_radius,
             )
             .as_sdf(),
@@ -149,7 +149,7 @@ impl DrumBuilder {
         self.screw(self.screw_off_x, self.screw_off_y, &mut sdf);
         sdf.subtract_sdf(
             &Cylinder::new(
-                Vec3::new(0.0, 0.0,  self.post_height),
+                Vec3::new(0.0, 0.0, self.post_height),
                 -Vec3::axis_z() * self.axle_length,
                 self.axle_radius,
             )
@@ -200,7 +200,7 @@ impl DrumBuilder {
         }
         sdf.add_sdf(
             &Cylinder::new(
-                Vec3::new(self.magnet_distance, 0.0, self.flange_height),
+                Vec3::new(0.0, self.magnet_distance, self.plate_height),
                 Vec3::axis_z() * (self.magnet_height),
                 5.0,
             )
@@ -209,9 +209,9 @@ impl DrumBuilder {
         sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(
-                    self.magnet_distance,
                     0.0,
-                    self.magnet_height + self.flange_height - self.magnet_lip_height,
+                    self.magnet_distance,
+                    self.magnet_height + self.plate_height - self.magnet_lip_height,
                 ),
                 -Vec3::axis_z() * (self.magnet_depth - self.magnet_lip_height),
                 self.magnet_radius,
@@ -221,9 +221,9 @@ impl DrumBuilder {
         sdf.subtract_sdf(
             &Cylinder::new(
                 Vec3::new(
-                    self.magnet_distance,
                     0.0,
-                    self.magnet_height + self.flange_height,
+                    self.magnet_distance,
+                    self.magnet_height + self.plate_height,
                 ),
                 -Vec3::axis_z() * self.magnet_depth,
                 self.magnet_radius - self.magnet_lip_width,
@@ -263,7 +263,7 @@ async fn main() -> anyhow::Result<()> {
         drum_inner_radius: 53.0 / 2.0,
         flange_radius: 69.4 / 2.0,
         drum_height: 6.4,
-        flange_height: 3.2,
+        flange_height: 3.0,
         plate_height: 1.0,
         post_height: 20.7,
         post_rad1: 16.5 / 2.0,
@@ -286,7 +286,7 @@ async fn main() -> anyhow::Result<()> {
         magnet_radius: 3.02,
         magnet_lip_width: 0.04,
         magnet_lip_height: 0.2,
-        magnet_height: 14.8,
+        magnet_height: 17.0,
     }
     .build()
     .await?;
