@@ -24,6 +24,7 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 pub struct Config {
     pub glyphs: Vec<String>,
     pub glyph_config: GlyphConfig,
+    #[serde(default)]
     pub overrides: Vec<GlyphConfig>,
 }
 
