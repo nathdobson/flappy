@@ -7,6 +7,23 @@
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
     ":", ".", "-", "?", "!"
   ],
-  "font": "fonts/ComicMono.ttf",
-  "position": [0,-6.3]
+  "glyph_config": {
+    "font": "fonts/ComicMono.ttf",
+    "position": [0,-6.3]
+  },
+  "foreground": {
+    "brand": "Bambu",
+    "material": "PLA Matte",
+    "color": "#FFFFFF"
+  },
+  "background": {
+    "brand": "Bambu",
+    "material": "PLA Basic",
+    "color": "#000000"
+  },
+  "support": {
+    "brand": "Bambu",
+    "material": "PETG HF",
+    "color": "#E5602A"
+  }
 }

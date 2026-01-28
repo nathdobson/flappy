@@ -8,7 +8,7 @@
 
 mod flap_model;
 
-use crate::flap_model::{Config, StackBuilder};
+use crate::flap_model::{Config, MaterialSelector, StackBuilder};
 use anyhow::{Context, anyhow};
 use clap::Parser;
 use itertools::Itertools;
@@ -117,21 +117,6 @@ async fn build_output() -> anyhow::Result<()> {
     let mut machine = PrinterSettingsId::new(printer.clone());
     machine.nozzle = Some(nozzle.clone());
     let process = PrintSettingsId::new(0.2, PrintQuality::Standard, printer.clone(), nozzle);
-    let pla_basic = FilamentSettingsId::new(
-        FilamentBrand::Bambu,
-        FilamentMaterial::PlaBasic,
-        printer.clone(),
-    );
-    let pla_matte = FilamentSettingsId::new(
-        FilamentBrand::Bambu,
-        FilamentMaterial::PlaMatte,
-        printer.clone(),
-    );
-    let pla_support = FilamentSettingsId::new(
-        FilamentBrand::Bambu,
-        FilamentMaterial::SupportForPla,
-        printer.clone(),
-    );
 
     bambu.printer_settings_id(Some(machine.clone()));
     bambu.print_settings_id(Some(process.clone()));
@@ -150,6 +135,11 @@ async fn build_output() -> anyhow::Result<()> {
         support.support_expansion(-0.25);
         support
     });
+    bambu.add_filament(create_filament(&config.foreground, printer.clone()));
+    bambu.add_filament(create_filament(&config.background, printer.clone()));
+    let mut support = create_filament(&config.support, printer.clone());
+    support.support(Some(true));
+    bambu.add_filament(support);
     bambu.add_plate({
         let mut plate = BambuPlate::new();
         let mut object = BambuObject::new();
@@ -181,35 +171,36 @@ async fn build_output() -> anyhow::Result<()> {
         .build()
         .await
     });
-    bambu.add_filament({
-        let mut filament = BambuFilament::new();
-        filament.color(Some(Color::new(255, 255, 255)));
-        filament.support(Some(false));
-        filament.settings_id(Some(pla_matte.clone()));
-        filament.diameter(Some(1.75));
-        filament.shrink(Some("100%".to_string()));
-        filament
-    });
-    bambu.add_filament({
-        let mut filament = BambuFilament::new();
-        filament.color(Some(Color::new(90, 68, 177)));
-        filament.support(Some(false));
-        filament.settings_id(Some(pla_basic.clone()));
-        filament.diameter(Some(1.75));
-        filament.shrink(Some("100%".to_string()));
-        filament
-    });
-    bambu.add_filament({
-        let mut filament = BambuFilament::new();
-        filament.color(Some(Color::new(255, 255, 255)));
-        filament.support(Some(true));
-        filament.settings_id(Some(pla_support.clone()));
-        filament.diameter(Some(1.75));
-        filament.shrink(Some("100%".to_string()));
-        filament.filament_flow_ratio(Some(1.00));
-        filament
-    });
     tokio::fs::write(&working_dir.join("flaps.3mf"), bambu.build()?).await?;
 
     Ok(())
+}
+
+fn create_filament(material: &MaterialSelector, printer: Printer) -> BambuFilament {
+    let mut filament = BambuFilament::new();
+    filament.color(Some(material.color.clone()));
+    filament.settings_id(Some(FilamentSettingsId::new(
+        material.brand.clone(),
+        material.material.clone(),
+        printer,
+    )));
+    filament.diameter(Some(1.75));
+    filament.shrink(Some("100%".to_string()));
+    filament.support(Some(false));
+    match (&material.brand, &material.material) {
+        (FilamentBrand::Bambu, FilamentMaterial::SupportForPla) => {
+            filament.filament_flow_ratio(Some(1.00));
+        }
+        (FilamentBrand::Bambu, FilamentMaterial::PlaMatte) => {
+            filament.filament_flow_ratio(Some(1.03));
+        }
+        (FilamentBrand::Bambu, FilamentMaterial::PlaBasic) => {
+            filament.filament_flow_ratio(Some(1.02));
+        }
+        (FilamentBrand::Bambu, FilamentMaterial::PetgHf) => {
+            filament.filament_flow_ratio(Some(1.01));
+        }
+        _ => {}
+    }
+    filament
 }

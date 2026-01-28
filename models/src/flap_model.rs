@@ -1,4 +1,6 @@
 use itertools::Itertools;
+use patina_3mf::project_settings::color::Color;
+use patina_3mf::settings_id::filament_settings_id::{FilamentBrand, FilamentMaterial};
 use patina_bambu::{BambuObject, BambuPart, BambuPartType, BambuPlate};
 use patina_extrude::ExtrusionBuilder;
 use patina_font::PolygonOutlineBuilder;
@@ -21,11 +23,21 @@ use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 #[derive(Deserialize)]
+pub struct MaterialSelector {
+    pub color: Color,
+    pub brand: FilamentBrand,
+    pub material: FilamentMaterial,
+}
+
+#[derive(Deserialize)]
 pub struct Config {
     pub glyphs: Vec<String>,
     pub glyph_config: GlyphConfig,
     #[serde(default)]
     pub overrides: Vec<GlyphConfig>,
+    pub foreground: MaterialSelector,
+    pub background: MaterialSelector,
+    pub support: MaterialSelector,
 }
 
 #[derive(Deserialize)]
