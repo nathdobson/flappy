@@ -1,0 +1,14 @@
+[package]
+name = "spindle"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+arena={path="../arena"}
+
+[features]
+default = ["std"]
+std = []
+
+[dev-dependencies]
+itertools = "0.14.0"

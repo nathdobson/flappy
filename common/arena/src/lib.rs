@@ -12,6 +12,7 @@ mod test;
 extern crate alloc;
 
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::alloc::{AllocError, Allocator, Layout};
 use core::cell::{RefCell, RefMut, UnsafeCell};
 use core::marker::PhantomData;
@@ -37,6 +38,8 @@ pub struct ArenaErase<'ar> {
 }
 
 pub type ArenaBox<'ar, T> = Box<T, ArenaErase<'ar>>;
+
+pub type ArenaVec<'ar, T> = Vec<T, &'ar Arena>;
 
 impl<const LEN: usize> ArenaStorage<LEN> {
     pub fn new() -> Self {
