@@ -63,6 +63,7 @@ use std::{env, iter};
 use tokio::fs;
 use zip::write::{FileOptions, SimpleFileOptions};
 use zip::{ZipArchive, ZipWriter};
+use patina_3mf::project_settings::brim_type::BrimType;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -135,6 +136,7 @@ async fn build_output() -> anyhow::Result<()> {
         support.support_expansion(-0.25);
         support
     });
+    bambu.brim_type(Some(BrimType::OuterBrimOnly));
     bambu.add_filament(create_filament(&config.foreground, printer.clone()));
     bambu.add_filament(create_filament(&config.background, printer.clone()));
     let mut support = create_filament(&config.support, printer.clone());
@@ -198,7 +200,7 @@ fn create_filament(material: &MaterialSelector, printer: Printer) -> BambuFilame
             filament.filament_flow_ratio(Some(1.02));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PetgHf) => {
-            filament.filament_flow_ratio(Some(1.01));
+            filament.filament_flow_ratio(Some(1.03));
         }
         _ => {}
     }
