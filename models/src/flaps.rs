@@ -121,7 +121,7 @@ async fn build_output() -> anyhow::Result<()> {
 
     bambu.printer_settings_id(Some(machine.clone()));
     bambu.print_settings_id(Some(process.clone()));
-    bambu.prime_tower_positions(Some(vec![Vec2::new(15.0, 15.0)]));
+    bambu.prime_tower_positions(Some(vec![Vec2::new(65.0, 18.0)]));
     bambu.support({
         let mut support = BambuSupport::new();
         support.independent_support_layer_height(0);
@@ -137,6 +137,8 @@ async fn build_output() -> anyhow::Result<()> {
         support
     });
     bambu.brim_type(Some(BrimType::OuterBrimOnly));
+    bambu.prime_tower_rib_wall(Some(false));
+    bambu.prime_tower_width(Some(50.0));
     bambu.add_filament(create_filament(&config.foreground, printer.clone()));
     bambu.add_filament(create_filament(&config.background, printer.clone()));
     let mut support = create_filament(&config.support, printer.clone());
@@ -194,13 +196,14 @@ fn create_filament(material: &MaterialSelector, printer: Printer) -> BambuFilame
             filament.filament_flow_ratio(Some(1.00));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PlaMatte) => {
-            filament.filament_flow_ratio(Some(1.03));
+            filament.filament_flow_ratio(Some(1.01));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PlaBasic) => {
             filament.filament_flow_ratio(Some(1.02));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PetgHf) => {
             filament.filament_flow_ratio(Some(1.03));
+            filament.filament_prime_volume(Some(90.0));
         }
         _ => {}
     }
