@@ -1,6 +1,6 @@
-use crate::{display_proto, make_static};
 use crate::driver::DriverModule;
 use crate::error::Error;
+use crate::{display_proto, make_static};
 use core::cell::RefCell;
 use core::default::Default;
 use core::ops::Index;
@@ -42,13 +42,26 @@ impl DisplayModule {
 
 impl DisplayModule {
     pub fn new(driver: &'static DriverModule) -> &'static Self {
-        make_static!(DisplayModule, DisplayModule {
-            driver,
-            glyphs: Mutex::new(Vec::new()),
-            settings: RefCell::new(DisplaySettings::default()),
-        })
+        make_static!(
+            DisplayModule,
+            DisplayModule {
+                driver,
+                glyphs: Mutex::new(Vec::new()),
+                settings: RefCell::new(DisplaySettings::default()),
+            }
+        )
     }
     pub async fn run(&self, message: &[usize]) -> Result<(), Error> {
+        let mut reverse = false;
+        let mut has_fault = false;
+        match &*self.settings.borrow().driver_version {
+            "1.0" => {
+                reverse = true;
+                has_fault = true;
+            }
+            _ => {}
+        };
+        let delay = self.settings.borrow().delay_micros;
         let ref mut glyphs = self.glyphs.lock().await;
         self.driver.set_enabled(true);
         let count = self.driver.count()?;
@@ -92,7 +105,7 @@ impl DisplayModule {
             info!("{MODULE} Flap {index} has target {:?}", char.target);
         }
         for step in 0.. {
-            let timer = Timer::after_micros(3000);
+            let timer = Timer::after_micros(delay);
             let mut done = true;
             for char in &mut **glyphs {
                 if !char.charged {
@@ -117,8 +130,7 @@ impl DisplayModule {
                 for (i, c) in cs.iter_mut().enumerate() {
                     let mut mask = 0;
                     if c.charged {
-                        // Run the motor in reverse
-                        let phase1 = 3 - c.phase;
+                        let phase1 = if reverse { 3 - c.phase } else { c.phase };
                         // full step drive (two phases enabled at a time)
                         let phase2 = (phase1 + 1) % 4;
                         mask = (1 << phase1) | (1 << phase2);
@@ -140,9 +152,18 @@ impl DisplayModule {
                 );
             }
             for i in 0..count {
-                let fault = input_buffer[i] & 1 == 1;
-                let hall = input_buffer[i] & 2 == 2;
-                let zeros = input_buffer[i] & !0b11;
+                let fault;
+                let hall;
+                let zeros;
+                if has_fault {
+                    fault = input_buffer[i] & 1 == 1;
+                    hall = input_buffer[i] & 2 == 2;
+                    zeros = input_buffer[i] & !0b11;
+                } else {
+                    fault = true;
+                    hall = input_buffer[i] & 1 == 1;
+                    zeros = input_buffer[i] & !0b1;
+                }
                 if zeros != 0 {
                     error!(
                         "{MODULE} Hall sensor read error (bad bits {}: {})",

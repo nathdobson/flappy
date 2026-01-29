@@ -54,6 +54,8 @@ pub struct DisplaySettings {
     pub glyphs: Vec<String<MAX_GLYPH_BYTES>, FLAP_COUNT>,
     pub background: String<6>,
     pub foreground: String<6>,
+    pub driver_version: String<10>,
+    pub delay_micros: u32,
 }
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

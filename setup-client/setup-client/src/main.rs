@@ -156,9 +156,11 @@ async fn main() -> Result<(), Error> {
                 stdin().read_to_end(&mut buf).await?;
                 buf
             };
+            eprintln!("reading file");
             let mut settings: AppSettings =
                 serde_json_core::from_slice_escaped(&settings, &mut [0u8; MAX_SETUP_MESSAGE_SIZE])?
                     .0;
+            eprintln!("getting certificate");
             settings.mqtt.certificate_list_sha256 = Some(
                 fetch_certificate_list_sha256(
                     settings.mqtt.hostname.to_string(),
@@ -166,6 +168,7 @@ async fn main() -> Result<(), Error> {
                 )
                 .await?,
             );
+            eprintln!("writing settings");
             let resp = conn.invoke(&SetupRequest::WriteSettings(settings)).await?;
         }
         Subcommand::Monitor(monitor) => {

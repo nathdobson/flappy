@@ -130,7 +130,7 @@ impl DriverModule {
                 return;
             }
             info!("read = {:?}", buf);
-            Timer::after_millis(500).await;
+            Timer::after_millis(100).await;
         }
     }
 }
