@@ -5,6 +5,7 @@
 
 use anyhow::Context;
 use models::encode_sdf::encode_model;
+use patina_3mf::brim_points::BrimPoint;
 use patina_3mf::project_settings::brim_type::BrimType;
 use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
@@ -749,8 +750,18 @@ impl HousingBuilder {
             self.aabb.max() + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tab.size + 0.1),
         );
         let mut builder = BambuBuilder::new();
-        builder.brim_type(Some(BrimType::OuterBrimOnly));
-        encode_model("housing", sdf, builder, &aabb).await?;
+        builder.brim_type(Some(BrimType::Painted));
+        let mut brim_points = vec![];
+        let radius = 4.0f64;
+        for x in [self.aabb.min().x(), self.aabb.max().x()] {
+            for y in [self.aabb.min().y(), self.aabb.max().y()] {
+                brim_points.push(BrimPoint {
+                    pos: Vec3::new(x, y, 0.0),
+                    radius,
+                });
+            }
+        }
+        encode_model("housing", sdf, builder, &brim_points, &aabb).await?;
         Ok(())
     }
 }

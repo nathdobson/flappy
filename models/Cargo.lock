@@ -849,6 +849,7 @@ dependencies = [
  "anyhow",
  "arrayvec",
  "itertools",
+ "patina-vec",
  "serde",
  "serde-xml-rs",
  "serde_cow",

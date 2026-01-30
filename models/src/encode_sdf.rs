@@ -5,6 +5,7 @@ use crate::settings::{
     SETTINGS_NOZZLE, SETTINGS_PLATE_HEIGHT, SETTINGS_PLATE_WIDTH, SETTINGS_PRINTER,
     settings_machine, settings_primary_filament, settings_process,
 };
+use patina_3mf::brim_points::BrimPoint;
 use patina_3mf::project_settings::color::Color;
 use patina_3mf::settings_id::filament_settings_id::{
     FilamentBrand, FilamentMaterial, FilamentSettingsId,
@@ -37,6 +38,7 @@ pub async fn encode_files(
     name: &str,
     model: &MeshModel,
     mut bambu: BambuBuilder,
+    brim_points: &[BrimPoint],
     aabb: &Aabb3,
 ) -> anyhow::Result<()> {
     let mut model = model.clone();
@@ -52,7 +54,7 @@ pub async fn encode_files(
 
     bambu.add_plate({
         let mut plate = BambuPlate::new();
-        let mut object = BambuObject::from_model(model.clone());
+        let mut object = BambuObject::from_model(model.clone(),brim_points);
         object.transform(Some(
             Mat4::translate(Vec3::new(
                 SETTINGS_PLATE_WIDTH / 2.0 - aabb.center().x(),
@@ -88,6 +90,7 @@ pub async fn encode_model(
     name: &str,
     model: SdfModel,
     bambu: BambuBuilder,
+    brim_points: &[BrimPoint],
     aabb: &Aabb3,
 ) -> anyhow::Result<()> {
     let draft;
@@ -103,7 +106,16 @@ pub async fn encode_model(
             marching
         })
         .await?;
-        encode_files(start, "draft", name, &draft, bambu.clone(), aabb).await?;
+        encode_files(
+            start,
+            "draft",
+            name,
+            &draft,
+            bambu.clone(),
+            brim_points,
+            aabb,
+        )
+        .await?;
     }
     {
         let start = Instant::now();
@@ -116,7 +128,7 @@ pub async fn encode_model(
             marching
         })
         .await?;
-        encode_files(start, "full", name, &full, bambu.clone(), aabb).await?;
+        encode_files(start, "full", name, &full, bambu.clone(), brim_points, aabb).await?;
     }
     let start = Instant::now();
     let simplified = spawn_blocking(move || {
@@ -137,6 +149,7 @@ pub async fn encode_model(
             metadata: model.metadata.clone(),
         },
         bambu.clone(),
+        brim_points,
         aabb,
     )
     .await?;
