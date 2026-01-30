@@ -5,6 +5,7 @@
 
 use anyhow::Context;
 use models::encode_sdf::encode_model;
+use patina_3mf::project_settings::brim_type::BrimType;
 use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
@@ -252,10 +253,7 @@ impl HousingBuilder {
                 ),
             ])
             .as_sdf()
-            .extrude_x(
-                self.hall_port.start_x + self.hall_port.width
-                    ..self.aabb.max().x(),
-            ),
+            .extrude_x(self.hall_port.start_x + self.hall_port.width..self.aabb.max().x()),
         );
         sdf
     }
@@ -750,7 +748,9 @@ impl HousingBuilder {
             self.aabb.min() + Vec3::splat(-0.1),
             self.aabb.max() + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tab.size + 0.1),
         );
-        encode_model("housing", sdf, BambuBuilder::new(), &aabb).await?;
+        let mut builder = BambuBuilder::new();
+        builder.brim_type(Some(BrimType::OuterBrimOnly));
+        encode_model("housing", sdf, builder, &aabb).await?;
         Ok(())
     }
 }
@@ -811,7 +811,7 @@ async fn main() -> anyhow::Result<()> {
             start_x: -16.0,
             start_y: 0.0,
             width: 5.0,
-            length: 12.0,
+            length: 16.0,
         },
         tube: Tube {
             width: 14.0,
