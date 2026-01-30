@@ -1,15 +1,18 @@
+use alloc::collections::TryReserveError;
 use crate::ast::{CallExpr, Expr, ExprList, InfixExpr, LetStmt, ParensExpr, Program, Stmt};
 use crate::lexer::{Lexer, LexerError};
 use crate::token::{
     IdentToken, Keyword, KeywordToken, Location, NumberToken, Symbol, SymbolToken, Token,
 };
 use arena::{Arena, ArenaVec};
-use std::iter::Peekable;
+use core::iter::Peekable;
 
 pub struct Parser<'par, I: Iterator<Item = Result<Token<'par>, LexerError<'par>>>> {
     tokens: Peekable<I>,
     arena: &'par Arena,
 }
+use crate::vec_ext::VecExt;
+use alloc::vec::Vec;
 
 #[derive(Debug)]
 pub enum ParserError<'par> {
@@ -35,6 +38,12 @@ impl<'par> From<LexerError<'par>> for ParserError<'par> {
 
 impl<'par> From<alloc::alloc::AllocError> for ParserError<'par> {
     fn from(_: alloc::alloc::AllocError) -> Self {
+        ParserError::AllocError
+    }
+}
+
+impl<'par> From<TryReserveError> for ParserError<'par> {
+    fn from(_: TryReserveError) -> Self {
         ParserError::AllocError
     }
 }
@@ -90,7 +99,7 @@ where
             if let Some(_eof) = self.try_parse_eof()? {
                 break;
             }
-            stmts.push(self.try_parse_statement()?);
+            stmts.try_push(self.try_parse_statement()?)?;
         }
         Ok(Program { stmts })
     }
@@ -184,11 +193,11 @@ where
     fn parse_expr_list(&mut self) -> Result<ExprList<'par>, ParserError<'par>> {
         let mut exprs = Vec::new_in(self.arena);
         let mut commas = Vec::new_in(self.arena);
-        exprs.push(self.parse_expr()?);
+        exprs.try_push(self.parse_expr()?)?;
         loop {
             if let Some(comma) = self.try_parse_symbol(Symbol::Comma)? {
-                commas.push(comma);
-                exprs.push(self.parse_expr()?);
+                commas.try_push(comma)?;
+                exprs.try_push(self.parse_expr()?)?;
             } else {
                 break;
             }

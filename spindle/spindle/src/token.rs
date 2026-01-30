@@ -2,8 +2,8 @@ use core::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Location {
-    pub line: usize,
-    pub column: usize,
+    pub line: u16,
+    pub column: u16,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]

@@ -1,0 +1,6 @@
+[workspace]
+members = ["spindle"]
+resolver = "3"
+
+[profile.dev]
+panic = "abort"

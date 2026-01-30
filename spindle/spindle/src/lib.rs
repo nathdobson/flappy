@@ -1,6 +1,7 @@
 #![feature(assert_matches)]
 #![feature(allocator_api)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![feature(vec_push_within_capacity)]
+#![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use)]
 #![allow(dead_code, unused_parens, unused_imports)]
 extern crate alloc;
@@ -14,3 +15,4 @@ mod parser;
 mod parser_test;
 mod ast;
 mod token;
+mod vec_ext;

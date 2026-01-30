@@ -1,0 +1,7 @@
+#[unstable]
+#build-std = [ "core", "compiler_builtins", "alloc" ]
+#
+#[build]
+#rustflags = [
+#    "--cfg", "no_global_oom_handling",
+#]

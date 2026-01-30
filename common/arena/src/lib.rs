@@ -67,7 +67,7 @@ impl Arena {
         self.state.borrow_mut().alloc_layout(layout)
     }
     pub fn alloc_box<'ar, T>(&'ar self, value: T) -> Result<ArenaBox<'ar, T>, AllocError> {
-        Ok(Self::erase_box(Box::new_in(value, self)))
+        Ok(Self::erase_box(Box::try_new_in(value, self)?))
     }
     pub fn erase_box<'ar, T>(b: Box<T, &'ar Self>) -> ArenaBox<'ar, T> {
         unsafe {
@@ -84,6 +84,9 @@ impl Arena {
     }
     pub fn alloc_bytes<'ar>(&'ar self, count: usize) -> Result<&'ar mut [u8], AllocError> {
         unsafe { Ok(self.state.borrow_mut().alloc_bytes(count)?.as_mut()) }
+    }
+    pub fn remaining(&self) -> usize {
+        self.state.borrow().buffer.len()
     }
 }
 
