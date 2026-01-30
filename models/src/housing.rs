@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
+use crate::tabs::Tabs;
 use anyhow::Context;
 use models::encode_sdf::encode_model;
 use patina_3mf::brim_points::BrimPoint;
@@ -32,15 +33,7 @@ use std::f64;
 use std::path::Path;
 use std::time::Instant;
 
-struct Tab {
-    size: f64,
-    thickness: f64,
-    wall_size: f64,
-    tab_fitment: f64,
-    housing_fitment: f64,
-    through_hole_excess_radius: f64,
-    toe_width: f64,
-}
+mod tabs;
 
 struct Catch {
     bottom_y: f64,
@@ -129,7 +122,7 @@ struct HousingBuilder {
     brace: Brace,
     port: Port,
     hall_port: HallPort,
-    tab: Tab,
+    tabs: Tabs,
     tube: Tube,
     hall_mount: HallMount,
     drum_guide: DrumGuide,
@@ -317,72 +310,6 @@ impl HousingBuilder {
             )
             .as_sdf(),
         )
-    }
-    fn tab(&self, sdf: &mut SdfModel, origin: Vec2, axis: Vec3) {
-        let axis2 = Vec3::axis_z();
-        let axis1 = -axis.cross(axis2);
-        sdf.add_sdf(
-            &Polygon2::new(vec![
-                Vec2::new(-self.tab.size, 0.0),
-                Vec2::new(self.tab.size, 0.0),
-                Vec2::new(0.0, self.tab.size),
-            ])
-            .as_sdf()
-            .extrude(
-                Vec3::new(origin.x(), origin.y(), self.aabb.max().z()),
-                axis1,
-                axis2,
-                self.tab.thickness,
-            ),
-        );
-        sdf.subtract_sdf(
-            &Polygon2::new(vec![
-                Vec2::new(-self.tab.size - self.tab.tab_fitment, 0.0),
-                Vec2::new(self.tab.size + self.tab.tab_fitment, 0.0),
-                Vec2::new(0.0, self.tab.size + self.tab.tab_fitment),
-            ])
-            .as_sdf()
-            .extrude(
-                Vec3::new(origin.x(), origin.y(), 0.0),
-                axis1,
-                axis2,
-                self.tab.thickness,
-            ),
-        );
-
-        sdf.subtract_sdf(
-            &Cylinder::new(
-                Vec3::new(
-                    origin.x(),
-                    origin.y(),
-                    self.aabb.max().z() + self.tab.wall_size,
-                ),
-                axis * self.tab.thickness * 2.0,
-                THREAD_M3.through_radius + self.tab.through_hole_excess_radius,
-            )
-            .as_sdf(),
-        );
-        sdf.subtract_sdf(
-            &Cylinder::new(
-                Vec3::new(
-                    origin.x(),
-                    origin.y(),
-                    self.aabb.max().z() + self.tab.wall_size,
-                ),
-                axis * THREAD_M3.countersink_depth,
-                THREAD_M3.countersink_radius,
-            )
-            .as_sdf(),
-        );
-        sdf.drill_ruthex(
-            Vec3::new(
-                origin.x(),
-                origin.y(),
-                self.tab.wall_size - self.tab.housing_fitment,
-            ) + axis * self.tab.thickness,
-            axis,
-            &THREAD_M3,
-        );
     }
     fn hall_mount(&self, sdf: &mut SdfModel) {
         let norm = Vec2::from_deg(self.hall_mount.tilt_deg);
@@ -714,27 +641,7 @@ impl HousingBuilder {
         sdf.subtract_sdf(&self.wiring_neg());
         sdf.add_sdf(&self.wiring_pos());
         sdf.subtract_sdf(&self.port_neg());
-        let offset = self.tab.size + self.tab.tab_fitment + self.tab.toe_width;
-        self.tab(
-            &mut sdf,
-            Vec2::new(self.aabb.min().x() + offset + 10.0, self.aabb.min().y()),
-            Vec3::axis_y(),
-        );
-        self.tab(
-            &mut sdf,
-            Vec2::new(self.aabb.min().x() + offset, self.aabb.max().y()),
-            -Vec3::axis_y(),
-        );
-        self.tab(
-            &mut sdf,
-            Vec2::new(self.aabb.max().x() - offset, self.aabb.min().y()),
-            Vec3::axis_y(),
-        );
-        self.tab(
-            &mut sdf,
-            Vec2::new(self.aabb.max().x() - offset, self.aabb.max().y()),
-            -Vec3::axis_y(),
-        );
+        self.tabs.tabs(&mut sdf, true, Some(self.aabb.max().z()));
         self.hall_mount(&mut sdf);
         sdf.subtract_sdf(&self.motor_clearance());
         sdf.add_sdf(&self.drum_guide());
@@ -747,7 +654,8 @@ impl HousingBuilder {
         let sdf = self.build_sdf();
         let aabb = Aabb::new(
             self.aabb.min() + Vec3::splat(-0.1),
-            self.aabb.max() + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tab.size + 0.1),
+            self.aabb.max()
+                + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tabs.size + 0.1),
         );
         let mut builder = BambuBuilder::new();
         builder.brim_type(Some(BrimType::Painted));
@@ -779,21 +687,17 @@ struct VerticalMounts {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let tabs = Tabs::new();
     HousingBuilder {
         inf: 1000.0,
-        aabb: Aabb::new(Vec3::new(-35.0, -66.0, 0.0), Vec3::new(54.0, 62.0, 50.0)),
+        aabb: Aabb::new(
+            Vec3::new(tabs.aabb.min().x(), tabs.aabb.min().y(), 0.0),
+            Vec3::new(tabs.aabb.max().x(), tabs.aabb.max().y(), 50.0),
+        ),
 
         drum_bounding_radius: 52.0,
         back_thickness: 4.0,
-        tab: Tab {
-            size: 14.0,
-            thickness: 5.0,
-            wall_size: 6.0,
-            tab_fitment: 0.2,
-            housing_fitment: 0.35,
-            through_hole_excess_radius: 0.25,
-            toe_width: 2.001,
-        },
+        tabs: Tabs::new(),
         catch: Catch {
             bottom_y: -56.0,
             indent_x: -15.0,
