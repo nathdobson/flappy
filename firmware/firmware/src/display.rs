@@ -61,7 +61,7 @@ impl DisplayModule {
             }
             _ => {}
         };
-        let delay = self.settings.borrow().delay_micros;
+        let delay = self.settings.borrow().delay_micros.unwrap_or(3000);
         let ref mut glyphs = self.glyphs.lock().await;
         self.driver.set_enabled(true);
         let count = self.driver.count()?;

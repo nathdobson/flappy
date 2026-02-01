@@ -55,7 +55,8 @@ pub struct DisplaySettings {
     pub background: String<6>,
     pub foreground: String<6>,
     pub driver_version: String<10>,
-    pub delay_micros: u64,
+    #[serde(default)]
+    pub delay_micros: Option<u64>,
 }
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
