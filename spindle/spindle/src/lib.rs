@@ -16,3 +16,8 @@ mod parser_test;
 mod ast;
 mod token;
 mod vec_ext;
+mod vm;
+mod compiler;
+#[cfg(test)]
+mod compiler_test;
+mod interp;

@@ -1,0 +1,69 @@
+use crate::ast::Expr;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use arena::{ArenaBox, ArenaVec};
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmLetStmt<'vm> {
+    pub expr: BoxVmExpr<'vm>,
+    pub next: BoxVmStmt<'vm>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmExprStmt<'vm> {
+    pub expr: BoxVmExpr<'vm>,
+    pub next: BoxVmStmt<'vm>,
+}
+
+pub type BoxVmStmt<'vm> = ArenaBox<'vm, VmStmt<'vm>>;
+#[derive(Debug, Eq, PartialEq)]
+pub enum VmStmt<'vm> {
+    LetStmt(VmLetStmt<'vm>),
+    ExprStmt(VmExprStmt<'vm>),
+    Noop,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum VmFunctionName {
+    Print,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmCallExpr<'vm> {
+    pub function: VmFunctionName,
+    pub args: ArenaVec<'vm, BoxVmExpr<'vm>>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum VmOperator {
+    Plus,
+    Times,
+    Minus,
+    Divide,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmOperatorExpr<'vm> {
+    pub operator: VmOperator,
+    pub left: ArenaBox<'vm, VmExpr<'vm>>,
+    pub right: ArenaBox<'vm, VmExpr<'vm>>,
+}
+
+pub type BoxVmExpr<'vm> = ArenaBox<'vm, VmExpr<'vm>>;
+#[derive(Debug, Eq, PartialEq)]
+pub enum VmExpr<'vm> {
+    Call(VmCallExpr<'vm>),
+    Operator(VmOperatorExpr<'vm>),
+    Var(usize),
+    Number(i64),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmFunction<'vm> {
+    pub stmt: BoxVmStmt<'vm>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmProgram<'vm> {
+    pub functions: ArenaVec<'vm, VmFunction<'vm>>,
+}

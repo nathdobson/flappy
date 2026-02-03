@@ -69,6 +69,12 @@ impl Arena {
     pub fn alloc_box<'ar, T>(&'ar self, value: T) -> Result<ArenaBox<'ar, T>, AllocError> {
         Ok(Self::erase_box(Box::try_new_in(value, self)?))
     }
+    pub fn alloc_vec<'ar, const N: usize, T>(
+        &'ar self,
+        values: [T; N],
+    ) -> Result<ArenaVec<'ar, T>, AllocError> {
+        Ok((Box::try_new_in(values, self)? as Box<[T], &'ar Arena>).into())
+    }
     pub fn erase_box<'ar, T>(b: Box<T, &'ar Self>) -> ArenaBox<'ar, T> {
         unsafe {
             ArenaBox::from_raw_in(
