@@ -25,7 +25,6 @@ mod ast;
 mod compiler;
 #[cfg(test)]
 mod compiler_test;
-// mod freelist;
 mod interp;
 mod lexer;
 #[cfg(test)]
@@ -33,9 +32,7 @@ mod lexer_test;
 mod parser;
 #[cfg(test)]
 mod parser_test;
-mod pin_stack;
-mod pool;
-// mod stack;
+mod stack;
 mod token;
 mod vec_ext;
 mod vm;
