@@ -7,8 +7,10 @@ use core::marker::PhantomData;
 use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::Deref;
 use core::ops::DerefMut;
+use core::pin::pin;
 use core::pin::{Pin, UnsafePinned};
 use core::ptr::NonNull;
+use core::task::{Context, Poll};
 use core::{mem, ptr};
 
 pub struct StackStorage<B: ?Sized = [u8]> {
@@ -29,7 +31,7 @@ pub struct StackSlot<'a> {
     data: &'a mut [u8],
 }
 
-pub struct StackBox<'a, T> {
+pub struct StackBox<'a, T: ?Sized> {
     parent: &'a mut bool,
     value: &'a mut ManuallyDrop<T>,
 }
@@ -55,12 +57,12 @@ impl StackStorage {
 
 impl<'a> Stack<'a> {
     pub fn push(&mut self, layout: Layout) -> Result<(Stack<'_>, StackSlot<'_>), AllocError> {
-        self.borrowed_left = true;
-        self.borrowed_right = true;
         let mut data = &mut *self.data;
         let pad = data.as_mut_ptr().align_offset(layout.align());
         data.split_off_mut(..pad).ok_or(AllocError)?;
         let result = data.split_off_mut(..layout.size()).ok_or(AllocError)?;
+        self.borrowed_left = true;
+        self.borrowed_right = true;
         Ok((
             Stack {
                 parent: &mut self.borrowed_right,
@@ -74,6 +76,15 @@ impl<'a> Stack<'a> {
                 data: result,
             },
         ))
+    }
+    pub async fn recurse<O, F: for<'b> AsyncFnOnce(Stack<'b>) -> O>(
+        &mut self,
+        f: F,
+    ) -> Result<O, AllocError> {
+        let (stack, slot) = self.push(Layout::new::<
+            <F as AsyncFnOnce<(Stack<'static>,)>>::CallOnceFuture,
+        >())?;
+        Ok(slot.init(f(stack))?.into_pin().await)
     }
 }
 
@@ -125,7 +136,7 @@ impl<'a> Drop for StackSlot<'a> {
         }
     }
 }
-impl<'a, T> Drop for StackBox<'a, T> {
+impl<'a, T: ?Sized> Drop for StackBox<'a, T> {
     fn drop(&mut self) {
         unsafe {
             *self.parent = false;
@@ -142,7 +153,7 @@ fn panic_abort() {
         }
     }
     let _x = Bomb();
-    panic!("failed to call destructor");
+    panic!("Didn't call destructor.");
 }
 
 impl<'a, T: Debug> Debug for StackBox<'a, T> {
@@ -151,28 +162,15 @@ impl<'a, T: Debug> Debug for StackBox<'a, T> {
     }
 }
 
-impl<'a, T> Deref for StackBox<'a, T> {
+impl<'a, T: ?Sized> Deref for StackBox<'a, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.value
     }
 }
 
-impl<'a, T> DerefMut for StackBox<'a, T> {
+impl<'a, T: ?Sized> DerefMut for StackBox<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.value
     }
-}
-
-#[test]
-fn test() {
-    let mut stack = new_stack::<1024>();
-    let stack: &mut StackStorage = &mut stack;
-    let mut s = stack.start();
-    let (mut s, a1) = s.push(Layout::new::<String>()).unwrap();
-    let a1 = a1.init("hello".to_string()).unwrap();
-    let (mut s, a2) = s.push(Layout::new::<String>()).unwrap();
-    let a2 = a2.init("world".to_string()).unwrap();
-    assert_eq!(*a1, "hello");
-    assert_eq!(*a2, "world");
 }

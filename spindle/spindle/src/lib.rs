@@ -6,7 +6,9 @@
     vec_push_within_capacity,
     ptr_metadata,
     unsafe_pinned,
-    core_intrinsics
+    async_fn_traits,
+    core_intrinsics,
+    unboxed_closures
 )]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use)]
@@ -33,6 +35,8 @@ mod parser;
 #[cfg(test)]
 mod parser_test;
 mod stack;
+#[cfg(test)]
+mod stack_test;
 mod token;
 mod vec_ext;
 mod vm;
