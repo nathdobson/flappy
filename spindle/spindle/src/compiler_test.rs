@@ -15,13 +15,15 @@ fn test_parser() {
         let foo = 2 + 2;
         print(foo);
     "#;
-    const CAP: usize = 100000;
-    let mut arena_par_storage = Box::new(ArenaStorage::<CAP>::new());
+    let capacity: usize = 100000;
+    let mut arena_par_slice = vec![0u8; capacity];
+    let mut arena_par_storage = ArenaStorage::new(&mut arena_par_slice);
     let arena_par = arena_par_storage.start();
     let program = Parser::new(Lexer::new(code), arena_par)
         .parse_program()
         .unwrap();
-    let mut arena_vm_storage = Box::new(ArenaStorage::<CAP>::new());
+    let mut arena_vm_slice = vec![0u8; capacity];
+    let mut arena_vm_storage = ArenaStorage::new(&mut arena_vm_slice);
     let arena_vm = arena_vm_storage.start();
     let program = Compiler::new(arena_vm, &program).compile().unwrap();
     assert_eq!(

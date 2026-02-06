@@ -12,12 +12,13 @@ fn test_parser() {
         let foo = 2 + 2;
         print(foo);
     "#;
-    const CAP: usize = 100000;
-    let mut arena = Box::new(ArenaStorage::<CAP>::new());
+    let capacity = 100000usize;
+    let mut arena_slice = vec![0; capacity];
+    let mut arena = ArenaStorage::new(&mut arena_slice);
     let arena = arena.start();
     let program = Parser::new(Lexer::new(code), arena)
         .parse_program()
         .unwrap();
-    println!("{:?}", CAP - arena.remaining());
+    println!("{:?}", capacity - arena.remaining());
     assert_matches!(program, Program { stmts: _ });
 }

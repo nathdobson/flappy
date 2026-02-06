@@ -7,6 +7,7 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
+
 mod test;
 
 extern crate alloc;
@@ -20,8 +21,8 @@ use core::mem;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 
-pub struct ArenaStorage<const LEN: usize> {
-    buffer: UnsafeCell<[u8; LEN]>,
+pub struct ArenaStorage<'a> {
+    buffer: &'a mut [u8],
     arena: Option<Arena>,
 }
 
@@ -41,15 +42,15 @@ pub type ArenaBox<'ar, T> = Box<T, ArenaErase<'ar>>;
 
 pub type ArenaVec<'ar, T> = Vec<T, &'ar Arena>;
 
-impl<const LEN: usize> ArenaStorage<LEN> {
-    pub fn new() -> Self {
+impl<'a> ArenaStorage<'a> {
+    pub fn new(buffer: &'a mut [u8]) -> Self {
         ArenaStorage {
-            buffer: UnsafeCell::new([0u8; LEN]),
+            buffer,
             arena: None,
         }
     }
     pub fn start<'ar>(&'ar mut self) -> &'ar Arena {
-        unsafe { self.arena.insert(Arena::new(self.buffer.get())) }
+        unsafe { self.arena.insert(Arena::new(self.buffer)) }
     }
 }
 

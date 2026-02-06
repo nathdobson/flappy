@@ -2,8 +2,8 @@ use crate::ast::{Expr, Program, Stmt};
 use crate::token::Symbol;
 use crate::vec_ext::VecExt;
 use crate::vm::{
-    BoxVmExpr, BoxVmStmt, VmCallExpr, VmOperatorExpr, VmExpr, VmExprStmt, VmFunction,
-    VmFunctionName, VmLetStmt, VmOperator, VmProgram, VmStmt,
+    BoxVmExpr, BoxVmStmt, VmCallExpr, VmExpr, VmExprStmt, VmFunction, VmFunctionName, VmLetStmt,
+    VmOperator, VmOperatorExpr, VmProgram, VmStmt,
 };
 use alloc::collections::TryReserveError;
 use arena::{Arena, ArenaVec};
@@ -15,8 +15,9 @@ pub struct Compiler<'par, 'vm> {
     variables: ArenaVec<'vm, &'par str>,
 }
 
-#[derive(Debug)]pub enum CompileError<'par, 'vm> {
-    Unused(PhantomData<(&'par (), &'vm ())>),
+#[derive(Debug)]
+pub enum CompileError<'par, 'vm> {
+    Unused(!, PhantomData<(&'par (), &'vm ())>),
     AllocError,
     UnknownVariable,
     VariableIndexOverflow,

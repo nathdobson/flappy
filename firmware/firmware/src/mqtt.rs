@@ -44,6 +44,7 @@ const KEEPALIVE: u16 = 60;
 const PACKET_SIZE: usize = 1024;
 
 use crate::application::DisplayResponseContainer;
+use crate::make_static;
 use crate::product::serial_number;
 use protocol::display::DisplayRequest;
 use protocol::error::{
@@ -52,7 +53,6 @@ use protocol::error::{
 };
 use protocol::setup::{AppSettings, DeviceInfo, MqttServiceStatus, MqttSettings};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
-use crate::make_static;
 
 pub struct MqttModule {
     spawner: Spawner,
@@ -231,14 +231,17 @@ impl MqttModule {
         display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
         display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     ) -> Result<&'static MqttModule, Error> {
-        let module = make_static!(MqttModule, MqttModule {
-            spawner,
-            stack,
-            settings: Signal::new(),
-            display_request,
-            display_response,
-            status: Watch::new(),
-        });
+        let module = make_static!(
+            MqttModule,
+            MqttModule {
+                spawner,
+                stack,
+                settings: Signal::new(),
+                display_request,
+                display_response,
+                status: Watch::new(),
+            }
+        );
         spawner.spawn({
             #[embassy_executor::task]
             async fn run_task(this: &'static MqttModule) {
@@ -405,7 +408,8 @@ impl MqttModule {
         let mut receiver = MqttReceiver::new(read);
         match select5(
             async {
-                let mut arena = ArenaStorage::<1024>::new();
+                let mut arena_slice = [0u8; 1024];
+                let mut arena = ArenaStorage::new(&mut arena_slice);
                 loop {
                     let (ack, packet) = receiver
                         .receive(arena.start())

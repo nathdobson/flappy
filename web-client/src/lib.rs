@@ -87,10 +87,16 @@ impl Root {
         send_form.set_on_submit(|value| {
             let mut value: String = value.to_owned();
             value.truncate(DISPLAY_REQUEST_CAPACITY);
-            if let Err::<(), Error>(e) = try {
-                request_send.try_send(DisplayRequest::Run(heapless::String::from_str(&value)?))?
-            } {
-                error!("{:?}", e);
+            match heapless::String::from_str(&value) {
+                Err(e) => {
+                    error!("{:?}", e);
+                }
+                Ok(value) => match request_send.try_send(DisplayRequest::Run(value)) {
+                    Ok(()) => {}
+                    Err(e) => {
+                        error!("{:?}", e);
+                    }
+                },
             }
         });
         let params = FlappyQueryParams::new()?;

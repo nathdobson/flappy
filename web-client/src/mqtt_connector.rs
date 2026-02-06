@@ -41,7 +41,8 @@ pub async fn run_mqtt(
     let info_topic = format!("{}/info", params.topic);
     match select5(
         async {
-            let mut arena = ArenaStorage::<1024>::new();
+            let mut arena_slice = [0u8; 1024];
+            let mut arena = ArenaStorage::new(&mut arena_slice);
             loop {
                 let (ack, packet) = receiver.receive(arena.start()).await?;
                 match packet {

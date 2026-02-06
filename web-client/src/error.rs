@@ -95,7 +95,7 @@ impl<T> From<SendError<T>> for Error {
 }
 
 impl From<Box<dyn Any + Send>> for Error {
-    fn from(x: Box<(dyn Any + Send + 'static)>) -> Self {
+    fn from(x: Box<dyn Any + Send + 'static>) -> Self {
         Error::Panic(x)
     }
 }
