@@ -1,64 +1,44 @@
 use crate::compiler::Compiler;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::testutils::with_test_compile;
 use crate::vm::{
     VmCallExpr, VmExpr, VmExprStmt, VmFunction, VmFunctionName, VmLetStmt, VmOperator,
     VmOperatorExpr, VmProgram, VmStmt,
 };
 use arena::ArenaStorage;
+use std::assert_matches;
 
-#[test]
-fn test_parser() {
+#[tokio::test]
+async fn test_parser() {
     use itertools::Itertools;
 
     let code = r#"
         let foo = 2 + 2;
         print(foo);
     "#;
-    let capacity: usize = 100000;
-    let mut arena_par_slice = vec![0u8; capacity];
-    let mut arena_par_storage = ArenaStorage::new(&mut arena_par_slice);
-    let arena_par = arena_par_storage.start();
-    let program = Parser::new(Lexer::new(code), arena_par)
-        .parse_program()
-        .unwrap();
-    let mut arena_vm_slice = vec![0u8; capacity];
-    let mut arena_vm_storage = ArenaStorage::new(&mut arena_vm_slice);
-    let arena_vm = arena_vm_storage.start();
-    let program = Compiler::new(arena_vm, &program).compile().unwrap();
-    assert_eq!(
-        program,
-        VmProgram {
-            functions: arena_vm
-                .alloc_vec([VmFunction {
-                    stmt: arena_vm
-                        .alloc_box(VmStmt::LetStmt(VmLetStmt {
-                            expr: arena_vm
-                                .alloc_box(VmExpr::Operator(VmOperatorExpr {
-                                    operator: VmOperator::Plus,
-                                    left: arena_vm.alloc_box(VmExpr::Number(2)).unwrap(),
-                                    right: arena_vm.alloc_box(VmExpr::Number(2)).unwrap(),
-                                }))
-                                .unwrap(),
-                            next: arena_vm
-                                .alloc_box(VmStmt::ExprStmt(VmExprStmt {
-                                    expr: arena_vm
-                                        .alloc_box(VmExpr::Call(VmCallExpr {
-                                            function: VmFunctionName::Print,
-                                            args: arena_vm
-                                                .alloc_vec([arena_vm
-                                                    .alloc_box(VmExpr::Var(0))
-                                                    .unwrap()])
-                                                .unwrap(),
-                                        }))
-                                        .unwrap(),
-                                    next: arena_vm.alloc_box(VmStmt::Noop).unwrap()
-                                }))
-                                .unwrap()
-                        }))
-                        .unwrap()
-                }])
-                .unwrap()
-        }
-    );
+    with_test_compile(code, async |program| {
+        assert_matches!(
+            program,
+            VmProgram {
+                functions: [VmFunction {
+                    stmt: VmStmt::LetStmt(VmLetStmt {
+                        expr: VmExpr::Operator(VmOperatorExpr {
+                            operator: VmOperator::Plus,
+                            left: VmExpr::Number(2),
+                            right: VmExpr::Number(2)
+                        }),
+                        next: VmStmt::ExprStmt(VmExprStmt {
+                            expr: VmExpr::Call(VmCallExpr {
+                                function: VmFunctionName::Print,
+                                args: [VmExpr::Var(0)],
+                            }),
+                            next: VmStmt::Noop,
+                        })
+                    })
+                }]
+            }
+        );
+    })
+    .await;
 }

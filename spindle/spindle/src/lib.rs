@@ -8,7 +8,8 @@
     unsafe_pinned,
     async_fn_traits,
     core_intrinsics,
-    unboxed_closures
+    unboxed_closures,
+    deref_patterns
 )]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use)]
@@ -18,7 +19,8 @@
     unused_imports,
     internal_features,
     unused_mut,
-    unused_variables
+    unused_variables,
+    incomplete_features
 )]
 extern crate alloc;
 extern crate core;
@@ -40,3 +42,5 @@ mod stack_test;
 mod token;
 mod vec_ext;
 mod vm;
+#[cfg(test)]
+mod testutils;

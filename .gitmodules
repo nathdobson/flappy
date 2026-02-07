@@ -31,3 +31,6 @@
 [submodule "submodules/spindle"]
 	path = submodules/spindle
 	url = https://github.com/nathdobson/spindle.git
+[submodule "submodules/rust_testing_logger"]
+	path = submodules/rust_testing_logger
+	url = https://github.com/nathdobson/rust_testing_logger.git

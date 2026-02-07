@@ -34,7 +34,7 @@ pub struct VmCallExpr<'vm> {
     pub args: ArenaVec<'vm, BoxVmExpr<'vm>>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum VmOperator {
     Plus,
     Times,

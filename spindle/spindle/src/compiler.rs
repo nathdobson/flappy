@@ -91,6 +91,7 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
                 let index = self
                     .variables
                     .iter()
+                    .rev()
                     .position(|x| *x == v.ident)
                     .ok_or_else(|| CompileError::UnknownVariable)?;
                 Ok(self.arena.alloc_box(VmExpr::Var(index))?)

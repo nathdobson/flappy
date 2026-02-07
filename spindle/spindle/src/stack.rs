@@ -86,6 +86,15 @@ impl<'a> Stack<'a> {
         >())?;
         Ok(slot.init(f(stack))?.into_pin().await)
     }
+    pub fn reborrow(&mut self) -> Stack<'_> {
+        self.borrowed_left = true;
+        Stack {
+            parent: &mut self.borrowed_left,
+            data: self.data,
+            borrowed_left: false,
+            borrowed_right: false,
+        }
+    }
 }
 
 impl<'a> StackSlot<'a> {
