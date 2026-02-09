@@ -1,9 +1,10 @@
+use crate::ast::CallExpr;
 use crate::compiler::Compiler;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::testutils::with_test_compile;
 use crate::vm::{
-    VmCallExpr, VmExpr, VmExprStmt, VmFunction, VmFunctionName, VmLetStmt, VmOperator,
+    VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName, VmLetStmt, VmOperator,
     VmOperatorExpr, VmProgram, VmStmt,
 };
 use arena::ArenaStorage;
@@ -42,6 +43,38 @@ async fn test_parser() {
                                 next: VmStmt::Noop,
                             }),
                         })
+                    })
+                }]
+            }
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_for_loop() {
+    use itertools::Itertools;
+
+    let code = r#"
+        for x in 0..10{
+            print(x);
+        }
+    "#;
+    with_test_compile(code, async |program| {
+        assert_matches!(
+            program,
+            VmProgram {
+                functions: [VmFunction {
+                    stmt: VmStmt::ForStmt(VmForStmt {
+                        init: VmExpr::Number(0),
+                        limit: VmExpr::Number(10),
+                        inner: VmStmt::ExprStmt(VmExprStmt {
+                            expr: VmExpr::Call(VmCallExpr {
+                                function: VmFunctionName::Print,
+                                args: [VmExpr::Var(0)],
+                            }),
+                            next: VmStmt::Noop,
+                        }),
                     })
                 }]
             }

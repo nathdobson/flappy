@@ -41,3 +41,36 @@ async fn test_interp() {
         ]
     );
 }
+
+#[tokio::test]
+async fn test_for_loop() {
+    testing_logger::setup();
+    interp(
+        r#"
+        for x in 10..13{
+            print(x);
+        }
+       "#,
+    )
+    .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [
+            CapturedLog {
+                body: "10",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "11",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "12",
+                level: _,
+                target: _
+            },
+        ]
+    );
+}

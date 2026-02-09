@@ -2,8 +2,8 @@ use crate::ast::{Expr, Program, Stmt};
 use crate::token::Symbol;
 use crate::vec_ext::VecExt;
 use crate::vm::{
-    BoxVmExpr, BoxVmStmt, VmCallExpr, VmExpr, VmExprStmt, VmFunction, VmFunctionName, VmLetStmt,
-    VmOperator, VmOperatorExpr, VmProgram, VmStmt,
+    BoxVmExpr, BoxVmStmt, VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName,
+    VmLetStmt, VmOperator, VmOperatorExpr, VmProgram, VmStmt,
 };
 use alloc::collections::TryReserveError;
 use arena::{Arena, ArenaVec};
@@ -69,9 +69,10 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
             None => Ok(self.arena.alloc_box(VmStmt::Noop)?),
             Some((stmt, next)) => match stmt {
                 Stmt::Let(stmt) => {
+                    let expr = self.compile_expr(&stmt.expr)?;
                     self.variables.try_push(stmt.ident.ident)?;
                     let result = self.arena.alloc_box(VmStmt::LetStmt(VmLetStmt {
-                        expr: self.compile_expr(&stmt.expr)?,
+                        expr,
                         next: self.compile_stmt(next)?,
                     }))?;
                     self.variables.pop();
@@ -81,6 +82,17 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
                     expr: self.compile_expr(expr)?,
                     next: self.compile_stmt(next)?,
                 }))?),
+                Stmt::For(stmt) => {
+                    let init = self.compile_expr(&stmt.init_expr)?;
+                    let limit = self.compile_expr(&stmt.limit_expr)?;
+                    self.variables.try_push(stmt.ident.ident)?;
+                    let inner = self.compile_stmt(&stmt.inner)?;
+                    let result =
+                        self.arena
+                            .alloc_box(VmStmt::ForStmt(VmForStmt { init, limit, inner }))?;
+                    self.variables.pop();
+                    Ok(result)
+                }
             },
         }
     }

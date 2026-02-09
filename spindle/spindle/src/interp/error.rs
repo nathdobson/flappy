@@ -7,6 +7,7 @@ pub enum InterpError<'vm> {
     MissingMainFunction,
     AllocError,
     OperatorError,
+    ForLoopTypeError,
 }
 
 impl From<AllocError> for InterpError<'_> {

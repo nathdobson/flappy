@@ -10,6 +10,7 @@ pub struct Program<'par> {
 pub enum Stmt<'par> {
     Let(LetStmt<'par>),
     ExprStmt(Expr<'par>),
+    For(ForStmt<'par>),
 }
 
 #[derive(Debug)]
@@ -20,7 +21,17 @@ pub struct LetStmt<'par> {
     pub expr: Expr<'par>,
 }
 
+#[derive(Debug)]
+pub struct ForStmt<'par> {
+    pub for_token: KeywordToken,
+    pub ident: IdentToken<'par>,
+    pub init_expr: Expr<'par>,
+    pub limit_expr: Expr<'par>,
+    pub inner: ArenaVec<'par, Stmt<'par>>,
+}
+
 pub type BoxExpr<'par> = ArenaBox<'par, Expr<'par>>;
+pub type BoxStmt<'par> = ArenaBox<'par, Stmt<'par>>;
 
 #[derive(Debug)]
 pub struct InfixExpr<'par> {

@@ -19,13 +19,18 @@ pub enum Symbol {
     Semi,
     LParen,
     RParen,
+    LBrace,
+    RBrace,
     Comma,
+    DotDot,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Keyword {
     Let,
     Fn,
+    For,
+    In,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -78,6 +83,9 @@ impl Debug for Symbol {
                 Symbol::LParen => "(",
                 Symbol::RParen => ")",
                 Symbol::Comma => ",",
+                Symbol::LBrace => "{",
+                Symbol::RBrace => "}",
+                Symbol::DotDot => "..",
             }
         )
     }
@@ -129,6 +137,8 @@ impl Debug for Keyword {
         match self {
             Keyword::Let => write!(f, "let"),
             Keyword::Fn => write!(f, "fn"),
+            Keyword::For => write!(f, "for"),
+            Keyword::In => write!(f, "in"),
         }
     }
 }

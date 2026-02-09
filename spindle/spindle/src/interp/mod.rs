@@ -57,6 +57,22 @@ impl<'vm> Interp<'vm> {
                 Ok(())
             }
             VmStmt::Noop => Ok(()),
+            VmStmt::ForStmt(stmt) => {
+                let init = self
+                    .interp_expr(stack.reborrow(), &stmt.init)
+                    .await?
+                    .into_number()?;
+                let limit = self
+                    .interp_expr(stack.reborrow(), &stmt.limit)
+                    .await?
+                    .into_number()?;
+                for x in init..limit {
+                    self.push_value(Value::Number(x))?;
+                    self.interp_stmt_rec(stack.reborrow(), &stmt.inner).await?;
+                    self.pop_value();
+                }
+                Ok(())
+            }
         }
     }
     async fn interp_stmt_rec(

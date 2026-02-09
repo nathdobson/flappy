@@ -1,9 +1,11 @@
-use alloc::collections::TryReserveError;
-use crate::ast::{CallExpr, Expr, ExprList, InfixExpr, LetStmt, ParensExpr, Program, Stmt};
+use crate::ast::{
+    CallExpr, Expr, ExprList, ForStmt, InfixExpr, LetStmt, ParensExpr, Program, Stmt,
+};
 use crate::lexer::{Lexer, LexerError};
 use crate::token::{
     IdentToken, Keyword, KeywordToken, Location, NumberToken, Symbol, SymbolToken, Token,
 };
+use alloc::collections::TryReserveError;
 use arena::{Arena, ArenaVec};
 use core::iter::Peekable;
 
@@ -22,6 +24,7 @@ pub enum ParserError<'par> {
     ExpectedSymbol(Symbol),
     ExpectedKeyword(Keyword),
     AllocError,
+    ExpectedExpr,
 }
 
 #[derive(Debug)]
@@ -94,14 +97,16 @@ where
         }
     }
     fn parse_program_ast(&mut self) -> Result<Program<'par>, ParserError<'par>> {
+        Ok(Program {
+            stmts: self.parse_statement_vec()?,
+        })
+    }
+    fn parse_statement_vec(&mut self) -> Result<ArenaVec<'par, Stmt<'par>>, ParserError<'par>> {
         let mut stmts = Vec::new_in(self.arena);
-        loop {
-            if let Some(_eof) = self.try_parse_eof()? {
-                break;
-            }
-            stmts.try_push(self.try_parse_statement()?)?;
+        while let Some(stmt) = self.try_parse_statement()? {
+            stmts.try_push(stmt)?;
         }
-        Ok(Program { stmts })
+        Ok(stmts)
     }
     fn try_parse_eof(&mut self) -> Result<Option<()>, ParserError<'par>> {
         if let Some(_) = self.try_peek_token()? {
@@ -110,14 +115,26 @@ where
             Ok(Some(()))
         }
     }
-    fn try_parse_statement(&mut self) -> Result<Stmt<'par>, ParserError<'par>> {
-        let result = if let Some(let_stmt) = self.try_parse_let_statement()? {
-            Stmt::Let(let_stmt)
+    fn try_parse_statement(&mut self) -> Result<Option<Stmt<'par>>, ParserError<'par>> {
+        match self.try_peek_token()? {
+            None => return Ok(None),
+            Some(token) => match token {
+                Token::Symbol(symbol) => match symbol.symbol {
+                    Symbol::RBrace => return Ok(None),
+                    _ => {}
+                },
+                _ => {}
+            },
+        }
+        if let Some(let_stmt) = self.try_parse_let_statement()? {
+            Ok(Some(Stmt::Let(let_stmt)))
+        } else if let Some(for_stmt) = self.try_parse_for_statement()? {
+            Ok(Some(Stmt::For(for_stmt)))
         } else {
-            Stmt::ExprStmt(self.parse_expr()?)
-        };
-        self.parse_symbol(Symbol::Semi)?;
-        Ok(result)
+            let result = Stmt::ExprStmt(self.parse_expr()?);
+            self.parse_symbol(Symbol::Semi)?;
+            Ok(Some(result))
+        }
     }
     fn try_parse_let_statement(&mut self) -> Result<Option<LetStmt<'par>>, ParserError<'par>> {
         let Some(let_token) = self.try_parse_keyword(Keyword::Let)? else {
@@ -126,11 +143,32 @@ where
         let ident = self.parse_ident()?;
         let equals = self.parse_symbol(Symbol::Equals)?;
         let expr = self.parse_expr()?;
+        self.parse_symbol(Symbol::Semi)?;
         Ok(Some(LetStmt {
             let_token,
             ident,
             equals,
             expr,
+        }))
+    }
+    fn try_parse_for_statement(&mut self) -> Result<Option<ForStmt<'par>>, ParserError<'par>> {
+        let Some(for_token) = self.try_parse_keyword(Keyword::For)? else {
+            return Ok(None);
+        };
+        let ident = self.parse_ident()?;
+        self.parse_keyword(Keyword::In)?;
+        let init_expr = self.parse_expr()?;
+        self.parse_symbol(Symbol::DotDot)?;
+        let limit_expr = self.parse_expr()?;
+        let open_brace = self.parse_symbol(Symbol::LBrace)?;
+        let inner = self.parse_statement_vec()?;
+        let open_brace = self.parse_symbol(Symbol::RBrace)?;
+        Ok(Some(ForStmt {
+            for_token,
+            ident,
+            init_expr,
+            limit_expr,
+            inner,
         }))
     }
     fn parse_expr(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
@@ -187,7 +225,7 @@ where
                 rparen,
             }))
         } else {
-            todo!();
+            return Err(ParserError::ExpectedExpr);
         }
     }
     fn parse_expr_list(&mut self) -> Result<ExprList<'par>, ParserError<'par>> {

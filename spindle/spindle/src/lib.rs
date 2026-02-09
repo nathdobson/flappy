@@ -44,3 +44,4 @@ mod vec_ext;
 mod vm;
 #[cfg(test)]
 mod testutils;
+mod lookahead;

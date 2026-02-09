@@ -15,12 +15,22 @@ pub struct VmExprStmt<'vm> {
     pub next: BoxVmStmt<'vm>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmForStmt<'vm> {
+    pub init: BoxVmExpr<'vm>,
+    pub limit: BoxVmExpr<'vm>,
+    pub inner: BoxVmStmt<'vm>,
+}
+
+
+
 pub type BoxVmStmt<'vm> = ArenaBox<'vm, VmStmt<'vm>>;
 #[derive(Debug, Eq, PartialEq)]
 pub enum VmStmt<'vm> {
     LetStmt(VmLetStmt<'vm>),
     ExprStmt(VmExprStmt<'vm>),
     Noop,
+    ForStmt(VmForStmt<'vm>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
