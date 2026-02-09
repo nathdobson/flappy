@@ -9,7 +9,7 @@ use testing_logger::CapturedLog;
 async fn interp(code: &str) {
     with_test_compile(code, async |program| {
         let mut value_stack = heapless::Vec::<Value, 128>::new();
-        let mut stack = new_stack::<1024>();
+        let mut stack = new_stack::<65536>();
         let mut stack: &mut StackStorage = &mut stack;
         let stack = stack.start();
         let mut interp = Interp::new(program, &mut value_stack);
@@ -25,14 +25,19 @@ async fn test_interp() {
         r#"
         let foo = 2 + 2;
         print(foo);
-    "#,
-    ).await;
+        print(foo);
+       "#,
+    )
+    .await;
     assert_matches!(
         testing_logger::take()[..],
-        [CapturedLog {
-            body: "4",
-            level: _,
-            target: _
-        }]
+        [
+            CapturedLog {
+                body: "4",
+                level: _,
+                target: _
+            },
+            _
+        ]
     );
 }

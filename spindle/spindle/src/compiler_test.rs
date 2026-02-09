@@ -16,6 +16,7 @@ async fn test_parser() {
     let code = r#"
         let foo = 2 + 2;
         print(foo);
+        print(foo);
     "#;
     with_test_compile(code, async |program| {
         assert_matches!(
@@ -33,7 +34,13 @@ async fn test_parser() {
                                 function: VmFunctionName::Print,
                                 args: [VmExpr::Var(0)],
                             }),
-                            next: VmStmt::Noop,
+                            next: VmStmt::ExprStmt(VmExprStmt {
+                                expr: VmExpr::Call(VmCallExpr {
+                                    function: VmFunctionName::Print,
+                                    args: [VmExpr::Var(0)],
+                                }),
+                                next: VmStmt::Noop,
+                            }),
                         })
                     })
                 }]

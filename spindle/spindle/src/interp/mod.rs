@@ -53,6 +53,7 @@ impl<'vm> Interp<'vm> {
             }
             VmStmt::ExprStmt(stmt) => {
                 self.interp_expr(stack.reborrow(), &stmt.expr).await?;
+                self.interp_stmt_rec(stack.reborrow(), &stmt.next).await?;
                 Ok(())
             }
             VmStmt::Noop => Ok(()),
