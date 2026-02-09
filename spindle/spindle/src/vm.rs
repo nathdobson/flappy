@@ -1,4 +1,4 @@
-use crate::ast::Expr;
+use crate::ast::{ElseClause, Expr};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use arena::{ArenaBox, ArenaVec};
@@ -20,9 +20,16 @@ pub struct VmForStmt<'vm> {
     pub init: BoxVmExpr<'vm>,
     pub limit: BoxVmExpr<'vm>,
     pub inner: BoxVmStmt<'vm>,
+    pub next: BoxVmStmt<'vm>,
 }
 
-
+#[derive(Debug, Eq, PartialEq)]
+pub struct VmIfStmt<'vm> {
+    pub cond: BoxVmExpr<'vm>,
+    pub then_branch: BoxVmStmt<'vm>,
+    pub else_branch: BoxVmStmt<'vm>,
+    pub next: BoxVmStmt<'vm>,
+}
 
 pub type BoxVmStmt<'vm> = ArenaBox<'vm, VmStmt<'vm>>;
 #[derive(Debug, Eq, PartialEq)]
@@ -31,6 +38,7 @@ pub enum VmStmt<'vm> {
     ExprStmt(VmExprStmt<'vm>),
     Noop,
     ForStmt(VmForStmt<'vm>),
+    IfStmt(VmIfStmt<'vm>),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -66,6 +74,8 @@ pub enum VmExpr<'vm> {
     Operator(VmOperatorExpr<'vm>),
     Var(usize),
     Number(i64),
+    Null,
+    Boolean(bool),
 }
 
 #[derive(Debug, Eq, PartialEq)]

@@ -52,6 +52,7 @@ fn test_parser2() {
                             number: "10",
                             loc: _
                         }),
+                        open_brace: _,
                         inner: [Stmt::ExprStmt(Expr::Call(CallExpr {
                             callee: Expr::Var(IdentToken {
                                 ident: "print",
@@ -63,7 +64,8 @@ fn test_parser2() {
                                 commas: []
                             },
                             rparen: _
-                        }))]
+                        }))],
+                        close_brace: _,
                     })]
                 }
             )

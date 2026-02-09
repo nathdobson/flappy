@@ -1,9 +1,9 @@
-use crate::ast::{Expr, Program, Stmt};
+use crate::ast::{ElseClause, Expr, IfStmt, Program, Stmt};
 use crate::token::Symbol;
 use crate::vec_ext::VecExt;
 use crate::vm::{
     BoxVmExpr, BoxVmStmt, VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName,
-    VmLetStmt, VmOperator, VmOperatorExpr, VmProgram, VmStmt,
+    VmIfStmt, VmLetStmt, VmOperator, VmOperatorExpr, VmProgram, VmStmt,
 };
 use alloc::collections::TryReserveError;
 use arena::{Arena, ArenaVec};
@@ -87,16 +87,44 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
                     let limit = self.compile_expr(&stmt.limit_expr)?;
                     self.variables.try_push(stmt.ident.ident)?;
                     let inner = self.compile_stmt(&stmt.inner)?;
-                    let result =
-                        self.arena
-                            .alloc_box(VmStmt::ForStmt(VmForStmt { init, limit, inner }))?;
                     self.variables.pop();
+                    let next = self.compile_stmt(next)?;
+                    let result = self.arena.alloc_box(VmStmt::ForStmt(VmForStmt {
+                        init,
+                        limit,
+                        inner,
+                        next,
+                    }))?;
                     Ok(result)
                 }
+                Stmt::If(stmt) => self.compile_if_stmt(stmt, next),
             },
         }
     }
-
+    fn compile_if_stmt(
+        &mut self,
+        stmt: &'par IfStmt<'par>,
+        next: &'par [Stmt<'par>],
+    ) -> Result<BoxVmStmt<'vm>, CompileError<'par, 'vm>> {
+        let cond = self.compile_expr(&stmt.cond_expr)?;
+        let then = self.compile_stmt(&stmt.then_stmt)?;
+        let else_clause = match &stmt.else_clause {
+            None => self.arena.alloc_box(VmStmt::Noop)?,
+            Some(else_clause) => match else_clause {
+                ElseClause::Else { else_stmt, .. } => self.compile_stmt(else_stmt)?,
+                ElseClause::ElseIf { else_if_stmt, .. } => {
+                    self.compile_if_stmt(else_if_stmt, &[])?
+                }
+            },
+        };
+        let next = self.compile_stmt(next)?;
+        Ok(self.arena.alloc_box(VmStmt::IfStmt(VmIfStmt {
+            cond,
+            then_branch: then,
+            else_branch: else_clause,
+            next,
+        }))?)
+    }
     fn compile_expr(&self, expr: &Expr) -> Result<BoxVmExpr<'vm>, CompileError<'par, 'vm>> {
         match expr {
             Expr::Var(v) => {
@@ -144,6 +172,9 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
                     .arena
                     .alloc_box(VmExpr::Call(VmCallExpr { function, args }))?)
             }
+            Expr::Null(_) => Ok(self.arena.alloc_box(VmExpr::Null)?),
+            Expr::False(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(false))?),
+            Expr::True(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(true))?),
         }
     }
 }

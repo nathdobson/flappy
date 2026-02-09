@@ -4,8 +4,8 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::testutils::with_test_compile;
 use crate::vm::{
-    VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName, VmLetStmt, VmOperator,
-    VmOperatorExpr, VmProgram, VmStmt,
+    VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName, VmIfStmt, VmLetStmt,
+    VmOperator, VmOperatorExpr, VmProgram, VmStmt,
 };
 use arena::ArenaStorage;
 use std::assert_matches;
@@ -75,7 +75,207 @@ async fn test_for_loop() {
                             }),
                             next: VmStmt::Noop,
                         }),
+                        next: VmStmt::Noop,
                     })
+                }]
+            }
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_if_stmt() {
+    use itertools::Itertools;
+
+    let code = r#"
+        if true {
+            print(true);
+        }
+        if false {
+            print(false);
+        }
+    "#;
+    with_test_compile(code, async |program| {
+        assert_matches!(
+            program,
+            VmProgram {
+                functions: [VmFunction {
+                    stmt: VmStmt::IfStmt(VmIfStmt {
+                        cond: VmExpr::Boolean(true),
+                        then_branch: VmStmt::ExprStmt(VmExprStmt {
+                            expr: VmExpr::Call(VmCallExpr {
+                                function: VmFunctionName::Print,
+                                args: [VmExpr::Boolean(true)],
+                            }),
+                            next: VmStmt::Noop
+                        }),
+                        else_branch: VmStmt::Noop,
+                        next: VmStmt::IfStmt(VmIfStmt {
+                            cond: VmExpr::Boolean(false),
+                            then_branch: VmStmt::ExprStmt(VmExprStmt {
+                                expr: VmExpr::Call(VmCallExpr {
+                                    function: VmFunctionName::Print,
+                                    args: [VmExpr::Boolean(false)],
+                                }),
+                                next: VmStmt::Noop
+                            }),
+                            else_branch: VmStmt::Noop,
+                            next: VmStmt::Noop,
+                        }),
+                    }),
+                }]
+            }
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_if_else_stmt() {
+    use itertools::Itertools;
+
+    let code = r#"
+        if true {
+            print(0);
+        }else{
+            print(1);
+        }
+        if false {
+            print(2);
+        }else{
+            print(3);
+        }
+    "#;
+    with_test_compile(code, async |program| {
+        assert_matches!(
+            program,
+            VmProgram {
+                functions: [VmFunction {
+                    stmt: VmStmt::IfStmt(VmIfStmt {
+                        cond: VmExpr::Boolean(true),
+                        then_branch: VmStmt::ExprStmt(VmExprStmt {
+                            expr: VmExpr::Call(VmCallExpr {
+                                function: VmFunctionName::Print,
+                                args: [VmExpr::Number(0)],
+                            }),
+                            next: VmStmt::Noop,
+                        }),
+                        else_branch: VmStmt::ExprStmt(VmExprStmt {
+                            expr: VmExpr::Call(VmCallExpr {
+                                function: VmFunctionName::Print,
+                                args: [VmExpr::Number(1)],
+                            }),
+                            next: VmStmt::Noop,
+                        }),
+                        next: VmStmt::IfStmt(VmIfStmt {
+                            cond: VmExpr::Boolean(false),
+                            then_branch: VmStmt::ExprStmt(VmExprStmt {
+                                expr: VmExpr::Call(VmCallExpr {
+                                    function: VmFunctionName::Print,
+                                    args: [VmExpr::Number(2)],
+                                }),
+                                next: VmStmt::Noop
+                            }),
+                            else_branch: VmStmt::ExprStmt(VmExprStmt {
+                                expr: VmExpr::Call(VmCallExpr {
+                                    function: VmFunctionName::Print,
+                                    args: [VmExpr::Number(3)],
+                                }),
+                                next: VmStmt::Noop,
+                            }),
+                            next: VmStmt::Noop,
+                        }),
+                    }),
+                }]
+            }
+        );
+    })
+    .await;
+}
+
+#[tokio::test]
+async fn test_if_else_if_stmt() {
+    use itertools::Itertools;
+
+    let code = r#"
+        if true {
+            print(0);
+        }else if false {
+            print(1);
+        }else{
+            print(2);
+        }
+        if false {
+            print(3);
+        }else if true{
+            print(4);
+        }else{
+            print(5);
+        }
+    "#;
+    with_test_compile(code, async |program| {
+        assert_matches!(
+            program,
+            VmProgram {
+                functions: [VmFunction {
+                    stmt: VmStmt::IfStmt(VmIfStmt {
+                        cond: VmExpr::Boolean(true),
+                        then_branch: VmStmt::ExprStmt(VmExprStmt {
+                            expr: VmExpr::Call(VmCallExpr {
+                                function: VmFunctionName::Print,
+                                args: [VmExpr::Number(0)],
+                            }),
+                            next: VmStmt::Noop,
+                        }),
+                        else_branch: VmStmt::IfStmt(VmIfStmt {
+                            cond: VmExpr::Boolean(false),
+                            then_branch: VmStmt::ExprStmt(VmExprStmt {
+                                expr: VmExpr::Call(VmCallExpr {
+                                    function: VmFunctionName::Print,
+                                    args: [VmExpr::Number(1)],
+                                }),
+                                next: VmStmt::Noop
+                            }),
+                            else_branch: VmStmt::ExprStmt(VmExprStmt {
+                                expr: VmExpr::Call(VmCallExpr {
+                                    function: VmFunctionName::Print,
+                                    args: [VmExpr::Number(2)],
+                                }),
+                                next: VmStmt::Noop,
+                            }),
+                            next: VmStmt::Noop,
+                        }),
+                        next: VmStmt::IfStmt(VmIfStmt {
+                            cond: VmExpr::Boolean(false),
+                            then_branch: VmStmt::ExprStmt(VmExprStmt {
+                                expr: VmExpr::Call(VmCallExpr {
+                                    function: VmFunctionName::Print,
+                                    args: [VmExpr::Number(3)],
+                                }),
+                                next: VmStmt::Noop
+                            }),
+                            else_branch: VmStmt::IfStmt(VmIfStmt {
+                                cond: VmExpr::Boolean(true),
+                                then_branch: VmStmt::ExprStmt(VmExprStmt {
+                                    expr: VmExpr::Call(VmCallExpr {
+                                        function: VmFunctionName::Print,
+                                        args: [VmExpr::Number(4)],
+                                    }),
+                                    next: VmStmt::Noop
+                                }),
+                                else_branch: VmStmt::ExprStmt(VmExprStmt {
+                                    expr: VmExpr::Call(VmCallExpr {
+                                        function: VmFunctionName::Print,
+                                        args: [VmExpr::Number(5)],
+                                    }),
+                                    next: VmStmt::Noop,
+                                }),
+                                next: VmStmt::Noop,
+                            }),
+                            next: VmStmt::Noop,
+                        }),
+                    }),
                 }]
             }
         );

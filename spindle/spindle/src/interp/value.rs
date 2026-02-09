@@ -3,7 +3,7 @@ use core::fmt::{Display, Formatter};
 
 #[derive(Clone, Debug)]
 pub enum Value {
-    None,
+    Null,
     Bool(bool),
     Number(i64),
 }
@@ -11,7 +11,7 @@ pub enum Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
-            Value::None => write!(f, "None"),
+            Value::Null => write!(f, "Null"),
             Value::Bool(x) => write!(f, "{}", x),
             Value::Number(x) => write!(f, "{}", x),
         }
@@ -23,6 +23,13 @@ impl Value {
         match self {
             Value::Number(x) => Ok(x),
             _ => Err(InterpError::ForLoopTypeError),
+        }
+    }
+    pub fn into_bool(self) -> bool {
+        match self {
+            Value::Null => false,
+            Value::Bool(value) => value,
+            Value::Number(value) => value != 0,
         }
     }
 }

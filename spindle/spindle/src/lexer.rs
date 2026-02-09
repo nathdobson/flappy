@@ -88,6 +88,11 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
                     "fn" => Keyword::Fn,
                     "for" => Keyword::For,
                     "in" => Keyword::In,
+                    "if" => Keyword::If,
+                    "else" => Keyword::Else,
+                    "false" => Keyword::False,
+                    "true" => Keyword::True,
+                    "null" => Keyword::Null,
                     _ => {
                         return Ok(Token::Ident(IdentToken { ident: str, loc }));
                     }

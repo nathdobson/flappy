@@ -1,4 +1,4 @@
-use core::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter, write};
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Location {
@@ -31,6 +31,11 @@ pub enum Keyword {
     Fn,
     For,
     In,
+    If,
+    Else,
+    Null,
+    False,
+    True,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -139,6 +144,11 @@ impl Debug for Keyword {
             Keyword::Fn => write!(f, "fn"),
             Keyword::For => write!(f, "for"),
             Keyword::In => write!(f, "in"),
+            Keyword::If => write!(f, "if"),
+            Keyword::Else => write!(f, "else"),
+            Keyword::Null => write!(f, "null"),
+            Keyword::False => write!(f, "false"),
+            Keyword::True => write!(f, "true"),
         }
     }
 }

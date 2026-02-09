@@ -74,3 +74,113 @@ async fn test_for_loop() {
         ]
     );
 }
+
+#[tokio::test]
+async fn test_if_stmt() {
+    testing_logger::setup();
+    interp(
+        r#"
+        if false {
+            print(10);
+        }
+        if true {
+            print(20);
+        }
+       "#,
+    )
+    .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [CapturedLog {
+            body: "20",
+            level: _,
+            target: _
+        },]
+    );
+}
+
+#[tokio::test]
+async fn test_if_else_stmt() {
+    testing_logger::setup();
+    interp(
+        r#"
+        if false {
+            print(10);
+        }else{
+            print(11);
+        }
+        if true {
+            print(20);
+        }else{
+            print(21);
+        }
+       "#,
+    )
+    .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [
+            CapturedLog {
+                body: "11",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "20",
+                level: _,
+                target: _
+            },
+        ]
+    );
+}
+
+#[tokio::test]
+async fn test_if_else_if_stmt() {
+    testing_logger::setup();
+    interp(
+        r#"
+        if false {
+            print(10);
+        }else if false {
+            print(11);
+        } else{
+            print(12);
+        }
+        if false {
+            print(20);
+        }else if true {
+            print(21);
+        } else{
+            print(22);
+        }
+        if true {
+            print(30);
+        }else if true {
+            print(31);
+        } else{
+            print(32);
+        }
+       "#,
+    )
+    .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [
+            CapturedLog {
+                body: "12",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "21",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "30",
+                level: _,
+                target: _
+            },
+        ]
+    );
+}

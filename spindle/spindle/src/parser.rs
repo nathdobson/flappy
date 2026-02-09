@@ -1,5 +1,6 @@
 use crate::ast::{
-    CallExpr, Expr, ExprList, ForStmt, InfixExpr, LetStmt, ParensExpr, Program, Stmt,
+    CallExpr, ElseClause, Expr, ExprList, ForStmt, IfStmt, InfixExpr, LetStmt, ParensExpr, Program,
+    Stmt,
 };
 use crate::lexer::{Lexer, LexerError};
 use crate::token::{
@@ -25,6 +26,7 @@ pub enum ParserError<'par> {
     ExpectedKeyword(Keyword),
     AllocError,
     ExpectedExpr,
+    ExpectedIfOrBrace,
 }
 
 #[derive(Debug)]
@@ -126,7 +128,9 @@ where
                 _ => {}
             },
         }
-        if let Some(let_stmt) = self.try_parse_let_statement()? {
+        if let Some(if_stmt) = self.try_parse_if_statement()? {
+            Ok(Some(Stmt::If(if_stmt)))
+        } else if let Some(let_stmt) = self.try_parse_let_statement()? {
             Ok(Some(Stmt::Let(let_stmt)))
         } else if let Some(for_stmt) = self.try_parse_for_statement()? {
             Ok(Some(Stmt::For(for_stmt)))
@@ -162,14 +166,58 @@ where
         let limit_expr = self.parse_expr()?;
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
         let inner = self.parse_statement_vec()?;
-        let open_brace = self.parse_symbol(Symbol::RBrace)?;
+        let close_brace = self.parse_symbol(Symbol::RBrace)?;
         Ok(Some(ForStmt {
             for_token,
             ident,
             init_expr,
             limit_expr,
+            open_brace,
             inner,
+            close_brace,
         }))
+    }
+    fn try_parse_if_statement(&mut self) -> Result<Option<IfStmt<'par>>, ParserError<'par>> {
+        let Some(if_token) = self.try_parse_keyword(Keyword::If)? else {
+            return Ok(None);
+        };
+        let cond = self.parse_expr()?;
+        let open_brace = self.parse_symbol(Symbol::LBrace)?;
+        let then = self.parse_statement_vec()?;
+        let close_brace = self.parse_symbol(Symbol::RBrace)?;
+        let else_clause = self.try_parse_else_clause()?;
+        Ok(Some(IfStmt {
+            if_token,
+            cond_expr: cond,
+            open_brace,
+            then_stmt: then,
+            close_brace,
+            else_clause,
+        }))
+    }
+    fn try_parse_else_clause(&mut self) -> Result<Option<ElseClause<'par>>, ParserError<'par>> {
+        if let Some(else_token) = self.try_parse_keyword(Keyword::Else)? {
+            if let Some(open_brace) = self.try_parse_symbol(Symbol::LBrace)? {
+                let else_stmt = self.parse_statement_vec()?;
+                let close_brace = self.parse_symbol(Symbol::RBrace)?;
+                Ok(Some(ElseClause::Else {
+                    else_token: else_token,
+                    open_brace,
+                    else_stmt,
+                    close_brace,
+                }))
+            } else {
+                Ok(Some(ElseClause::ElseIf {
+                    else_token,
+                    else_if_stmt: self.arena.alloc_box(
+                        self.try_parse_if_statement()?
+                            .ok_or(ParserError::ExpectedIfOrBrace)?,
+                    )?,
+                }))
+            }
+        } else {
+            Ok(None)
+        }
     }
     fn parse_expr(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
         self.parse_expr2()
@@ -212,7 +260,13 @@ where
         Ok(expr)
     }
     fn parse_expr0(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
-        if let Some(ident) = self.try_parse_ident()? {
+        if let Some(false_token) = self.try_parse_keyword(Keyword::False)? {
+            Ok(Expr::False(false_token))
+        } else if let Some(true_token) = self.try_parse_keyword(Keyword::True)? {
+            Ok(Expr::True(true_token))
+        } else if let Some(null_token) = self.try_parse_keyword(Keyword::Null)? {
+            Ok(Expr::Null(null_token))
+        } else if let Some(ident) = self.try_parse_ident()? {
             Ok(Expr::Var(ident))
         } else if let Some(number) = self.try_parse_number()? {
             Ok(Expr::Number(number))

@@ -71,6 +71,19 @@ impl<'vm> Interp<'vm> {
                     self.interp_stmt_rec(stack.reborrow(), &stmt.inner).await?;
                     self.pop_value();
                 }
+                self.interp_stmt_rec(stack.reborrow(), &stmt.next).await?;
+                Ok(())
+            }
+            VmStmt::IfStmt(stmt) => {
+                let cond = self.interp_expr(stack.reborrow(), &stmt.cond).await?;
+                if cond.into_bool() {
+                    self.interp_stmt_rec(stack.reborrow(), &stmt.then_branch)
+                        .await?;
+                } else {
+                    self.interp_stmt_rec(stack.reborrow(), &stmt.else_branch)
+                        .await?;
+                }
+                self.interp_stmt_rec(stack.reborrow(), &stmt.next).await?;
                 Ok(())
             }
         }
@@ -125,6 +138,8 @@ impl<'vm> Interp<'vm> {
             }
             VmExpr::Var(n) => Ok(self.value_stack[self.value_stack.len() - n - 1].clone()),
             VmExpr::Number(n) => Ok(Value::Number(*n)),
+            VmExpr::Null => Ok(Value::Null),
+            VmExpr::Boolean(x) => Ok(Value::Bool(*x)),
         }
     }
 
@@ -153,6 +168,6 @@ impl<'vm> Interp<'vm> {
         for arg in self.value_stack.iter().rev().take(argc) {
             info!("{}", arg);
         }
-        Ok(Value::None)
+        Ok(Value::Null)
     }
 }
