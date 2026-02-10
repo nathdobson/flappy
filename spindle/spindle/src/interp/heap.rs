@@ -1,44 +1,196 @@
+use crate::interp::error::TypeError;
+use crate::interp::linked_slab::{LinkedSlab, LinkedSlabStorage};
+use core::alloc::{AllocError, Layout};
+use core::any::TypeId;
+use core::ops::Range;
+use core::pin::UnsafePinned;
+use core::ptr::{DynMetadata, Pointee, metadata, null};
+use core::{mem, ptr};
 use heapless::deque::DequeView;
-use heapless::{Deque, Vec, VecView};
+use heapless::{BuilderInPlace, Deque, Vec, VecView};
+use log::info;
 
 type HeapAddress = u32;
 
-type HeapRef = u16;
+type HeapIndex = u16;
+
+#[derive(Debug)]
+pub struct HeapRef(HeapIndex);
+
 struct HeapEntry {
-    start: HeapAddress,
-    limit: HeapAddress,
+    address: Range<HeapAddress>,
     refcount: u8,
+    metadata: *const (),
+    type_id: TypeId,
 }
 
-struct HeapStorage<const N: usize, const C: usize> {
-    entries: [Option<HeapEntry>; N],
-    freelist: Vec<HeapRef, N>,
-    heap_queue: Deque<HeapRef, N>,
-    heap: [u8; C],
+pub struct HeapStorage<const N: usize, const C: usize> {
+    entries: LinkedSlabStorage<HeapEntry, N, HeapIndex>,
+    heap: UnsafePinned<[u8; C]>,
 }
 
-struct Heap<'a> {
-    entries: &'a mut [Option<HeapEntry>],
-    freelist: &'a mut VecView<HeapRef>,
-    heap_queue: &'a mut DequeView<HeapRef>,
-    heap: &'a mut [u8],
+pub struct Heap<'a> {
+    entries: LinkedSlab<'a, HeapEntry, HeapIndex>,
+    heap: &'a mut UnsafePinned<[u8]>,
 }
 
 impl<const N: usize, const C: usize> HeapStorage<N, C> {
     pub fn new() -> Self {
         HeapStorage {
-            entries: [const { None }; N],
-            freelist: (0u16..N as HeapRef).collect(),
-            heap_queue: Deque::new(),
-            heap: [0; C],
+            entries: LinkedSlabStorage::new(),
+            heap: UnsafePinned::new([0u8; C]),
         }
     }
     pub fn start(&mut self) -> Heap<'_> {
         Heap {
-            entries: &mut self.entries,
-            freelist: &mut self.freelist,
-            heap_queue: &mut self.heap_queue,
+            entries: self.entries.start(),
             heap: &mut self.heap,
+        }
+    }
+}
+
+pub trait CompressedMetadata {
+    fn compress(self) -> *const ();
+    unsafe fn decompress(ptr: *const ()) -> Self;
+}
+
+impl CompressedMetadata for () {
+    fn compress(self) -> *const () {
+        null()
+    }
+    unsafe fn decompress(ptr: *const ()) -> Self {
+        ()
+    }
+}
+
+impl CompressedMetadata for usize {
+    fn compress(self) -> *const () {
+        unsafe { mem::transmute(self) }
+    }
+    unsafe fn decompress(ptr: *const ()) -> Self {
+        unsafe { mem::transmute(ptr) }
+    }
+}
+impl<D> CompressedMetadata for DynMetadata<D> {
+    fn compress(self) -> *const () {
+        unsafe { mem::transmute(self) }
+    }
+    unsafe fn decompress(ptr: *const ()) -> Self {
+        unsafe { mem::transmute(ptr) }
+    }
+}
+
+impl<'a> Heap<'a> {
+    fn find_address(&self, layout: Layout) -> Result<Range<HeapAddress>, AllocError> {
+        let free_start: HeapAddress = if let Some(back) = self.entries.back() {
+            Layout::from_size_align(back.address.end as usize, 1)
+                .ok()
+                .ok_or(AllocError)?
+                .align_to(layout.align())
+                .ok()
+                .ok_or(AllocError)?
+                .size() as HeapAddress
+        } else {
+            0
+        };
+        let free_limit: HeapAddress = if let Some(front) = self.entries.front() {
+            front.address.start
+        } else {
+            self.heap.get().len() as HeapAddress
+        };
+        let new_start = if free_start > free_limit {
+            if free_start
+                .checked_add(layout.size() as HeapAddress)
+                .ok_or(AllocError)?
+                < self.heap.get().len() as HeapAddress
+            {
+                free_start
+            } else {
+                0
+            }
+        } else {
+            if free_start
+                .checked_add(layout.size() as HeapAddress)
+                .ok_or(AllocError)?
+                < free_limit
+            {
+                free_start
+            } else {
+                return Err(AllocError);
+            }
+        };
+        Ok(new_start..new_start + layout.size() as HeapAddress)
+    }
+    fn heap_raw_mut(&mut self, index: HeapAddress) -> *mut () {
+        unsafe { (self.heap.get() as *mut u8).offset(index as isize) as *mut () }
+    }
+    fn heap_raw_const(&self, index: HeapAddress) -> *const () {
+        unsafe { (self.heap.get() as *const u8).offset(index as isize) as *const () }
+    }
+    pub fn insert<B: BuilderInPlace + 'static>(&mut self, builder: B) -> Result<HeapRef, AllocError>
+    where
+        B::Output: 'static,
+        <B::Output as Pointee>::Metadata: CompressedMetadata,
+    {
+        unsafe {
+            let address = self.find_address(builder.layout())?;
+            let result = builder.build(self.heap_raw_mut(address.start));
+            let metadata = metadata(result);
+            let type_id = TypeId::of::<B::Output>();
+            let heap_index = self.entries.push_back(HeapEntry {
+                address,
+                refcount: 1,
+                metadata: metadata.compress(),
+                type_id,
+            })?;
+            Ok(HeapRef(heap_index))
+        }
+    }
+    pub fn try_get<T: 'static + ?Sized>(&self, heap_ref: &HeapRef) -> Result<&T, TypeError>
+    where
+        <T as Pointee>::Metadata: CompressedMetadata,
+    {
+        unsafe {
+            if self.entries[heap_ref.0].type_id != TypeId::of::<T>() {
+                return Err(TypeError);
+            }
+            let address = self.entries[heap_ref.0].address.start;
+            let metadata = self.entries[heap_ref.0].metadata;
+            let ptr = self.heap_raw_const(address);
+            Ok(&*ptr::from_raw_parts::<T>(
+                ptr,
+                <T as Pointee>::Metadata::decompress(metadata),
+            ))
+        }
+    }
+    pub fn try_get_mut<T: 'static + ?Sized>(
+        &mut self,
+        heap_ref: &HeapRef,
+    ) -> Result<&mut T, TypeError>
+    where
+        <T as Pointee>::Metadata: CompressedMetadata,
+    {
+        unsafe {
+            if self.entries[heap_ref.0].type_id != TypeId::of::<T>() {
+                return Err(TypeError);
+            }
+            let address = self.entries[heap_ref.0].address.start;
+            let metadata = self.entries[heap_ref.0].metadata;
+            let ptr = self.heap_raw_mut(address);
+            Ok(&mut *ptr::from_raw_parts_mut::<T>(
+                ptr,
+                <T as Pointee>::Metadata::decompress(metadata),
+            ))
+        }
+    }
+    pub fn clone_ref(&mut self, heap_ref: &HeapRef) -> HeapRef {
+        self.entries[heap_ref.0].refcount += 1;
+        HeapRef(heap_ref.0)
+    }
+    pub fn drop_ref(&mut self, heap_ref: HeapRef) {
+        self.entries[heap_ref.0].refcount -= 1;
+        if self.entries[heap_ref.0].refcount == 0 {
+            self.entries.remove(heap_ref.0);
         }
     }
 }

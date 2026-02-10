@@ -15,3 +15,6 @@ impl From<AllocError> for InterpError<'_> {
         InterpError::AllocError
     }
 }
+
+#[derive(Debug)]
+pub struct TypeError;

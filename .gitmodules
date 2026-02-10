@@ -34,3 +34,6 @@
 [submodule "submodules/rust_testing_logger"]
 	path = submodules/rust_testing_logger
 	url = https://github.com/nathdobson/rust_testing_logger.git
+[submodule "submodules/heapless"]
+	path = submodules/heapless
+	url = https://github.com/nathdobson/heapless.git

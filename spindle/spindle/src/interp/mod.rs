@@ -2,7 +2,11 @@ pub mod error;
 #[cfg(test)]
 mod test;
 pub mod value;
-mod heap;
+pub mod heap;
+mod linked_slab;
+mod slab;
+#[cfg(test)]
+mod heap_test;
 
 use crate::ast::Stmt;
 use crate::interp::error::InterpError;

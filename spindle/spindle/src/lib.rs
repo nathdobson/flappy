@@ -9,7 +9,8 @@
     async_fn_traits,
     core_intrinsics,
     unboxed_closures,
-    deref_patterns
+    deref_patterns,
+    trait_alias
 )]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use)]
@@ -33,15 +34,15 @@ mod interp;
 mod lexer;
 #[cfg(test)]
 mod lexer_test;
+mod lookahead;
 mod parser;
 #[cfg(test)]
 mod parser_test;
 mod stack;
 #[cfg(test)]
 mod stack_test;
+#[cfg(test)]
+mod testutils;
 mod token;
 mod vec_ext;
 mod vm;
-#[cfg(test)]
-mod testutils;
-mod lookahead;
