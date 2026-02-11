@@ -12,6 +12,7 @@
     deref_patterns,
     trait_alias
 )]
+#![feature(unsize)]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use, unsafe_op_in_unsafe_fn)]
 #![allow(

@@ -3,8 +3,8 @@ use crate::interp::fat_ptr::{RawFatPointer, SmallMetadata};
 use crate::interp::linked_slab::{LinkedSlab, LinkedSlabStorage};
 use crate::interp::vtable::{FatRef, HasVTable, VTable};
 use core::alloc::{AllocError, Layout};
-use core::any::TypeId;
-use core::fmt::{Debug, Formatter};
+use core::any::{Any, TypeId};
+use core::fmt::{Debug, Display, Formatter};
 use core::ops::Range;
 use core::pin::UnsafePinned;
 use core::ptr::{DynMetadata, Pointee, metadata, null};
@@ -23,8 +23,7 @@ pub struct HeapRef(HeapIndex);
 struct HeapEntry {
     address: Range<HeapAddress>,
     refcount: u8,
-    metadata: *const (),
-    vtable: &'static VTable,
+    metadata: DynMetadata<dyn HeapObject>,
 }
 
 pub struct HeapStorage<const N: usize, const C: usize> {
@@ -36,6 +35,10 @@ pub struct Heap<'a> {
     entries: LinkedSlab<'a, HeapEntry, HeapIndex>,
     heap: &'a mut UnsafePinned<[u8]>,
 }
+
+pub trait HeapObject: Any + Debug + Display {}
+
+impl<T> HeapObject for T where T: Any + Debug + Display {}
 
 impl<const N: usize, const C: usize> HeapStorage<N, C> {
     pub fn new() -> Self {
@@ -101,74 +104,95 @@ impl<'a> Heap<'a> {
     }
     pub fn insert<B: BuilderInPlace + 'static>(&mut self, builder: B) -> Result<HeapRef, AllocError>
     where
-        B::Output: HasVTable,
+        B::Output: HeapObject + Sized,
     {
         unsafe {
-            let address = self.find_address(builder.layout())?;
+            let layout = builder.layout();
+            let address = self.find_address(layout)?;
             let result = builder.build(self.heap_raw_mut(address.start));
+            let result = result as *mut dyn HeapObject;
             let metadata = metadata(result);
-            let vtable = <B::Output>::vtable();
             let heap_index = self.entries.push_back(HeapEntry {
                 address,
                 refcount: 1,
-                metadata: metadata.encode(),
-                vtable,
+                metadata,
             })?;
             Ok(HeapRef(heap_index))
         }
     }
-    pub fn try_get<T: 'static + ?Sized>(&self, heap_ref: &HeapRef) -> Result<&T, TypeError>
-    where
-        <T as Pointee>::Metadata: SmallMetadata,
-    {
+    pub fn get(&self, heap_ref: &HeapRef) -> &dyn HeapObject {
         unsafe {
-            if self.entries[heap_ref.0].vtable.type_id() != TypeId::of::<T>() {
-                return Err(TypeError);
-            }
             let address = self.entries[heap_ref.0].address.start;
             let metadata = self.entries[heap_ref.0].metadata;
             let ptr = self.heap_raw_const(address);
-            Ok(&*ptr::from_raw_parts::<T>(
-                ptr,
-                <T as Pointee>::Metadata::decode(metadata),
-            ))
+            &*ptr::from_raw_parts(ptr, metadata)
         }
     }
-    pub fn try_get_mut<T: 'static + ?Sized>(
-        &mut self,
-        heap_ref: &HeapRef,
-    ) -> Result<&mut T, TypeError>
-    where
-        <T as Pointee>::Metadata: SmallMetadata,
-    {
+    pub fn get_mut(&mut self, heap_ref: &HeapRef) -> &mut dyn HeapObject {
         unsafe {
-            if self.entries[heap_ref.0].vtable.type_id() != TypeId::of::<T>() {
-                return Err(TypeError);
-            }
             let address = self.entries[heap_ref.0].address.start;
             let metadata = self.entries[heap_ref.0].metadata;
             let ptr = self.heap_raw_mut(address);
-            Ok(&mut *ptr::from_raw_parts_mut::<T>(
-                ptr,
-                <T as Pointee>::Metadata::decode(metadata),
-            ))
+            &mut *ptr::from_raw_parts_mut(ptr, metadata)
         }
     }
-    pub fn get_dyn(&self, heap_ref: &HeapRef) -> FatRef<'_> {
-        unsafe {
-            let address = self.entries[heap_ref.0].address.start;
-            let metadata = self.entries[heap_ref.0].metadata;
-            let vtable = self.entries[heap_ref.0].vtable;
-            let ptr = self.heap_raw_const(address);
-            FatRef::new(
-                RawFatPointer {
-                    data: ptr,
-                    metadata,
-                },
-                vtable,
-            )
-        }
+    pub fn get_typed_mut<T: 'static>(&mut self, heap_ref: &HeapRef) -> Result<&mut T, TypeError> {
+        Ok((self.get_mut(heap_ref) as &mut dyn Any)
+            .downcast_mut::<T>()
+            .ok_or(TypeError)?)
     }
+    // pub fn try_get<T: 'static + ?Sized>(&self, heap_ref: &HeapRef) -> Result<&T, TypeError>
+    // where
+    //     <T as Pointee>::Metadata: SmallMetadata,
+    // {
+    //     unsafe {
+    //         if self.entries[heap_ref.0].vtable.type_id() != TypeId::of::<T>() {
+    //             return Err(TypeError);
+    //         }
+    //         let address = self.entries[heap_ref.0].address.start;
+    //         let metadata = self.entries[heap_ref.0].metadata;
+    //         let ptr = self.heap_raw_const(address);
+    //         Ok(&*ptr::from_raw_parts::<T>(
+    //             ptr,
+    //             <T as Pointee>::Metadata::decode(metadata),
+    //         ))
+    //     }
+    // }
+    // pub fn try_get_mut<T: 'static + ?Sized>(
+    //     &mut self,
+    //     heap_ref: &HeapRef,
+    // ) -> Result<&mut T, TypeError>
+    // where
+    //     <T as Pointee>::Metadata: SmallMetadata,
+    // {
+    //     unsafe {
+    //         if self.entries[heap_ref.0].vtable.type_id() != TypeId::of::<T>() {
+    //             return Err(TypeError);
+    //         }
+    //         let address = self.entries[heap_ref.0].address.start;
+    //         let metadata = self.entries[heap_ref.0].metadata;
+    //         let ptr = self.heap_raw_mut(address);
+    //         Ok(&mut *ptr::from_raw_parts_mut::<T>(
+    //             ptr,
+    //             <T as Pointee>::Metadata::decode(metadata),
+    //         ))
+    //     }
+    // }
+    // pub fn get_dyn(&self, heap_ref: &HeapRef) -> FatRef<'_> {
+    //     unsafe {
+    //         let address = self.entries[heap_ref.0].address.start;
+    //         let metadata = self.entries[heap_ref.0].metadata;
+    //         let vtable = self.entries[heap_ref.0].vtable;
+    //         let ptr = self.heap_raw_const(address);
+    //         FatRef::new(
+    //             RawFatPointer {
+    //                 data: ptr,
+    //                 metadata,
+    //             },
+    //             vtable,
+    //         )
+    //     }
+    // }
 
     pub fn clone_ref(&mut self, heap_ref: &HeapRef) -> HeapRef {
         self.entries[heap_ref.0].refcount += 1;

@@ -9,10 +9,13 @@ mod slab;
 mod test;
 pub mod value;
 mod vtable;
+// mod inline_metadata;
+mod inline_slice;
 
 use crate::ast::Stmt;
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
+use crate::interp::inline_slice::{InlineSlice, InlineSliceInPlace};
 use crate::interp::value::Value;
 use crate::stack::{Stack, StackBox};
 use crate::vm::{VmExpr, VmFunctionName, VmOperator, VmProgram, VmStmt};
@@ -159,9 +162,14 @@ impl<'vm> Interp<'vm> {
             VmExpr::Null => Ok(Value::Null),
             VmExpr::Boolean(x) => Ok(Value::Bool(*x)),
             VmExpr::String(s) => {
-                let r = self.heap.insert(StringInPlace::new(s.len())).unwrap();
+                let r = self
+                    .heap
+                    .insert(InlineSliceInPlace::<StringInPlace, String<0>>::new(
+                        StringInPlace::new(s.len()),
+                    )?)
+                    .unwrap();
                 self.heap
-                    .try_get_mut::<StringView>(&r)
+                    .get_typed_mut::<InlineSlice<String<0>, StringView>>(&r)
                     .unwrap()
                     .push_str(s)
                     .unwrap();
@@ -199,7 +207,7 @@ impl<'vm> Interp<'vm> {
                     Value::Null => write!(f, "null"),
                     Value::Bool(arg) => write!(f, "{}", arg),
                     Value::Number(arg) => write!(f, "{}", arg),
-                    Value::Ref(arg) => write!(f, "{}", self.heap.get_dyn(arg)),
+                    Value::Ref(arg) => write!(f, "{}", self.heap.get(arg)),
                 })
             );
         }
