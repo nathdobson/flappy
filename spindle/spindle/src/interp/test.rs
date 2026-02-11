@@ -198,14 +198,14 @@ async fn test_string_literal() {
     testing_logger::setup();
     interp(
         r#"
-        print("hi");
+        print("hi ", 2, " all");
        "#,
     )
     .await;
     assert_matches!(
         testing_logger::take()[..],
         [CapturedLog {
-            body: "hi",
+            body: "hi 2 all",
             level: _,
             target: _
         },]

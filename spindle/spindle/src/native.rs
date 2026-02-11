@@ -33,17 +33,20 @@ impl NativeFn for PrintFn {
     ) -> Result<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>, AllocError>
     {
         Ok(stack.push_init(async move {
-            for arg in args {
-                info!(
-                    "{}",
-                    fmt::from_fn(|f| match arg {
-                        Value::Null => write!(f, "null"),
-                        Value::Bool(arg) => write!(f, "{}", arg),
-                        Value::Number(arg) => write!(f, "{}", arg),
-                        Value::Ref(arg) => write!(f, "{}", heap.get(arg)),
-                    })
-                );
-            }
+            info!(
+                "{}",
+                fmt::from_fn(|f| {
+                    for arg in args {
+                        match arg {
+                            Value::Null => write!(f, "null")?,
+                            Value::Bool(arg) => write!(f, "{}", arg)?,
+                            Value::Number(arg) => write!(f, "{}", arg)?,
+                            Value::Ref(arg) => write!(f, "{}", heap.get(arg))?,
+                        }
+                    }
+                    Ok(())
+                })
+            );
             Ok(Value::Null)
         })? as StackBox<_>)
     }

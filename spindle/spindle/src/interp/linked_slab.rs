@@ -42,6 +42,7 @@ impl<'a, T, I: IndexType> LinkedSlab<'a, T, I> {
                 prev: Some(tail),
                 next: None,
             })?;
+            self.slab[tail].next = Some(result);
             self.tail = Some(result);
             Ok(result)
         } else {

@@ -176,6 +176,10 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
                 self.next()?;
                 Symbol::RBrace
             }
+            ',' => {
+                self.next()?;
+                Symbol::Comma
+            }
             c => return Err(LexerError::UnexpectedChar(c)),
         };
         Ok(Token::Symbol(SymbolToken {

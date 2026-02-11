@@ -4,3 +4,4 @@ use heapless::string::{StringInPlace, StringView};
 
 pub type HeapString = InlineSlice<String<0>, StringView>;
 pub type HeapStringInPlace = InlineSliceInPlace<StringInPlace, String<0>>;
+
