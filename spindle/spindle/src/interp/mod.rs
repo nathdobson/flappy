@@ -1,5 +1,4 @@
 pub mod error;
-mod fat_ptr;
 pub mod heap;
 #[cfg(test)]
 mod heap_test;
@@ -8,7 +7,6 @@ mod slab;
 #[cfg(test)]
 mod test;
 pub mod value;
-mod vtable;
 // mod inline_metadata;
 mod inline_slice;
 

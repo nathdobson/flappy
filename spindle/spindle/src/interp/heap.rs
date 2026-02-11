@@ -1,7 +1,5 @@
 use crate::interp::error::TypeError;
-use crate::interp::fat_ptr::{RawFatPointer, SmallMetadata};
 use crate::interp::linked_slab::{LinkedSlab, LinkedSlabStorage};
-use crate::interp::vtable::{FatRef, HasVTable, VTable};
 use core::alloc::{AllocError, Layout};
 use core::any::{Any, TypeId};
 use core::fmt::{Debug, Display, Formatter};
