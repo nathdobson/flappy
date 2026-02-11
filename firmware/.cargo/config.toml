@@ -9,3 +9,6 @@ target = "thumbv8m.main-none-eabihf"
 
 [env]
 DEFMT_LOG = "trace"
+
+[unstable]
+build-std = [ "core", "compiler_builtins", "alloc" ]

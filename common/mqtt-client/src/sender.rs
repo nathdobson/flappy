@@ -49,6 +49,10 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
     MqttSender<W, SEND_CAP, RECV_CONC, SEND_CONC>
 {
     pub fn new(write: W) -> Self {
+        let mut free_packet_ids = Vec::new();
+        for x in 1u16..=SEND_CONC as u16 {
+            free_packet_ids.push(x).unwrap();
+        }
         MqttSender {
             writer: Mutex::new(MqttWriter::new(write)),
             connect_started: Cell::new(false),
@@ -57,7 +61,7 @@ impl<W: Write, const SEND_CAP: usize, const RECV_CONC: usize, const SEND_CONC: u
             pingresp: Signal::new(),
             send_acks: Channel::new(),
             packet_id_signals: [const { Signal::new() }; SEND_CONC],
-            free_packet_ids: RefCell::new((1u16..SEND_CONC as u16 + 1).collect()),
+            free_packet_ids: RefCell::new(free_packet_ids),
             disconnect: Signal::new(),
         }
     }

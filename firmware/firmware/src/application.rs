@@ -249,16 +249,19 @@ impl Application {
         Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS>,
     ) {
         let glyphs_owned = self.settings.borrow().display.glyphs.clone();
-        let glyphs: Vec<&str, FLAP_COUNT> = glyphs_owned.iter().map(|x| &**x).collect();
+        let mut glyphs: Vec<&str, FLAP_COUNT> = Vec::new();
+        for x in &glyphs_owned {
+            glyphs.push(&*x).unwrap();
+        }
         let mut renderer = glyph_render::Renderer::<MAX_GLYPHS>::new(&glyphs);
         if let Err(e) = renderer.append(&msg) {
             error!("{MODULE} error when rendering message: {:?}", e);
         }
         let message = renderer.finish();
-        let glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = message
-            .iter()
-            .map(|i| glyphs[*i].try_into().unwrap_or(" ".try_into().unwrap()))
-            .collect();
+        let mut glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = Vec::new();
+        for i in message.iter() {
+            glyph_strs.push(glyphs[*i].try_into().unwrap_or(" ".try_into().unwrap())).unwrap();
+        }
         (message, glyph_strs)
     }
     async fn display_message(&'static self) {
