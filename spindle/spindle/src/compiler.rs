@@ -175,6 +175,7 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
             Expr::Null(_) => Ok(self.arena.alloc_box(VmExpr::Null)?),
             Expr::False(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(false))?),
             Expr::True(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(true))?),
+            Expr::String(x) => Ok(self.arena.alloc_box(VmExpr::String(self.arena.alloc_str(x)?))?),
         }
     }
 }

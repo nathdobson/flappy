@@ -1,37 +1,48 @@
 pub mod error;
-#[cfg(test)]
-mod test;
-pub mod value;
+mod fat_ptr;
 pub mod heap;
+#[cfg(test)]
+mod heap_test;
 mod linked_slab;
 mod slab;
 #[cfg(test)]
-mod heap_test;
+mod test;
+pub mod value;
+mod vtable;
 
 use crate::ast::Stmt;
 use crate::interp::error::InterpError;
+use crate::interp::heap::Heap;
 use crate::interp::value::Value;
 use crate::stack::{Stack, StackBox};
 use crate::vm::{VmExpr, VmFunctionName, VmOperator, VmProgram, VmStmt};
 use alloc::boxed::Box;
 use core::alloc::AllocError;
+use core::fmt;
 use core::fmt::{Display, Formatter};
 use core::marker::PhantomData;
 use core::mem::MaybeUninit;
 use core::pin::Pin;
-use heapless::VecView;
+use heapless::string::{StringInPlace, StringView};
+use heapless::{String, VecView};
 use log::info;
 
 pub struct Interp<'vm> {
     program: &'vm VmProgram<'vm>,
     value_stack: &'vm mut VecView<Value>,
+    heap: Heap<'vm>,
 }
 
 impl<'vm> Interp<'vm> {
-    pub fn new(program: &'vm VmProgram<'vm>, value_stack: &'vm mut VecView<Value>) -> Self {
+    pub fn new(
+        program: &'vm VmProgram<'vm>,
+        value_stack: &'vm mut VecView<Value>,
+        heap: Heap<'vm>,
+    ) -> Self {
         Interp {
             program,
             value_stack,
+            heap,
         }
     }
     pub async fn interp(&mut self, mut stack: Stack<'_>) -> Result<(), InterpError<'vm>> {
@@ -141,10 +152,21 @@ impl<'vm> Interp<'vm> {
                     _ => return Err(InterpError::OperatorError),
                 }
             }
-            VmExpr::Var(n) => Ok(self.value_stack[self.value_stack.len() - n - 1].clone()),
+            VmExpr::Var(n) => {
+                Ok(self.value_stack[self.value_stack.len() - n - 1].clone_in(&mut self.heap))
+            }
             VmExpr::Number(n) => Ok(Value::Number(*n)),
             VmExpr::Null => Ok(Value::Null),
             VmExpr::Boolean(x) => Ok(Value::Bool(*x)),
+            VmExpr::String(s) => {
+                let r = self.heap.insert(StringInPlace::new(s.len())).unwrap();
+                self.heap
+                    .try_get_mut::<StringView>(&r)
+                    .unwrap()
+                    .push_str(s)
+                    .unwrap();
+                Ok(Value::Ref(r))
+            }
         }
     }
 
@@ -171,7 +193,15 @@ impl<'vm> Interp<'vm> {
 
     async fn interp_print(&mut self, argc: usize) -> Result<Value, InterpError<'vm>> {
         for arg in self.value_stack.iter().rev().take(argc) {
-            info!("{}", arg);
+            info!(
+                "{}",
+                fmt::from_fn(|f| match arg {
+                    Value::Null => write!(f, "null"),
+                    Value::Bool(arg) => write!(f, "{}", arg),
+                    Value::Number(arg) => write!(f, "{}", arg),
+                    Value::Ref(arg) => write!(f, "{}", self.heap.get_dyn(arg)),
+                })
+            );
         }
         Ok(Value::Null)
     }

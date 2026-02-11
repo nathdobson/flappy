@@ -76,6 +76,7 @@ pub enum VmExpr<'vm> {
     Number(i64),
     Null,
     Boolean(bool),
+    String(&'vm str),
 }
 
 #[derive(Debug, Eq, PartialEq)]

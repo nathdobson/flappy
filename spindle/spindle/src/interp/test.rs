@@ -1,4 +1,5 @@
 use crate::interp::Interp;
+use crate::interp::heap::HeapStorage;
 use crate::interp::value::Value;
 use crate::stack::{StackStorage, new_stack};
 use crate::testutils::with_test_compile;
@@ -12,7 +13,8 @@ async fn interp(code: &str) {
         let mut stack = new_stack::<65536>();
         let mut stack: &mut StackStorage = &mut stack;
         let stack = stack.start();
-        let mut interp = Interp::new(program, &mut value_stack);
+        let mut heap_storage = HeapStorage::<1024, 65536>::new();
+        let mut interp = Interp::new(program, &mut value_stack, heap_storage.start());
         interp.interp(stack).await.unwrap();
     })
     .await;
@@ -182,5 +184,24 @@ async fn test_if_else_if_stmt() {
                 target: _
             },
         ]
+    );
+}
+
+#[tokio::test]
+async fn test_string_literal() {
+    testing_logger::setup();
+    interp(
+        r#"
+        print("hi");
+       "#,
+    )
+    .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [CapturedLog {
+            body: "hi",
+            level: _,
+            target: _
+        },]
     );
 }

@@ -260,7 +260,9 @@ where
         Ok(expr)
     }
     fn parse_expr0(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
-        if let Some(false_token) = self.try_parse_keyword(Keyword::False)? {
+        if let Some(str) = self.try_parse_string_literal()? {
+            Ok(Expr::String(str))
+        } else if let Some(false_token) = self.try_parse_keyword(Keyword::False)? {
             Ok(Expr::False(false_token))
         } else if let Some(true_token) = self.try_parse_keyword(Keyword::True)? {
             Ok(Expr::True(true_token))
@@ -317,6 +319,15 @@ where
                     _ => unreachable!(),
                 }
             }
+            _ => Ok(None),
+        }
+    }
+    fn try_parse_string_literal(&mut self) -> Result<Option<&'par str>, ParserError<'par>> {
+        match self.try_peek_token()? {
+            Some(Token::String(x)) => match self.next_token()? {
+                Token::String(x) => Ok(Some(x)),
+                _ => unreachable!(),
+            },
             _ => Ok(None),
         }
     }

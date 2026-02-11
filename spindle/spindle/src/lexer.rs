@@ -2,19 +2,26 @@ use crate::lookahead::Lookahead;
 use crate::token::{
     IdentToken, Keyword, KeywordToken, Location, NumberToken, Symbol, SymbolToken, Token,
 };
+use crate::vec_ext::VecExt;
+use alloc::vec::Vec;
+use arena::Arena;
+use core::alloc::AllocError;
 use core::fmt::{Debug, Formatter};
 use core::iter::Peekable;
-use core::str::CharIndices;
+use core::str::{CharIndices, Utf8Error};
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum LexerError<'src> {
     UnexpectedEof,
     UnexpectedChar(char),
     BadToken(&'src str),
+    AllocError,
+    Utf8Error,
 }
 
 pub struct Lexer<'src> {
     src: &'src str,
+    arena: &'src Arena,
     iter: Lookahead<2, CharIndices<'src>>,
     loc: Location,
 }
@@ -27,6 +34,18 @@ pub struct TokenReader<'lexer, 'src> {
 
 fn char_is_ident(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+impl<'src> From<AllocError> for LexerError<'src> {
+    fn from(alloc_error: AllocError) -> LexerError<'src> {
+        LexerError::AllocError
+    }
+}
+
+impl<'src> From<Utf8Error> for LexerError<'src> {
+    fn from(_: Utf8Error) -> LexerError<'src> {
+        LexerError::Utf8Error
+    }
 }
 
 impl<'lexer, 'src> TokenReader<'lexer, 'src> {
@@ -164,6 +183,31 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
             loc: self.origin_loc,
         }))
     }
+    fn read_string_literal(mut self) -> Result<Token<'src>, LexerError<'src>> {
+        self.next()?;
+        let arena = self.lexer.arena;
+        let mut buf = Vec::<u8, _>::new_in(arena);
+        loop {
+            let mut c = self.next()?;
+            if c == '"' {
+                break;
+            } else if c == '\\' {
+                c = self.next()?;
+                c = match c {
+                    'n' => '\n',
+                    'r' => '\r',
+                    't' => '\t',
+                    '\'' => '\'',
+                    '"' => '"',
+                    _ => return Err(LexerError::UnexpectedChar(c)),
+                };
+            }
+            let mut tmp = [0u8; 4];
+            let tmp = c.encode_utf8(&mut tmp);
+            buf.try_extend_from_slice(tmp.as_bytes())?;
+        }
+        Ok(Token::String(str::from_utf8(Vec::leak(buf))?))
+    }
     fn read_token(mut self) -> Result<Option<Token<'src>>, LexerError<'src>> {
         let c = self.peek(0)?;
         let token = if c.is_ascii_whitespace() {
@@ -173,6 +217,8 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
             self.read_numeric()?
         } else if char_is_ident(c) {
             self.read_ident()?
+        } else if c == '"' {
+            self.read_string_literal()?
         } else {
             self.read_symbol()?
         };
@@ -181,9 +227,10 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
 }
 
 impl<'src> Lexer<'src> {
-    pub fn new(src: &'src str) -> Lexer<'src> {
+    pub fn new(src: &'src str, arena: &'src Arena) -> Lexer<'src> {
         Lexer {
             src,
+            arena,
             iter: Lookahead::new(src.char_indices()),
             loc: Location { line: 1, column: 1 },
         }

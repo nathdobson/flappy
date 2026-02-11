@@ -1,11 +1,14 @@
 use crate::interp::error::TypeError;
+use crate::interp::fat_ptr::{RawFatPointer, SmallMetadata};
 use crate::interp::linked_slab::{LinkedSlab, LinkedSlabStorage};
+use crate::interp::vtable::{FatRef, HasVTable, VTable};
 use core::alloc::{AllocError, Layout};
 use core::any::TypeId;
+use core::fmt::{Debug, Formatter};
 use core::ops::Range;
 use core::pin::UnsafePinned;
 use core::ptr::{DynMetadata, Pointee, metadata, null};
-use core::{mem, ptr};
+use core::{fmt, mem, ptr};
 use heapless::deque::DequeView;
 use heapless::{BuilderInPlace, Deque, Vec, VecView};
 use log::info;
@@ -21,7 +24,7 @@ struct HeapEntry {
     address: Range<HeapAddress>,
     refcount: u8,
     metadata: *const (),
-    type_id: TypeId,
+    vtable: &'static VTable,
 }
 
 pub struct HeapStorage<const N: usize, const C: usize> {
@@ -46,37 +49,6 @@ impl<const N: usize, const C: usize> HeapStorage<N, C> {
             entries: self.entries.start(),
             heap: &mut self.heap,
         }
-    }
-}
-
-pub trait CompressedMetadata {
-    fn compress(self) -> *const ();
-    unsafe fn decompress(ptr: *const ()) -> Self;
-}
-
-impl CompressedMetadata for () {
-    fn compress(self) -> *const () {
-        null()
-    }
-    unsafe fn decompress(ptr: *const ()) -> Self {
-        ()
-    }
-}
-
-impl CompressedMetadata for usize {
-    fn compress(self) -> *const () {
-        unsafe { mem::transmute(self) }
-    }
-    unsafe fn decompress(ptr: *const ()) -> Self {
-        unsafe { mem::transmute(ptr) }
-    }
-}
-impl<D> CompressedMetadata for DynMetadata<D> {
-    fn compress(self) -> *const () {
-        unsafe { mem::transmute(self) }
-    }
-    unsafe fn decompress(ptr: *const ()) -> Self {
-        unsafe { mem::transmute(ptr) }
     }
 }
 
@@ -129,29 +101,28 @@ impl<'a> Heap<'a> {
     }
     pub fn insert<B: BuilderInPlace + 'static>(&mut self, builder: B) -> Result<HeapRef, AllocError>
     where
-        B::Output: 'static,
-        <B::Output as Pointee>::Metadata: CompressedMetadata,
+        B::Output: HasVTable,
     {
         unsafe {
             let address = self.find_address(builder.layout())?;
             let result = builder.build(self.heap_raw_mut(address.start));
             let metadata = metadata(result);
-            let type_id = TypeId::of::<B::Output>();
+            let vtable = <B::Output>::vtable();
             let heap_index = self.entries.push_back(HeapEntry {
                 address,
                 refcount: 1,
-                metadata: metadata.compress(),
-                type_id,
+                metadata: metadata.encode(),
+                vtable,
             })?;
             Ok(HeapRef(heap_index))
         }
     }
     pub fn try_get<T: 'static + ?Sized>(&self, heap_ref: &HeapRef) -> Result<&T, TypeError>
     where
-        <T as Pointee>::Metadata: CompressedMetadata,
+        <T as Pointee>::Metadata: SmallMetadata,
     {
         unsafe {
-            if self.entries[heap_ref.0].type_id != TypeId::of::<T>() {
+            if self.entries[heap_ref.0].vtable.type_id() != TypeId::of::<T>() {
                 return Err(TypeError);
             }
             let address = self.entries[heap_ref.0].address.start;
@@ -159,7 +130,7 @@ impl<'a> Heap<'a> {
             let ptr = self.heap_raw_const(address);
             Ok(&*ptr::from_raw_parts::<T>(
                 ptr,
-                <T as Pointee>::Metadata::decompress(metadata),
+                <T as Pointee>::Metadata::decode(metadata),
             ))
         }
     }
@@ -168,10 +139,10 @@ impl<'a> Heap<'a> {
         heap_ref: &HeapRef,
     ) -> Result<&mut T, TypeError>
     where
-        <T as Pointee>::Metadata: CompressedMetadata,
+        <T as Pointee>::Metadata: SmallMetadata,
     {
         unsafe {
-            if self.entries[heap_ref.0].type_id != TypeId::of::<T>() {
+            if self.entries[heap_ref.0].vtable.type_id() != TypeId::of::<T>() {
                 return Err(TypeError);
             }
             let address = self.entries[heap_ref.0].address.start;
@@ -179,10 +150,26 @@ impl<'a> Heap<'a> {
             let ptr = self.heap_raw_mut(address);
             Ok(&mut *ptr::from_raw_parts_mut::<T>(
                 ptr,
-                <T as Pointee>::Metadata::decompress(metadata),
+                <T as Pointee>::Metadata::decode(metadata),
             ))
         }
     }
+    pub fn get_dyn(&self, heap_ref: &HeapRef) -> FatRef<'_> {
+        unsafe {
+            let address = self.entries[heap_ref.0].address.start;
+            let metadata = self.entries[heap_ref.0].metadata;
+            let vtable = self.entries[heap_ref.0].vtable;
+            let ptr = self.heap_raw_const(address);
+            FatRef::new(
+                RawFatPointer {
+                    data: ptr,
+                    metadata,
+                },
+                vtable,
+            )
+        }
+    }
+
     pub fn clone_ref(&mut self, heap_ref: &HeapRef) -> HeapRef {
         self.entries[heap_ref.0].refcount += 1;
         HeapRef(heap_ref.0)

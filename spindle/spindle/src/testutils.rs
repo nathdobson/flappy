@@ -12,7 +12,7 @@ pub async fn with_test_compile<T>(
     let mut arena_par_slice = vec![0u8; capacity];
     let mut arena_par_storage = ArenaStorage::new(&mut arena_par_slice);
     let arena_par = arena_par_storage.start();
-    let program = Parser::new(Lexer::new(code), arena_par)
+    let program = Parser::new(Lexer::new(code, arena_par), arena_par)
         .parse_program()
         .unwrap();
     let mut arena_vm_slice = vec![0u8; capacity];

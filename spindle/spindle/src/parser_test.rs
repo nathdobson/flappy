@@ -11,7 +11,7 @@ fn expect_program(code: &str, expect: impl for<'a> FnOnce(&'a Program<'a>)) {
     let mut arena_slice = vec![0; capacity];
     let mut arena = ArenaStorage::new(&mut arena_slice);
     let arena = arena.start();
-    let program = Parser::new(Lexer::new(code), arena)
+    let program = Parser::new(Lexer::new(code, arena), arena)
         .parse_program()
         .unwrap();
     println!("{:?}", capacity - arena.remaining());

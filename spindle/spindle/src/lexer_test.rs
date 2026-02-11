@@ -1,5 +1,6 @@
 use crate::lexer::{Lexer, LexerError};
 use crate::token::{IdentToken, Keyword, KeywordToken, NumberToken, Symbol, SymbolToken, Token};
+use arena::{Arena, ArenaStorage};
 use itertools::Itertools;
 use std::assert_matches;
 
@@ -9,7 +10,9 @@ fn test_lexer() {
         let foo = 2 + 2;
         print(foo);
     "#;
-    let tokens = Lexer::new(code)
+    let mut arena_buf = [0u8; 1024];
+    let mut arena = ArenaStorage::new(&mut arena_buf);
+    let tokens = Lexer::new(code, arena.start())
         .collect::<Result<Vec<Token>, LexerError>>()
         .unwrap();
     assert_matches!(

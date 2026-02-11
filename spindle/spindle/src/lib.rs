@@ -13,7 +13,7 @@
     trait_alias
 )]
 #![cfg_attr(not(test), no_std)]
-#![deny(unused_must_use)]
+#![deny(unused_must_use, unsafe_op_in_unsafe_fn)]
 #![allow(
     dead_code,
     unused_parens,

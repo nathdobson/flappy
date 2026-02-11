@@ -68,6 +68,7 @@ pub enum Token<'src> {
     Number(NumberToken<'src>),
     Symbol(SymbolToken),
     Keyword(KeywordToken),
+    String(&'src str),
 }
 
 impl Debug for Symbol {
@@ -133,6 +134,7 @@ impl<'src> Debug for Token<'src> {
             Token::Number(t) => write!(f, "{:?}", t),
             Token::Symbol(t) => write!(f, "{:?}", t),
             Token::Keyword(t) => write!(f, "{:?}", t),
+            Token::String(t) => write!(f, "{:?}", t),
         }
     }
 }

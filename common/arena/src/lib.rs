@@ -7,7 +7,6 @@
 #![allow(unused_variables)]
 #![allow(dead_code)]
 
-
 mod test;
 
 extern crate alloc;
@@ -75,6 +74,17 @@ impl Arena {
         values: [T; N],
     ) -> Result<ArenaVec<'ar, T>, AllocError> {
         Ok((Box::try_new_in(values, self)? as Box<[T], &'ar Arena>).into())
+    }
+    pub fn alloc_str(&'_ self, value: &str) -> Result<&'_ str, AllocError> {
+        unsafe {
+            let mut ptr = self.alloc_layout(
+                Layout::from_size_align(value.len(), 1)
+                    .ok()
+                    .ok_or(AllocError)?,
+            )?;
+            ptr.as_mut().copy_from_slice(value.as_bytes());
+            Ok(str::from_utf8_unchecked(ptr.as_mut()))
+        }
     }
     pub fn erase_box<'ar, T>(b: Box<T, &'ar Self>) -> ArenaBox<'ar, T> {
         unsafe {

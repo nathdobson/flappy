@@ -92,6 +92,7 @@ pub enum Expr<'par> {
     Null(KeywordToken),
     InfixExpr(InfixExpr<'par>),
     Call(CallExpr<'par>),
+    String(&'par str),
 }
 
 #[derive(Debug)]
