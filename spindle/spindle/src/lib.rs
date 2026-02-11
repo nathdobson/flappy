@@ -13,6 +13,7 @@
     trait_alias
 )]
 #![feature(unsize)]
+#![feature(coerce_unsized)]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use, unsafe_op_in_unsafe_fn)]
 #![allow(
@@ -47,3 +48,4 @@ mod testutils;
 mod token;
 mod vec_ext;
 mod vm;
+mod native;

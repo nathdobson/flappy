@@ -32,12 +32,12 @@ async fn test_parser() {
                         }),
                         next: VmStmt::ExprStmt(VmExprStmt {
                             expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Print,
+                                function: VmFunctionName::Native(0),
                                 args: [VmExpr::Var(0)],
                             }),
                             next: VmStmt::ExprStmt(VmExprStmt {
                                 expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Print,
+                                    function: VmFunctionName::Native(0),
                                     args: [VmExpr::Var(0)],
                                 }),
                                 next: VmStmt::Noop,
@@ -70,7 +70,7 @@ async fn test_for_loop() {
                         limit: VmExpr::Number(10),
                         inner: VmStmt::ExprStmt(VmExprStmt {
                             expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Print,
+                                function: VmFunctionName::Native(0),
                                 args: [VmExpr::Var(0)],
                             }),
                             next: VmStmt::Noop,
@@ -105,7 +105,7 @@ async fn test_if_stmt() {
                         cond: VmExpr::Boolean(true),
                         then_branch: VmStmt::ExprStmt(VmExprStmt {
                             expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Print,
+                                function: VmFunctionName::Native(0),
                                 args: [VmExpr::Boolean(true)],
                             }),
                             next: VmStmt::Noop
@@ -115,7 +115,7 @@ async fn test_if_stmt() {
                             cond: VmExpr::Boolean(false),
                             then_branch: VmStmt::ExprStmt(VmExprStmt {
                                 expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Print,
+                                    function: VmFunctionName::Native(0),
                                     args: [VmExpr::Boolean(false)],
                                 }),
                                 next: VmStmt::Noop
@@ -156,14 +156,14 @@ async fn test_if_else_stmt() {
                         cond: VmExpr::Boolean(true),
                         then_branch: VmStmt::ExprStmt(VmExprStmt {
                             expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Print,
+                                function: VmFunctionName::Native(0),
                                 args: [VmExpr::Number(0)],
                             }),
                             next: VmStmt::Noop,
                         }),
                         else_branch: VmStmt::ExprStmt(VmExprStmt {
                             expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Print,
+                                function: VmFunctionName::Native(0),
                                 args: [VmExpr::Number(1)],
                             }),
                             next: VmStmt::Noop,
@@ -172,14 +172,14 @@ async fn test_if_else_stmt() {
                             cond: VmExpr::Boolean(false),
                             then_branch: VmStmt::ExprStmt(VmExprStmt {
                                 expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Print,
+                                    function: VmFunctionName::Native(0),
                                     args: [VmExpr::Number(2)],
                                 }),
                                 next: VmStmt::Noop
                             }),
                             else_branch: VmStmt::ExprStmt(VmExprStmt {
                                 expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Print,
+                                    function: VmFunctionName::Native(0),
                                     args: [VmExpr::Number(3)],
                                 }),
                                 next: VmStmt::Noop,
@@ -223,7 +223,7 @@ async fn test_if_else_if_stmt() {
                         cond: VmExpr::Boolean(true),
                         then_branch: VmStmt::ExprStmt(VmExprStmt {
                             expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Print,
+                                function: VmFunctionName::Native(0),
                                 args: [VmExpr::Number(0)],
                             }),
                             next: VmStmt::Noop,
@@ -232,14 +232,14 @@ async fn test_if_else_if_stmt() {
                             cond: VmExpr::Boolean(false),
                             then_branch: VmStmt::ExprStmt(VmExprStmt {
                                 expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Print,
+                                    function: VmFunctionName::Native(0),
                                     args: [VmExpr::Number(1)],
                                 }),
                                 next: VmStmt::Noop
                             }),
                             else_branch: VmStmt::ExprStmt(VmExprStmt {
                                 expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Print,
+                                    function: VmFunctionName::Native(0),
                                     args: [VmExpr::Number(2)],
                                 }),
                                 next: VmStmt::Noop,
@@ -250,7 +250,7 @@ async fn test_if_else_if_stmt() {
                             cond: VmExpr::Boolean(false),
                             then_branch: VmStmt::ExprStmt(VmExprStmt {
                                 expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Print,
+                                    function: VmFunctionName::Native(0),
                                     args: [VmExpr::Number(3)],
                                 }),
                                 next: VmStmt::Noop
@@ -259,14 +259,14 @@ async fn test_if_else_if_stmt() {
                                 cond: VmExpr::Boolean(true),
                                 then_branch: VmStmt::ExprStmt(VmExprStmt {
                                     expr: VmExpr::Call(VmCallExpr {
-                                        function: VmFunctionName::Print,
+                                        function: VmFunctionName::Native(0),
                                         args: [VmExpr::Number(4)],
                                     }),
                                     next: VmStmt::Noop
                                 }),
                                 else_branch: VmStmt::ExprStmt(VmExprStmt {
                                     expr: VmExpr::Call(VmCallExpr {
-                                        function: VmFunctionName::Print,
+                                        function: VmFunctionName::Native(0),
                                         args: [VmExpr::Number(5)],
                                     }),
                                     next: VmStmt::Noop,

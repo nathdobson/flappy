@@ -8,15 +8,18 @@ mod slab;
 mod test;
 pub mod value;
 // mod inline_metadata;
+mod heap_types;
 mod inline_slice;
 
-use crate::ast::Stmt;
+use crate::ast::{CallExpr, Stmt};
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
+use crate::interp::heap_types::{HeapString, HeapStringInPlace};
 use crate::interp::inline_slice::{InlineSlice, InlineSliceInPlace};
 use crate::interp::value::Value;
+use crate::native::NativeFn;
 use crate::stack::{Stack, StackBox};
-use crate::vm::{VmExpr, VmFunctionName, VmOperator, VmProgram, VmStmt};
+use crate::vm::{VmCallExpr, VmExpr, VmFunctionName, VmOperator, VmProgram, VmStmt};
 use alloc::boxed::Box;
 use core::alloc::AllocError;
 use core::fmt;
@@ -32,6 +35,7 @@ pub struct Interp<'vm> {
     program: &'vm VmProgram<'vm>,
     value_stack: &'vm mut VecView<Value>,
     heap: Heap<'vm>,
+    natives: &'vm [&'vm dyn NativeFn],
 }
 
 impl<'vm> Interp<'vm> {
@@ -39,11 +43,13 @@ impl<'vm> Interp<'vm> {
         program: &'vm VmProgram<'vm>,
         value_stack: &'vm mut VecView<Value>,
         heap: Heap<'vm>,
+        natives: &'vm [&'vm dyn NativeFn],
     ) -> Self {
         Interp {
             program,
             value_stack,
             heap,
+            natives,
         }
     }
     pub async fn interp(&mut self, mut stack: Stack<'_>) -> Result<(), InterpError<'vm>> {
@@ -126,9 +132,7 @@ impl<'vm> Interp<'vm> {
                     let value = self.interp_expr_rec(stack.reborrow(), arg).await?;
                     self.push_value(value)?;
                 }
-                let result = match call.function {
-                    VmFunctionName::Print => self.interp_print(call.args.len()).await?,
-                };
+                let result = self.call_fn(stack.reborrow(), call).await?;
                 for arg in &call.args {
                     self.pop_value();
                 }
@@ -162,17 +166,33 @@ impl<'vm> Interp<'vm> {
             VmExpr::String(s) => {
                 let r = self
                     .heap
-                    .insert(InlineSliceInPlace::<StringInPlace, String<0>>::new(
-                        StringInPlace::new(s.len()),
-                    )?)
+                    .insert(HeapStringInPlace::new(StringInPlace::new(s.len()))?)
                     .unwrap();
                 self.heap
-                    .get_typed_mut::<InlineSlice<String<0>, StringView>>(&r)
+                    .get_typed_mut::<HeapString>(&r)
                     .unwrap()
                     .push_str(s)
                     .unwrap();
                 Ok(Value::Ref(r))
             }
+        }
+    }
+
+    async fn call_fn(
+        &mut self,
+        mut stack: Stack<'_>,
+        call: &'vm VmCallExpr<'vm>,
+    ) -> Result<Value, InterpError<'vm>> {
+        match call.function {
+            // VmFunctionName::Print => self.interp_print(call.args.len()).await?,
+            VmFunctionName::Native(x) => Ok(self.natives[x]
+                .native_call(
+                    &mut stack,
+                    &mut self.heap,
+                    &self.value_stack[self.value_stack.len() - call.args.len()..],
+                )?
+                .into_pin()
+                .await?),
         }
     }
 
@@ -195,20 +215,5 @@ impl<'vm> Interp<'vm> {
 
     fn pop_value(&mut self) {
         self.value_stack.pop().unwrap();
-    }
-
-    async fn interp_print(&mut self, argc: usize) -> Result<Value, InterpError<'vm>> {
-        for arg in self.value_stack.iter().rev().take(argc) {
-            info!(
-                "{}",
-                fmt::from_fn(|f| match arg {
-                    Value::Null => write!(f, "null"),
-                    Value::Bool(arg) => write!(f, "{}", arg),
-                    Value::Number(arg) => write!(f, "{}", arg),
-                    Value::Ref(arg) => write!(f, "{}", self.heap.get(arg)),
-                })
-            );
-        }
-        Ok(Value::Null)
     }
 }

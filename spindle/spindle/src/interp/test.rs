@@ -1,8 +1,9 @@
 use crate::interp::Interp;
 use crate::interp::heap::HeapStorage;
 use crate::interp::value::Value;
+use crate::native::{NativeFn, PrintFn};
 use crate::stack::{StackStorage, new_stack};
-use crate::testutils::with_test_compile;
+use crate::testutils::{with_test_compile, TEST_NATIVES};
 use log::info;
 use std::assert_matches;
 use testing_logger::CapturedLog;
@@ -14,7 +15,12 @@ async fn interp(code: &str) {
         let mut stack: &mut StackStorage = &mut stack;
         let stack = stack.start();
         let mut heap_storage = HeapStorage::<1024, 65536>::new();
-        let mut interp = Interp::new(program, &mut value_stack, heap_storage.start());
+        let mut interp = Interp::new(
+            program,
+            &mut value_stack,
+            heap_storage.start(),
+            TEST_NATIVES,
+        );
         interp.interp(stack).await.unwrap();
     })
     .await;

@@ -1,4 +1,5 @@
 use crate::ast::{ElseClause, Expr, IfStmt, Program, Stmt};
+use crate::native::NativeFn;
 use crate::token::Symbol;
 use crate::vec_ext::VecExt;
 use crate::vm::{
@@ -13,6 +14,7 @@ pub struct Compiler<'par, 'vm> {
     arena: &'vm Arena,
     program: &'par Program<'par>,
     variables: ArenaVec<'vm, &'par str>,
+    natives: &'vm [&'vm dyn NativeFn],
 }
 
 #[derive(Debug)]
@@ -40,11 +42,16 @@ impl<'par, 'vm> From<core::alloc::AllocError> for CompileError<'par, 'vm> {
 }
 
 impl<'par, 'vm> Compiler<'par, 'vm> {
-    pub fn new(arena: &'vm Arena, program: &'par Program<'par>) -> Self {
+    pub fn new(
+        arena: &'vm Arena,
+        natives: &'vm [&'vm dyn NativeFn],
+        program: &'par Program<'par>,
+    ) -> Self {
         Compiler {
             arena,
             program,
             variables: ArenaVec::new_in(arena),
+            natives,
         }
     }
     pub fn compile(&mut self) -> Result<VmProgram<'vm>, CompileError<'par, 'vm>> {
@@ -158,10 +165,14 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
             }
             Expr::Call(expr) => {
                 let function = match &*expr.callee {
-                    Expr::Var(ident) => match ident.ident {
-                        "print" => VmFunctionName::Print,
-                        _ => return Err(CompileError::UnknownFunction),
-                    },
+                    Expr::Var(ident) => {
+                        let function = self
+                            .natives
+                            .iter()
+                            .position(|x| x.name() == ident.ident)
+                            .ok_or(CompileError::UnknownFunction)?;
+                        VmFunctionName::Native(function)
+                    }
                     _ => return Err(CompileError::Unimplemented),
                 };
                 let mut args = ArenaVec::try_with_capacity_in(expr.args.exprs.len(), &self.arena)?;
@@ -175,7 +186,9 @@ impl<'par, 'vm> Compiler<'par, 'vm> {
             Expr::Null(_) => Ok(self.arena.alloc_box(VmExpr::Null)?),
             Expr::False(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(false))?),
             Expr::True(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(true))?),
-            Expr::String(x) => Ok(self.arena.alloc_box(VmExpr::String(self.arena.alloc_str(x)?))?),
+            Expr::String(x) => Ok(self
+                .arena
+                .alloc_box(VmExpr::String(self.arena.alloc_str(x)?))?),
         }
     }
 }

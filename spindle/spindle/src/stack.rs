@@ -3,10 +3,10 @@ use alloc::boxed::Box;
 use core::alloc::{AllocError, Layout};
 use core::fmt::{Debug, Formatter};
 use core::intrinsics::abort;
-use core::marker::PhantomData;
+use core::marker::{PhantomData, Unsize};
 use core::mem::{ManuallyDrop, MaybeUninit};
-use core::ops::Deref;
 use core::ops::DerefMut;
+use core::ops::{CoerceUnsized, Deref};
 use core::pin::pin;
 use core::pin::{Pin, UnsafePinned};
 use core::ptr::NonNull;
@@ -77,6 +77,10 @@ impl<'a> Stack<'a> {
             },
         ))
     }
+    pub fn push_init<T>(&mut self, value: T) -> Result<StackBox<'_, T>, AllocError> {
+        let (stack, slot) = self.push(Layout::new::<T>())?;
+        Ok(slot.init(value)?)
+    }
     pub async fn recurse<O, F: for<'b> AsyncFnOnce(Stack<'b>) -> O>(
         &mut self,
         f: F,
@@ -114,7 +118,7 @@ impl<'a> StackSlot<'a> {
     }
 }
 
-impl<'a, T> StackBox<'a, T> {
+impl<'a, T: ?Sized> StackBox<'a, T> {
     pub fn into_pin(self) -> Pin<Self> {
         unsafe { Pin::new_unchecked(self) }
     }
@@ -183,3 +187,5 @@ impl<'a, T: ?Sized> DerefMut for StackBox<'a, T> {
         &mut self.value
     }
 }
+
+impl<'a, T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<StackBox<'a, U>> for StackBox<'a, T> {}

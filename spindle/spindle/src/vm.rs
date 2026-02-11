@@ -43,7 +43,7 @@ pub enum VmStmt<'vm> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum VmFunctionName {
-    Print,
+    Native(usize),
 }
 
 #[derive(Debug, Eq, PartialEq)]
