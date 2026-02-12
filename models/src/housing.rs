@@ -27,6 +27,7 @@ use patina_sdf::sdf::leaf::SdfLeafImpl;
 use patina_sdf::sdf::truncated_cone::TruncatedCone;
 use patina_sdf::sdf::{AsSdf, Sdf, Sdf3};
 use patina_threads::{THREAD_M2, THREAD_M3, ThreadMetrics};
+use patina_vec::mat4::Mat4;
 use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
 use std::f64;
@@ -669,7 +670,7 @@ impl HousingBuilder {
                 });
             }
         }
-        encode_model("housing", sdf, builder, &brim_points, &aabb).await?;
+        encode_model("housing", sdf, builder, &brim_points, Mat4::id(), &aabb).await?;
         Ok(())
     }
 }
