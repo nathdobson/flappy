@@ -27,6 +27,10 @@ path = "src/magnet_test.rs"
 name = "left_cap"
 path = "src/left_cap.rs"
 
+[[bin]]
+name = "right_cap"
+path = "src/right_cap.rs"
+
 [dependencies]
 patina-geo={path="../submodules/patina-rs/patina-geo"}
 patina-mesh ={path="../submodules/patina-rs/patina-mesh"}

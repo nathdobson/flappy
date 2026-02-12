@@ -5,6 +5,7 @@ use crate::settings::{
     SETTINGS_NOZZLE, SETTINGS_PLATE_HEIGHT, SETTINGS_PLATE_WIDTH, SETTINGS_PRINTER,
     settings_machine, settings_primary_filament, settings_process,
 };
+use core::f64;
 use patina_3mf::brim_points::BrimPoint;
 use patina_3mf::project_settings::color::Color;
 use patina_3mf::settings_id::filament_settings_id::{
@@ -39,6 +40,7 @@ pub async fn encode_files(
     model: &MeshModel,
     mut bambu: BambuBuilder,
     brim_points: &[BrimPoint],
+    transform: Mat4,
     aabb: &Aabb3,
 ) -> anyhow::Result<()> {
     let mut model = model.clone();
@@ -54,15 +56,15 @@ pub async fn encode_files(
 
     bambu.add_plate({
         let mut plate = BambuPlate::new();
-        let mut object = BambuObject::from_model(model.clone(),brim_points);
+        let mut object = BambuObject::from_model(model.clone(), brim_points);
         object.transform(Some(
-            Mat4::translate(Vec3::new(
+            (Mat4::translate(Vec3::new(
                 SETTINGS_PLATE_WIDTH / 2.0 - aabb.center().x(),
                 SETTINGS_PLATE_HEIGHT / 2.0 - aabb.center().y(),
                 0.0,
-            ))
-            .as_affine()
-            .unwrap(),
+            )) * transform)
+                .as_affine()
+                .unwrap(),
         ));
         plate.add_object(object);
         plate
@@ -91,6 +93,7 @@ pub async fn encode_model(
     model: SdfModel,
     bambu: BambuBuilder,
     brim_points: &[BrimPoint],
+    transform: Mat4,
     aabb: &Aabb3,
 ) -> anyhow::Result<()> {
     let draft;
@@ -113,6 +116,7 @@ pub async fn encode_model(
             &draft,
             bambu.clone(),
             brim_points,
+            transform,
             aabb,
         )
         .await?;
@@ -128,7 +132,17 @@ pub async fn encode_model(
             marching
         })
         .await?;
-        encode_files(start, "full", name, &full, bambu.clone(), brim_points, aabb).await?;
+        encode_files(
+            start,
+            "full",
+            name,
+            &full,
+            bambu.clone(),
+            brim_points,
+            transform,
+            aabb,
+        )
+        .await?;
     }
     let start = Instant::now();
     let simplified = spawn_blocking(move || {
@@ -150,6 +164,7 @@ pub async fn encode_model(
         },
         bambu.clone(),
         brim_points,
+        transform,
         aabb,
     )
     .await?;
