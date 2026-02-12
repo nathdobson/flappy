@@ -28,24 +28,24 @@
 extern crate alloc;
 extern crate core;
 
-mod ast;
-mod compiler;
+pub mod ast;
+pub mod compiler;
 #[cfg(test)]
 mod compiler_test;
-mod interp;
-mod lexer;
+pub mod interp;
+pub mod lexer;
 #[cfg(test)]
 mod lexer_test;
 mod lookahead;
-mod parser;
+pub mod parser;
 #[cfg(test)]
 mod parser_test;
-mod stack;
+pub mod stack;
 #[cfg(test)]
 mod stack_test;
 #[cfg(test)]
 mod testutils;
-mod token;
+pub mod token;
 mod vec_ext;
-mod vm;
-mod native;
+pub mod vm;
+pub mod native;

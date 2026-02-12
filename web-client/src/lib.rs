@@ -99,6 +99,24 @@ impl Root {
                 },
             }
         });
+        send_form.set_on_submit_src(|value| {
+            let mut value: String = value.to_owned();
+            if value.len() > DISPLAY_REQUEST_CAPACITY {
+                error!("code too long");
+                return;
+            }
+            match heapless::String::from_str(&value) {
+                Err(e) => {
+                    error!("{:?}", e);
+                }
+                Ok(value) => match request_send.try_send(DisplayRequest::RunSpindle(value)) {
+                    Ok(()) => {}
+                    Err(e) => {
+                        error!("{:?}", e);
+                    }
+                },
+            }
+        });
         let params = FlappyQueryParams::new()?;
         let mqtt_form = MqttForm::new(&params)?;
         let this = Rc::new(Root {

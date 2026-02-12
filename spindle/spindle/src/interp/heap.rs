@@ -108,7 +108,6 @@ impl<'a> Heap<'a> {
         unsafe {
             let layout = builder.layout();
             let address = self.find_address(layout)?;
-            println!("{:?} {:?}", layout, address);
             let result = builder.build(self.heap_raw_mut(address.start));
             let result = result as *mut dyn HeapObject;
             let metadata = metadata(result);

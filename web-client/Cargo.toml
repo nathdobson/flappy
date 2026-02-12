@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 wasm-bindgen = "0.2.106"
 mqtt-client = {path="../common/mqtt-client"}
 console_error_panic_hook = { version = "0.1.7" }
-web-sys = { version = "0.3.83", features = ["console", "Window", "Location", "UrlSearchParams", "HtmlBodyElement", "Document", "HtmlFormElement", "HtmlInputElement", "HtmlDivElement", "CssStyleDeclaration"] }
+web-sys = { version = "0.3.83", features = ["console", "Window", "Location", "UrlSearchParams", "HtmlBodyElement", "Document", "HtmlFormElement", "HtmlInputElement", "HtmlDivElement", "CssStyleDeclaration","HtmlTextAreaElement"] }
 js-sys = "0.3.83"
 wasm-logger = "0.2.0"
 log = "0.4.29"

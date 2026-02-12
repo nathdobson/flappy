@@ -8,7 +8,7 @@ use log::info;
 
 pub struct NativeError;
 
-pub trait NativeFn: 'static + Sync + Send {
+pub trait NativeFn: 'static {
     fn name(&self) -> &'static str;
     fn native_call<'call, 'stack, 'heap>(
         &'call self,

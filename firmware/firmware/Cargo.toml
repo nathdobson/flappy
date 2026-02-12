@@ -54,6 +54,7 @@ uuid = { version = "1.18.1", default-features = false, optional = true }
 heapless = { version = "0.9.2" }
 embedded-tls = { path="../../submodules/embedded-tls", default-features = false, optional = true, features = [] }
 embedded-hal = "1.0.0"
+embedded-hal-async = "1.0.0"
 smoltcp = { version = "0.12.0", default-features = false, optional = true }
 embedded-io-async = { version = "0.7.0", optional = true }
 embedded-io = { version = "0.7.1", optional = true }
@@ -65,24 +66,21 @@ cyw43 = { path = "../../submodules/embassy/cyw43", features = [
 ], optional = true }
 cyw43-pio = { path = "../../submodules/embassy/cyw43-pio", features = [
 ], optional = true }
-#cyw43-firmware = { path="../../submodules/cyw43-firmware-rust", optional = true, features = [
-#  "wifi",
-#] }
 glyph-render = {path ="../../common/glyph-render", default-features = false}
 mqtt-core = {path="../../common/mqtt-core"}
 crypto-verifier = {path="../../common/crypto-verifier",optional=true}
 fixed = {version="1.29.0",optional=true}
+spindle={path="../../spindle/spindle",optional = true}
 
 [build-dependencies]
 built = { version = "0.8.0", features = ["git2"] }
 
 [features]
-default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","preemption","usb"]
+default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","preemption","usb","spindle"]
 serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","protocol/serde"]
 radio = [
   "dep:cyw43",
   "dep:cyw43-pio",
-#  "dep:cyw43-firmware",
   "dep:embedded-io-async",
   "dep:embedded-io",
   "serde",
@@ -105,3 +103,4 @@ wifi = ["radio","dep:smoltcp","embassy-net"]
 mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena",  "dep:crypto-verifier"]
 preemption = []
 usb = ["dep:embassy-usb"]
+spindle = ["dep:spindle"]

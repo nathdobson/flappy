@@ -15,6 +15,7 @@
 #![feature(try_blocks)]
 #![feature(debug_closure_helpers)]
 #![feature(str_split_remainder)]
+#![feature(allocator_api)]
 #![allow(unreachable_code)]
 
 use core::future::pending;
@@ -57,6 +58,7 @@ mod usb_setup;
 #[cfg(feature = "wifi")]
 mod wifi;
 mod make_static;
+mod spindle;
 
 extern crate alloc;
 

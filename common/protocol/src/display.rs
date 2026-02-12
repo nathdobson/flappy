@@ -8,6 +8,7 @@ pub const DISPLAY_REQUEST_CAPACITY: usize = 128;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DisplayRequest {
     Run(String<DISPLAY_REQUEST_CAPACITY>),
+    RunSpindle(String<DISPLAY_REQUEST_CAPACITY>),
     Test,
 }
 

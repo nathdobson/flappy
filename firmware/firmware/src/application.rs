@@ -50,6 +50,8 @@ pub struct Application {
     driver: &'static crate::driver::DriverModule,
     #[cfg(feature = "display")]
     display: &'static crate::display::DisplayModule,
+    #[cfg(feature = "spindle")]
+    spindle: &'static crate::spindle::SpindleModule,
     display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
     display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     settings: RefCell<AppSettings>,
@@ -102,6 +104,8 @@ impl Application {
         let state = flash.load().await?;
         #[cfg(not(feature = "flash"))]
         let state = AppSettings::default();
+        #[cfg(feature = "spindle")]
+        let spindle = crate::spindle::SpindleModule::new();
         let application = make_static!(
             Application,
             Application {
@@ -121,6 +125,8 @@ impl Application {
                 driver,
                 #[cfg(feature = "display")]
                 display,
+                #[cfg(feature = "spindle")]
+                spindle,
                 settings: RefCell::new(state.clone()),
                 display_request,
                 display_response,
@@ -260,36 +266,42 @@ impl Application {
         let message = renderer.finish();
         let mut glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = Vec::new();
         for i in message.iter() {
-            glyph_strs.push(glyphs[*i].try_into().unwrap_or(" ".try_into().unwrap())).unwrap();
+            glyph_strs
+                .push(glyphs[*i].try_into().unwrap_or(" ".try_into().unwrap()))
+                .unwrap();
         }
         (message, glyph_strs)
+    }
+    pub async fn display_once(&'static self, msg: &str) {
+        let (message, message_strs) = self.render(&msg);
+        self.display_response
+            .send(DisplayResponseContainer::DisplayResponse(
+                DisplayResponse::Start(message_strs.clone()),
+            ))
+            .await;
+        #[cfg(not(feature = "display"))]
+        Timer::after_millis(1000).await;
+        #[cfg(feature = "display")]
+        {
+            info!("{MODULE} Displaying {}", msg);
+            // display.set_settings(self.state.borrow().display.clone());
+            if let Err(e) = self.display.run(&message).await {
+                error!("{MODULE} error when displaying message: {:?}", e);
+            }
+        }
+        self.display_response
+            .send(DisplayResponseContainer::DisplayResponse(
+                DisplayResponse::Stop(message_strs),
+            ))
+            .await;
     }
     async fn display_message(&'static self) {
         loop {
             let request = self.display_request.wait().await;
+            info!("Request = {:?}", request);
             match request {
                 DisplayRequest::Run(msg) => {
-                    let (message, message_strs) = self.render(&msg);
-                    self.display_response
-                        .send(DisplayResponseContainer::DisplayResponse(
-                            DisplayResponse::Start(message_strs.clone()),
-                        ))
-                        .await;
-                    #[cfg(not(feature = "display"))]
-                    Timer::after_millis(1000).await;
-                    #[cfg(feature = "display")]
-                    {
-                        info!("{MODULE} Displaying {}", msg);
-                        // display.set_settings(self.state.borrow().display.clone());
-                        if let Err(e) = self.display.run(&message).await {
-                            error!("{MODULE} error when displaying message: {:?}", e);
-                        }
-                    }
-                    self.display_response
-                        .send(DisplayResponseContainer::DisplayResponse(
-                            DisplayResponse::Stop(message_strs),
-                        ))
-                        .await;
+                    self.display_once(&msg).await;
                 }
                 DisplayRequest::Test => {
                     #[cfg(feature = "display")]
@@ -304,6 +316,12 @@ impl Application {
                             }
                             Timer::after_millis(1000).await;
                         }
+                    }
+                }
+                DisplayRequest::RunSpindle(src) => {
+                    #[cfg(feature = "spindle")]
+                    {
+                        self.spindle.run_program(&src, self).await;
                     }
                 }
             }
@@ -354,6 +372,7 @@ impl Application {
                     self.display_request.signal(DisplayRequest::Test);
                 }
                 TestType::Read => {
+                    #[cfg(feature = "display")]
                     self.driver.run_read_test().await;
                 }
             },
