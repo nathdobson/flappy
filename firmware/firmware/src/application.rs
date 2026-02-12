@@ -49,6 +49,8 @@ pub struct Application {
     #[cfg(feature = "display")]
     driver: &'static crate::driver::DriverModule,
     #[cfg(feature = "display")]
+    controller: &'static crate::controller::ControllerModule,
+    #[cfg(feature = "display")]
     display: &'static crate::display::DisplayModule,
     #[cfg(feature = "spindle")]
     spindle: &'static crate::spindle::SpindleModule,
@@ -75,7 +77,7 @@ impl Application {
         #[cfg(feature = "display")]
         driver.write(&[0; 128])?;
         #[cfg(feature = "display")]
-        let mut display = crate::display::DisplayModule::new(driver);
+        let mut controller = crate::controller::ControllerModule::new(driver);
         let mut rng = RoscRng;
         #[cfg(feature = "flash")]
         let flash = crate::flash::FlashModule::new(peri.flash_peri).await?;
@@ -106,6 +108,8 @@ impl Application {
         let state = AppSettings::default();
         #[cfg(feature = "spindle")]
         let spindle = crate::spindle::SpindleModule::new();
+        #[cfg(feature = "display")]
+        let mut display = crate::display::DisplayModule::new(controller, display_response);
         let application = make_static!(
             Application,
             Application {
@@ -123,6 +127,8 @@ impl Application {
                 mqtt,
                 #[cfg(feature = "display")]
                 driver,
+                #[cfg(feature = "display")]
+                controller,
                 #[cfg(feature = "display")]
                 display,
                 #[cfg(feature = "spindle")]
@@ -149,6 +155,7 @@ impl Application {
         if old.display != settings.display {
             old.display = settings.display.clone();
             #[cfg(feature = "display")]
+            self.controller.set_settings(settings.display.clone());
             self.display.set_settings(settings.display.clone());
         }
         #[cfg(feature = "flash")]
@@ -165,7 +172,7 @@ impl Application {
             #[cfg(feature = "mqtt")]
             self.mqtt.set_settings(state.mqtt.clone());
             #[cfg(feature = "display")]
-            self.display.set_settings(state.display.clone());
+            self.controller.set_settings(state.display.clone());
         }
         Ok(())
     }
@@ -175,7 +182,7 @@ impl Application {
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn display_message(application: &'static Application) {
-                application.display_message().await;
+                application.handle_requests().await;
             }
             display_message(self)?
         });
@@ -247,61 +254,13 @@ impl Application {
         });
         Ok(())
     }
-    fn render(
-        &'static self,
-        msg: &str,
-    ) -> (
-        Vec<usize, MAX_GLYPHS>,
-        Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS>,
-    ) {
-        let glyphs_owned = self.settings.borrow().display.glyphs.clone();
-        let mut glyphs: Vec<&str, FLAP_COUNT> = Vec::new();
-        for x in &glyphs_owned {
-            glyphs.push(&*x).unwrap();
-        }
-        let mut renderer = glyph_render::Renderer::<MAX_GLYPHS>::new(&glyphs);
-        if let Err(e) = renderer.append(&msg) {
-            error!("{MODULE} error when rendering message: {:?}", e);
-        }
-        let message = renderer.finish();
-        let mut glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = Vec::new();
-        for i in message.iter() {
-            glyph_strs
-                .push(glyphs[*i].try_into().unwrap_or(" ".try_into().unwrap()))
-                .unwrap();
-        }
-        (message, glyph_strs)
-    }
-    pub async fn display_once(&'static self, msg: &str) {
-        let (message, message_strs) = self.render(&msg);
-        self.display_response
-            .send(DisplayResponseContainer::DisplayResponse(
-                DisplayResponse::Start(message_strs.clone()),
-            ))
-            .await;
-        #[cfg(not(feature = "display"))]
-        Timer::after_millis(1000).await;
-        #[cfg(feature = "display")]
-        {
-            info!("{MODULE} Displaying {}", msg);
-            // display.set_settings(self.state.borrow().display.clone());
-            if let Err(e) = self.display.run(&message).await {
-                error!("{MODULE} error when displaying message: {:?}", e);
-            }
-        }
-        self.display_response
-            .send(DisplayResponseContainer::DisplayResponse(
-                DisplayResponse::Stop(message_strs),
-            ))
-            .await;
-    }
-    async fn display_message(&'static self) {
+
+    async fn handle_requests(&'static self) {
         loop {
             let request = self.display_request.wait().await;
-            info!("Request = {:?}", request);
             match request {
                 DisplayRequest::Run(msg) => {
-                    self.display_once(&msg).await;
+                    self.display.display_once(&msg).await;
                 }
                 DisplayRequest::Test => {
                     #[cfg(feature = "display")]
@@ -311,7 +270,7 @@ impl Application {
                             for _ in 0..MAX_GLYPHS {
                                 msg.push(index).ok();
                             }
-                            if let Err(e) = self.display.run(&msg).await {
+                            if let Err(e) = self.controller.run(&msg).await {
                                 error!("{MODULE} error when displaying message: {:?}", e);
                             }
                             Timer::after_millis(1000).await;
@@ -321,7 +280,7 @@ impl Application {
                 DisplayRequest::RunSpindle(src) => {
                     #[cfg(feature = "spindle")]
                     {
-                        self.spindle.run_program(&src, self).await;
+                        self.spindle.run_program(&src, self.display).await;
                     }
                 }
             }

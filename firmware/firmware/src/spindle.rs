@@ -1,10 +1,12 @@
 use crate::application::Application;
+use crate::controller::ControllerModule;
 use crate::display::DisplayModule;
 use crate::error::Error;
 use crate::make_static;
 use arena::ArenaStorage;
 use core::alloc::AllocError;
 use core::cell::RefCell;
+use core::fmt::Display;
 use embassy_time::Delay;
 use embedded_hal_async::delay;
 use embedded_hal_async::delay::DelayNs;
@@ -36,13 +38,13 @@ impl SpindleModule {
             }
         )
     }
-    pub async fn run_program(&self, src: &str, application: &'static Application) {
-        self.state.borrow_mut().run_program(src, application).await;
+    pub async fn run_program(&self, src: &str, display: &'static DisplayModule) {
+        self.state.borrow_mut().run_program(src, display).await;
     }
 }
 
 impl SpindleState {
-    pub async fn run_program(&self, src: &str, application: &'static Application) {
+    pub async fn run_program(&self, src: &str, display: &'static DisplayModule) {
         let mut arena = [0; 65536];
         let mut arena = ArenaStorage::new(&mut arena);
         let arena = arena.start();
@@ -55,7 +57,7 @@ impl SpindleState {
                 return;
             }
         };
-        let natives: &[&dyn NativeFn] = &[&PrintFn, &DisplayFn { application }, &SleepMsFn];
+        let natives: &[&dyn NativeFn] = &[&PrintFn, &DisplayFn { display }, &SleepMsFn];
         let mut compiler = Compiler::new(arena, natives, &program);
         let program = match compiler.compile() {
             Ok(program) => program,
@@ -80,7 +82,7 @@ impl SpindleState {
 }
 
 struct DisplayFn {
-    application: &'static Application,
+    display: &'static DisplayModule,
 }
 
 impl NativeFn for DisplayFn {
@@ -101,7 +103,7 @@ impl NativeFn for DisplayFn {
                 use core::fmt::Write;
                 write!(text, "{}", arg).unwrap();
             }
-            self.application.display_once(&text).await;
+            self.display.display_once(&text).await;
             Ok(Value::Null)
         })?)
     }

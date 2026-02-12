@@ -28,7 +28,7 @@ mod application;
 mod ble;
 mod cli;
 #[cfg(feature = "display")]
-mod display;
+mod controller;
 mod display_proto;
 #[cfg(feature = "display")]
 mod driver;
@@ -59,6 +59,7 @@ mod usb_setup;
 mod wifi;
 mod make_static;
 mod spindle;
+mod display;
 
 extern crate alloc;
 
