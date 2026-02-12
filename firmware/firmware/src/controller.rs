@@ -84,12 +84,6 @@ impl ControllerModule {
                 .ok()
                 .unwrap();
         }
-        for char in glyphs.iter_mut() {
-            char.position = 0;
-            char.homed = false;
-            char.prev_hall = None;
-            char.charged = true;
-        }
         for (index, char) in glyphs.iter_mut().enumerate() {
             let calibration = self
                 .settings
@@ -99,9 +93,16 @@ impl ControllerModule {
                 .cloned()
                 .unwrap_or(0);
             info!("Calibration = {}", calibration);
-            char.target = (calibration
+            let new_target = (calibration
                 + message.get(index).cloned().unwrap_or(0) * STEPS_PER_REV / FLAP_COUNT)
                 % STEPS_PER_REV;
+            if new_target != char.target {
+                char.target = new_target;
+                char.position = 0;
+                char.homed = false;
+                char.prev_hall = None;
+                char.charged = true;
+            }
             info!("{MODULE} Flap {index} has target {:?}", char.target);
         }
         for step in 0.. {

@@ -173,6 +173,8 @@ impl Application {
             self.mqtt.set_settings(state.mqtt.clone());
             #[cfg(feature = "display")]
             self.controller.set_settings(state.display.clone());
+            #[cfg(feature = "display")]
+            self.display.set_settings(state.display.clone());
         }
         Ok(())
     }

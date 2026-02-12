@@ -2,7 +2,7 @@ use heapless::{String, Vec};
 
 pub const MAX_GLYPH_BYTES: usize = 12;
 pub const MAX_GLYPHS: usize = 16;
-pub const DISPLAY_REQUEST_CAPACITY: usize = 128;
+pub const DISPLAY_REQUEST_CAPACITY: usize = 1024;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

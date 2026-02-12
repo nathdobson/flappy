@@ -101,7 +101,14 @@ impl NativeFn for DisplayFn {
             let mut text = String::<DISPLAY_REQUEST_CAPACITY>::new();
             for arg in args {
                 use core::fmt::Write;
-                write!(text, "{}", arg).unwrap();
+                match arg {
+                    Value::Null => write!(text, "null").map_err(|_| NativeError)?,
+                    Value::Bool(arg) => write!(text, "{}", arg).map_err(|_| NativeError)?,
+                    Value::Number(arg) => write!(text, "{}", arg).map_err(|_| NativeError)?,
+                    Value::Ref(x) => {
+                        write!(text, "{}", heap.get(x)).map_err(|_| NativeError)?;
+                    }
+                }
             }
             self.display.display_once(&text).await;
             Ok(Value::Null)
