@@ -9,6 +9,7 @@ use core::future::pending;
 use core::mem;
 use core::num::ParseIntError;
 use embassy_executor::Spawner;
+use embassy_futures::select::{Either, select};
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::otp::get_chipid;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
@@ -258,36 +259,49 @@ impl Application {
     }
 
     async fn handle_requests(&'static self) {
+        let mut request_state = None;
         loop {
-            let request = self.display_request.wait().await;
-            match request {
-                DisplayRequest::Run(msg) => {
-                    self.display.display_once(&msg).await;
+            if let Some(r) = request_state.take() {
+                match select(self.display_request.wait(), self.handle_request(r)).await {
+                    Either::First(r) => {
+                        request_state = Some(r);
+                    }
+                    Either::Second(()) => {}
                 }
-                DisplayRequest::Test => {
-                    #[cfg(feature = "display")]
-                    {
-                        for index in (0..FLAP_COUNT).step_by(3) {
-                            let mut msg = Vec::<usize, MAX_GLYPHS>::new();
-                            for _ in 0..MAX_GLYPHS {
-                                msg.push(index).ok();
-                            }
-                            if let Err(e) = self.controller.run(&msg).await {
-                                error!("{MODULE} error when displaying message: {:?}", e);
-                            }
-                            Timer::after_millis(1000).await;
+            } else {
+                request_state = Some(self.display_request.wait().await);
+            }
+        }
+    }
+    async fn handle_request(&'static self, request: DisplayRequest) {
+        match request {
+            DisplayRequest::Run(msg) => {
+                self.display.display_once(&msg).await;
+            }
+            DisplayRequest::Test => {
+                #[cfg(feature = "display")]
+                {
+                    for index in (0..FLAP_COUNT).step_by(3) {
+                        let mut msg = Vec::<usize, MAX_GLYPHS>::new();
+                        for _ in 0..MAX_GLYPHS {
+                            msg.push(index).ok();
                         }
+                        if let Err(e) = self.controller.run(&msg).await {
+                            error!("{MODULE} error when displaying message: {:?}", e);
+                        }
+                        Timer::after_millis(1000).await;
                     }
                 }
-                DisplayRequest::RunSpindle(src) => {
-                    #[cfg(feature = "spindle")]
-                    {
-                        self.spindle.run_program(&src, self.display).await;
-                    }
+            }
+            DisplayRequest::RunSpindle(src) => {
+                #[cfg(feature = "spindle")]
+                {
+                    self.spindle.run_program(&src, self.display).await;
                 }
             }
         }
     }
+
     #[cfg(feature = "usb")]
     async fn handle_commands(&'static self) {
         let usb_serial = self.runtime.usb.usb_serial;

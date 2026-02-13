@@ -4,6 +4,7 @@ use crate::make_static;
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use heapless::{String, Vec};
 use log::{error, info};

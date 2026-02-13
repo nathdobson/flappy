@@ -52,6 +52,12 @@ impl ControllerModule {
         )
     }
     pub async fn run(&self, message: &[usize]) -> Result<(), Error> {
+        struct DisableDriver(&'static DriverModule);
+        impl Drop for DisableDriver {
+            fn drop(&mut self) {
+                self.0.set_enabled(false);
+            }
+        }
         let ref mut glyphs = self.glyphs.lock().await;
         let mut reverse = false;
         let mut has_fault = false;
@@ -64,6 +70,7 @@ impl ControllerModule {
         };
         let delay = self.settings.borrow().delay_micros.unwrap_or(3000);
         self.driver.set_enabled(true);
+        let disable = DisableDriver(self.driver);
         let count = self.driver.count()?;
         if count > MAX_GLYPHS {
             return Err("Too many characters in series".into());
@@ -190,7 +197,6 @@ impl ControllerModule {
             }
             timer.await;
         }
-        self.driver.set_enabled(false);
         for (index, char) in glyphs.iter().enumerate() {
             if !char.homed {
                 error!("Failed to home {}", index);
