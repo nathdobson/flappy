@@ -47,6 +47,15 @@ pub struct WifiSettings {
     pub password: String<63>,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum DriverVersion {
+    #[serde(rename = "1.0")]
+    V1_0,
+    #[serde(rename = "2.0")]
+    V2_0,
+}
+
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DisplaySettings {
@@ -54,9 +63,15 @@ pub struct DisplaySettings {
     pub glyphs: Vec<String<MAX_GLYPH_BYTES>, FLAP_COUNT>,
     pub background: String<6>,
     pub foreground: String<6>,
-    pub driver_version: String<10>,
+    pub driver_version: DriverVersion,
+    #[serde(default)]
+    pub delay_micros_init: Option<u64>,
+    #[serde(default)]
+    pub delay_accel_steps: Option<u64>,
     #[serde(default)]
     pub delay_micros: Option<u64>,
+    #[serde(default)]
+    pub backpedal: usize,
 }
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -168,5 +183,11 @@ impl Display for WifiStatus {
 impl Display for WriteSettingsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl Default for DriverVersion {
+    fn default() -> Self {
+        DriverVersion::V2_0
     }
 }

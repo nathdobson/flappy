@@ -281,7 +281,7 @@ impl Application {
             DisplayRequest::Test => {
                 #[cfg(feature = "display")]
                 {
-                    for index in (0..FLAP_COUNT).step_by(3) {
+                    for index in (0..FLAP_COUNT).step_by(1) {
                         let mut msg = Vec::<usize, MAX_GLYPHS>::new();
                         for _ in 0..MAX_GLYPHS {
                             msg.push(index).ok();
@@ -289,7 +289,7 @@ impl Application {
                         if let Err(e) = self.controller.run(&msg).await {
                             error!("{MODULE} error when displaying message: {:?}", e);
                         }
-                        Timer::after_millis(1000).await;
+                        Timer::after_millis(250).await;
                     }
                 }
             }
