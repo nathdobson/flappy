@@ -111,7 +111,10 @@ The repository is divided into several hardware and software components:
     * `model-housing.3mf`: An enclosure for the module.
     * `model-inner.3mf`: The inner half of the drum.
     * `model-outer.3mf`: The outer half of the drum.
-    * `model-flaps.3mf`: All flaps, stacked with PETG support. Ensure you have flow ratios tuned correctly for all filaments. This is effectively a 100% infill print, so overextrusion will ruin the top flaps. Underextrusion of the PLA will result in noticeable gaps. Underextrusion of the PETG support will ruin the surface quality of the PLA as it sinks into the gaps.
+    * `model-flaps.3mf`: All flaps, stacked with PETG support. Ensure you have flow ratios tuned correctly for all
+      filaments. This is effectively a 100% infill print, so overextrusion will ruin the top flaps. Underextrusion of
+      the PLA will result in noticeable gaps. Underextrusion of the PETG support will ruin the surface quality of the
+      PLA as it sinks into the gaps.
 2. For each display, print one of the following:
     * `model-left-cap.3mf`: The cap for the left side of the display, where the motherboard goes.
     * `model-right-cap.3mf`: The cap for the right side of the display.
@@ -134,19 +137,82 @@ The repository is divided into several hardware and software components:
 1. Set up an MQTT broker (e.g. with https://www.emqx.com/).
 1. Connect the Pico to a computer with a USB cable. Flash the firmware with:
    `picotool load -f -u -v -x -t elf firmware.elf`
-1. Create a `setup.json` file based on [blank.json](setup-client/blank.json).
+2. (Optional) Access debug logs from the Pico via a serial port. These logs can be accessed with a tool
+   like [tio](https://github.com/tio/tio).
+1. Create a `setup.json` file based on [blank.json](setup-client/blank.json). The schema for this file is defined by the
+   `AppSettings` struct in [common/protocol/src/setup.rs](common/protocol/src/setup.rs).
 1. Configure the display by executing the appropriate `setup-client-*` binary.
 1. Navigate to https://flappy-7d77d.web.app/www/ or set up custom web hosting by unzipping `web-client.zip` and
    uploading to a web host.
 1. Connect to the display by specifying the parameters for the MQTT broker.
 2. Adjust calibration values in the `setup.json` file until the expected letters appear consistently.
 
+## Controlling the display
+
+### MQTT Protocol
+
+In addition to controlling the display with the website, you may communicate directly with the display over MQTT. Each
+display publishes or
+subscribes to a set of topics with a common topic prefix.
+
+#### Topic prefix + `"/info"`
+
+The display publishes a `DeviceInfo` message (see [common/protocol/src/setup.rs](common/protocol/src/setup.rs)) on this
+topic. This message is retained by the server, so new subscriptions to this topic will immediately receive this message.
+
+#### Topic prefix + `"/request"`
+
+Clients may publish `DisplayRequest` messages (see [common/protocol/src/display.rs](common/protocol/src/display.rs)) on
+this
+topic. If the display is processing a previous request when a new request arrives, the display cancels the previous
+request and starts the new one.
+
+##### `Run` messages
+
+To display a single static message, send a UTF-8 encoded string as follows:
+
+```
+{"Run": "helloworld"}
+```
+
+The display splits the message into unicode graphemes, then tries to find the best match for each grapheme. The
+algorithm accounts for [Unicode Equivalence](https://en.wikipedia.org/wiki/Unicode_equivalence) and capitalization.
+
+##### `RunSpindle` messages
+
+To display a repeating or changing message, send a UTF-8 encoded `spindle` script as follows:
+
+```
+{"Run": "display(\"hi\");sleep_ms(1000);display(\"hi\");"}
+```
+
+See the [Spindle](spindle/README.md) documentation for details on the scripting language.
+
+#### Topic prefix + `"/response"`
+
+When the display starts spinning the flaps to a new position, it sends a `Start` message with the content that will
+appear. This message may not exactly match the original message due to normalization or capitalization changes.
+
+```
+{"Start":["H","E","L","L","O","W","O","R","L","D"]}
+```
+
+When the display stops spinning the flaps, it sends an equivalent `Stop` message:
+
+```
+{"Stop":["H","E","L","L","O","W","O","R","L","D"]}
+```
+
+The stop message is retained, so clients may determine the current contents of the display.
+
 [^2]
-The provided 3MF files are configured for use with BambuStudio and tuned for PLA with PETG support on the Bambu A1 Mini with AMS. The files will likely work on other slicers and printers, but may require additional tuning.
+The provided 3MF files are configured for use with BambuStudio and tuned for PLA with PETG support on the Bambu A1 Mini
+with AMS. The files will likely work on other slicers and printers, but may require additional tuning.
 
 [^1]
 The KY-003 board contains an A3144 digital hall sensor chip. The A3144 has a minimum Vcc of 4.5V and open-collector
-active-low digital output. The KY-003 includes a resistor and LED in series to pull-up the output signal to Vcc. This pull-up means the minimum logic output voltage for the KY-003 is also 4.5V. The
+active-low digital output. The KY-003 includes a resistor and LED in series to pull-up the output signal to Vcc. This
+pull-up means the minimum logic output voltage for the KY-003 is also 4.5V. The
 Pico's maximum logic voltage is 3.3V, so it cannot connect to a KY-003 without some extra work. Also, the LED introduces
 a
 voltage drop, which makes it's use as a pull-up in the first place questionable. Instead, we remove the pull-ups from
