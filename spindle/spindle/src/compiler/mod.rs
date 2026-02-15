@@ -1,6 +1,5 @@
-use crate::ast::{ElseClause, Expr, IfStmt, Program, Stmt};
 use crate::native::NativeFn;
-use crate::token::Symbol;
+use token::Symbol;
 use crate::vec_ext::VecExt;
 use crate::vm::{
     BoxVmExpr, BoxVmStmt, VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName,
@@ -9,6 +8,19 @@ use crate::vm::{
 use alloc::collections::TryReserveError;
 use arena::{Arena, ArenaVec};
 use core::marker::PhantomData;
+use crate::compiler::ast::{ElseClause, Expr, IfStmt, Program, Stmt};
+
+pub mod ast;
+#[cfg(test)]
+mod test;
+pub mod lexer;
+#[cfg(test)]
+mod lexer_test;
+mod lookahead;
+pub mod parser;
+#[cfg(test)]
+mod parser_test;
+pub mod token;
 
 pub struct Compiler<'par, 'vm> {
     arena: &'vm Arena,

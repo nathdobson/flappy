@@ -1,4 +1,4 @@
-use crate::ast::{ElseClause, Expr};
+use crate::compiler::ast::{ElseClause, Expr};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use arena::{ArenaBox, ArenaVec};

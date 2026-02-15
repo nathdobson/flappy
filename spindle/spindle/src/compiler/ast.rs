@@ -1,4 +1,4 @@
-use crate::token::{IdentToken, Keyword, KeywordToken, NumberToken, SymbolToken};
+use crate::compiler::token::{IdentToken, Keyword, KeywordToken, NumberToken, SymbolToken};
 use arena::{ArenaBox, ArenaVec};
 
 #[derive(Debug)]

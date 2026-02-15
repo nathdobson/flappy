@@ -1,7 +1,7 @@
-use crate::ast::{CallExpr, Expr, ExprList, ForStmt, Program, Stmt};
-use crate::lexer::Lexer;
-use crate::parser::Parser;
-use crate::token::{IdentToken, NumberToken, Token};
+use crate::compiler::ast::{CallExpr, Expr, ExprList, ForStmt, Program, Stmt};
+use crate::compiler::lexer::Lexer;
+use crate::compiler::parser::Parser;
+use crate::compiler::token::{IdentToken, NumberToken, Token};
 use arena::ArenaStorage;
 use itertools::Itertools;
 use std::assert_matches;

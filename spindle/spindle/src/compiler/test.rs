@@ -1,7 +1,7 @@
-use crate::ast::CallExpr;
+use crate::compiler::ast::CallExpr;
 use crate::compiler::Compiler;
-use crate::lexer::Lexer;
-use crate::parser::Parser;
+use crate::compiler::lexer::Lexer;
+use crate::compiler::parser::Parser;
 use crate::testutils::with_test_compile;
 use crate::vm::{
     VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName, VmIfStmt, VmLetStmt,

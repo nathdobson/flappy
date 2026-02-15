@@ -13,15 +13,15 @@ use embedded_hal_async::delay::DelayNs;
 use heapless::{String, Vec};
 use log::error;
 use protocol::display::DISPLAY_REQUEST_CAPACITY;
-use spindle::ast::Program;
+use spindle::compiler::ast::Program;
 use spindle::compiler::Compiler;
 use spindle::interp::Interp;
 use spindle::interp::heap::{Heap, HeapStorage};
 use spindle::interp::value::Value;
-use spindle::lexer::Lexer;
+use spindle::compiler::lexer::Lexer;
 use spindle::native::{NativeError, NativeFn, PrintFn};
-use spindle::parser::{AnnotatedParserError, Parser};
-use spindle::stack::{Stack, StackBox, StackStorage, new_stack};
+use spindle::compiler::parser::{AnnotatedParserError, Parser};
+use spindle::interp::stack::{Stack, StackBox, StackStorage, new_stack};
 
 struct SpindleState {}
 

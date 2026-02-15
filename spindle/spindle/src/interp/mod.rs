@@ -10,26 +10,20 @@ pub mod value;
 // mod inline_metadata;
 mod heap_types;
 mod inline_slice;
+pub mod stack;
+#[cfg(test)]
+mod stack_test;
 
-use crate::ast::{CallExpr, Stmt};
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
 use crate::interp::heap_types::{HeapString, HeapStringInPlace};
-use crate::interp::inline_slice::{InlineSlice, InlineSliceInPlace};
 use crate::interp::value::Value;
 use crate::native::NativeFn;
-use crate::stack::{Stack, StackBox};
 use crate::vm::{VmCallExpr, VmExpr, VmFunctionName, VmOperator, VmProgram, VmStmt};
-use alloc::boxed::Box;
-use core::alloc::AllocError;
-use core::fmt;
-use core::fmt::{Display, Formatter};
-use core::marker::PhantomData;
-use core::mem::MaybeUninit;
-use core::pin::Pin;
-use heapless::string::{StringInPlace, StringView};
-use heapless::{String, VecView};
-use log::info;
+use core::fmt::Display;
+use heapless::string::StringInPlace;
+use heapless::VecView;
+use crate::interp::stack::Stack;
 
 pub struct Interp<'vm> {
     program: &'vm VmProgram<'vm>,

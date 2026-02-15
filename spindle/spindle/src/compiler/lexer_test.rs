@@ -1,5 +1,5 @@
-use crate::lexer::{Lexer, LexerError};
-use crate::token::{IdentToken, Keyword, KeywordToken, NumberToken, Symbol, SymbolToken, Token};
+use crate::compiler::lexer::{Lexer, LexerError};
+use crate::compiler::token::{IdentToken, Keyword, KeywordToken, NumberToken, Symbol, SymbolToken, Token};
 use arena::{Arena, ArenaStorage};
 use itertools::Itertools;
 use std::assert_matches;

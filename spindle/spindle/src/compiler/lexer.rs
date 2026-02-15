@@ -1,5 +1,5 @@
-use crate::lookahead::Lookahead;
-use crate::token::{
+use crate::compiler::lookahead::Lookahead;
+use crate::compiler::token::{
     IdentToken, Keyword, KeywordToken, Location, NumberToken, Symbol, SymbolToken, Token,
 };
 use crate::vec_ext::VecExt;

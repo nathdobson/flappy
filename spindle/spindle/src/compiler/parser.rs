@@ -1,9 +1,9 @@
-use crate::ast::{
+use crate::compiler::ast::{
     CallExpr, ElseClause, Expr, ExprList, ForStmt, IfStmt, InfixExpr, LetStmt, ParensExpr, Program,
     Stmt,
 };
-use crate::lexer::{Lexer, LexerError};
-use crate::token::{
+use crate::compiler::lexer::{Lexer, LexerError};
+use crate::compiler::token::{
     IdentToken, Keyword, KeywordToken, Location, NumberToken, Symbol, SymbolToken, Token,
 };
 use alloc::collections::TryReserveError;

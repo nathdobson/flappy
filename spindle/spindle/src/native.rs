@@ -1,7 +1,7 @@
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
 use crate::interp::value::Value;
-use crate::stack::{Stack, StackBox};
+use crate::interp::stack::{Stack, StackBox};
 use core::alloc::AllocError;
 use core::fmt;
 use log::info;
