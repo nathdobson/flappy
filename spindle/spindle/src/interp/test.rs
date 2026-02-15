@@ -211,3 +211,24 @@ async fn test_string_literal() {
         },]
     );
 }
+
+#[tokio::test]
+async fn test_two_argument() {
+    testing_logger::setup();
+    interp(
+        r#"
+        let a = 1;
+        let b = 2;
+        print(a, b);
+       "#,
+    )
+        .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [CapturedLog {
+            body: "12",
+            level: _,
+            target: _
+        },]
+    );
+}

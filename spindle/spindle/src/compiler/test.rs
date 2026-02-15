@@ -1,5 +1,5 @@
 use crate::compiler::ast::CallExpr;
-use crate::compiler::Compiler;
+use crate::compiler::codegen::Codegen;
 use crate::compiler::lexer::Lexer;
 use crate::compiler::parser::Parser;
 use crate::testutils::with_test_compile;

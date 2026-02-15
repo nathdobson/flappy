@@ -1,4 +1,4 @@
-use crate::compiler::Compiler;
+use crate::compiler::codegen::Codegen;
 use crate::compiler::lexer::Lexer;
 use crate::native::{NativeFn, PrintFn};
 use crate::compiler::parser::Parser;
@@ -19,7 +19,7 @@ pub async fn with_test_compile<T>(
     let mut arena_vm_slice = vec![0u8; capacity];
     let mut arena_vm_storage = ArenaStorage::new(&mut arena_vm_slice);
     let arena_vm = arena_vm_storage.start();
-    let program = Compiler::new(arena_vm, &[&PrintFn], &program)
+    let program = Codegen::new(arena_vm, &[&PrintFn], &program)
         .compile()
         .unwrap();
     callback(&program).await

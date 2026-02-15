@@ -14,7 +14,7 @@ use heapless::{String, Vec};
 use log::error;
 use protocol::display::DISPLAY_REQUEST_CAPACITY;
 use spindle::compiler::ast::Program;
-use spindle::compiler::Compiler;
+use spindle::compiler::codegen::Codegen;
 use spindle::interp::Interp;
 use spindle::interp::heap::{Heap, HeapStorage};
 use spindle::interp::value::Value;
@@ -58,7 +58,7 @@ impl SpindleState {
             }
         };
         let natives: &[&dyn NativeFn] = &[&PrintFn, &DisplayFn { display }, &SleepMsFn];
-        let mut compiler = Compiler::new(arena, natives, &program);
+        let mut compiler = Codegen::new(arena, natives, &program);
         let program = match compiler.compile() {
             Ok(program) => program,
             Err(e) => {
