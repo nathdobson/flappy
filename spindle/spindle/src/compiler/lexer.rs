@@ -112,6 +112,10 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
                     "false" => Keyword::False,
                     "true" => Keyword::True,
                     "null" => Keyword::Null,
+                    "loop" => Keyword::Loop,
+                    "break" => Keyword::Break,
+                    "continue" => Keyword::Continue,
+                    "while" => Keyword::While,
                     _ => {
                         return Ok(Token::Ident(IdentToken { ident: str, loc }));
                     }

@@ -12,6 +12,8 @@ pub enum Stmt<'par> {
     ExprStmt(Expr<'par>),
     For(ForStmt<'par>),
     If(IfStmt<'par>),
+    Loop(LoopStmt<'par>),
+    While(WhileStmt<'par>),
 }
 
 #[derive(Debug)]
@@ -41,6 +43,23 @@ pub struct IfStmt<'par> {
     pub then_stmt: ArenaVec<'par, Stmt<'par>>,
     pub close_brace: SymbolToken,
     pub else_clause: Option<ElseClause<'par>>,
+}
+
+#[derive(Debug)]
+pub struct LoopStmt<'par> {
+    pub loop_token: KeywordToken,
+    pub open_brace: SymbolToken,
+    pub inner: ArenaVec<'par, Stmt<'par>>,
+    pub close_brace: SymbolToken,
+}
+
+#[derive(Debug)]
+pub struct WhileStmt<'par> {
+    pub while_token: KeywordToken,
+    pub cond: Expr<'par>,
+    pub open_brace: SymbolToken,
+    pub inner: ArenaVec<'par, Stmt<'par>>,
+    pub close_brace: SymbolToken,
 }
 
 #[derive(Debug)]

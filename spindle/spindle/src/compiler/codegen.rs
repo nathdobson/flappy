@@ -1,4 +1,6 @@
-use crate::compiler::ast::{CallExpr, ElseClause, Expr, IfStmt, Program, Stmt};
+use crate::compiler::ast::{
+    CallExpr, ElseClause, Expr, IfStmt, LoopStmt, Program, Stmt, WhileStmt,
+};
 use crate::compiler::token::Symbol;
 use crate::native::NativeFn;
 use crate::vec_ext::VecExt;
@@ -105,6 +107,8 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
                     Ok(result)
                 }
                 Stmt::If(stmt) => self.compile_if_stmt(stmt, next),
+                Stmt::Loop(stmt) => self.compile_loop_stmt(stmt, next),
+                Stmt::While(stmt) => self.compile_while_stmt(stmt, next),
             },
         }
     }
@@ -131,6 +135,22 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
             else_branch: else_clause,
             next,
         }))?)
+    }
+    fn compile_loop_stmt(
+        &mut self,
+        stmt: &'par LoopStmt<'par>,
+        next: &'par [Stmt<'par>],
+    ) -> Result<BoxVmStmt<'vm>, CompileError<'par, 'vm>> {
+        let inner = self.compile_stmt(&stmt.inner)?;
+        let next = self.compile_stmt(next)?;
+        todo!();
+    }
+    fn compile_while_stmt(
+        &mut self,
+        stmt: &'par WhileStmt<'par>,
+        next: &'par [Stmt<'par>],
+    ) -> Result<BoxVmStmt<'vm>, CompileError<'par, 'vm>> {
+        todo!();
     }
     fn compile_expr(&mut self, expr: &Expr) -> Result<BoxVmExpr<'vm>, CompileError<'par, 'vm>> {
         match expr {

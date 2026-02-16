@@ -36,6 +36,10 @@ pub enum Keyword {
     Null,
     False,
     True,
+    While,
+    Loop,
+    Break,
+    Continue,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -151,6 +155,10 @@ impl Debug for Keyword {
             Keyword::Null => write!(f, "null"),
             Keyword::False => write!(f, "false"),
             Keyword::True => write!(f, "true"),
+            Keyword::While => write!(f, "while"),
+            Keyword::Loop => write!(f, "loop"),
+            Keyword::Break => write!(f, "break"),
+            Keyword::Continue => write!(f, "continue"),
         }
     }
 }

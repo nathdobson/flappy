@@ -1,6 +1,6 @@
 use crate::compiler::ast::{
-    CallExpr, ElseClause, Expr, ExprList, ForStmt, IfStmt, InfixExpr, LetStmt, ParensExpr, Program,
-    Stmt,
+    CallExpr, ElseClause, Expr, ExprList, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt,
+    ParensExpr, Program, Stmt, WhileStmt,
 };
 use crate::compiler::lexer::{Lexer, LexerError};
 use crate::compiler::token::{
@@ -134,6 +134,10 @@ where
             Ok(Some(Stmt::Let(let_stmt)))
         } else if let Some(for_stmt) = self.try_parse_for_statement()? {
             Ok(Some(Stmt::For(for_stmt)))
+        } else if let Some(loop_stmt) = self.try_parse_loop_statement()? {
+            Ok(Some(Stmt::Loop(loop_stmt)))
+        } else if let Some(while_stmt) = self.try_parse_while_statement()? {
+            Ok(Some(Stmt::While(while_stmt)))
         } else {
             let result = Stmt::ExprStmt(self.parse_expr()?);
             self.parse_symbol(Symbol::Semi)?;
@@ -218,6 +222,36 @@ where
         } else {
             Ok(None)
         }
+    }
+    fn try_parse_loop_statement(&mut self) -> Result<Option<LoopStmt<'par>>, ParserError<'par>> {
+        let Some(loop_token) = self.try_parse_keyword(Keyword::Loop)? else {
+            return Ok(None);
+        };
+        let open_brace = self.parse_symbol(Symbol::LBrace)?;
+        let inner = self.parse_statement_vec()?;
+        let close_brace = self.parse_symbol(Symbol::RBrace)?;
+        Ok(Some(LoopStmt {
+            loop_token,
+            open_brace,
+            inner,
+            close_brace,
+        }))
+    }
+    fn try_parse_while_statement(&mut self) -> Result<Option<WhileStmt<'par>>, ParserError<'par>> {
+        let Some(while_token) = self.try_parse_keyword(Keyword::While)? else {
+            return Ok(None);
+        };
+        let cond = self.parse_expr()?;
+        let open_brace = self.parse_symbol(Symbol::LBrace)?;
+        let inner = self.parse_statement_vec()?;
+        let close_brace = self.parse_symbol(Symbol::RBrace)?;
+        Ok(Some(WhileStmt {
+            while_token,
+            cond,
+            open_brace,
+            inner,
+            close_brace,
+        }))
     }
     fn parse_expr(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
         self.parse_expr2()
