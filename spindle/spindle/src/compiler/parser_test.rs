@@ -2,6 +2,7 @@ use crate::compiler::ast::{CallExpr, Expr, ExprList, ForStmt, Program, Stmt};
 use crate::compiler::lexer::Lexer;
 use crate::compiler::parser::Parser;
 use crate::compiler::stack::{StackStorage, new_stack};
+use crate::compiler::stack_executor::stack_executor;
 use crate::compiler::token::{IdentToken, NumberToken, Token};
 use arena::ArenaStorage;
 use itertools::Itertools;
@@ -15,10 +16,14 @@ async fn expect_program(code: &str, expect: impl for<'a> FnOnce(&'a Program<'a>)
     let mut stack = new_stack::<65536>();
     let stack: &mut StackStorage = &mut stack;
     let stack = stack.start();
-    let program = Parser::new(Lexer::new(code, arena), arena)
-        .parse_program(stack)
-        .await
-        .unwrap();
+    let program = stack_executor(stack, async |spawn| {
+        Parser::new(Lexer::new(code, arena), arena)
+            .parse_program(spawn)
+            .await
+            .unwrap()
+    })
+    .await
+    .unwrap();
     println!("{:?}", capacity - arena.remaining());
     expect(&program);
 }
@@ -31,7 +36,8 @@ async fn test_parser1() {
         print(foo);
     "#,
         |p| assert_matches!(p, Program { stmts: _ }),
-    ).await;
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -75,5 +81,6 @@ async fn test_parser2() {
                 }
             )
         },
-    ).await;
+    )
+    .await;
 }

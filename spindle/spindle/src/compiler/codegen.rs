@@ -12,6 +12,7 @@ use alloc::vec::Vec;
 use arena::{Arena, ArenaVec};
 use core::marker::PhantomData;
 use core::mem;
+use crate::compiler::stack_executor::StackSpawn;
 
 pub struct Codegen<'par, 'vm> {
     arena: &'vm Arena,
@@ -72,7 +73,7 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
     }
     pub async fn compile(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
     ) -> Result<VmProgram<'vm>, CompileError<'par, 'vm>> {
         let mut functions = ArenaVec::try_with_capacity_in(1, self.arena)?;
         functions.try_push(self.compile_function(stack, &self.program.stmts).await?)?;
@@ -80,7 +81,7 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
     }
     async fn compile_function(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
         stmts: &'par [Stmt<'par>],
     ) -> Result<VmFunction<'vm>, CompileError<'par, 'vm>> {
         Ok(VmFunction {
@@ -100,7 +101,7 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
 impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     async fn compile_function(
         mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
         stmt: &'par [Stmt<'par>],
     ) -> Result<ArenaVec<'vm, VmBlock<'vm>>, CompileError<'par, 'vm>> {
         let mut block = self.add_block()?;
@@ -118,7 +119,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     }
     async fn compile_stmts(
         &mut self,
-        mut stack: Stack<'_>,
+        mut stack: StackSpawn<'_>,
         mut block: usize,
         stmt: &'par [Stmt<'par>],
     ) -> Result<usize, CompileError<'par, 'vm>> {
@@ -137,7 +138,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     }
     async fn compile_stmt(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
         block: usize,
         stmt: &'par Stmt<'par>,
     ) -> Result<usize, CompileError<'par, 'vm>> {
@@ -173,7 +174,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     }
     async fn compile_for_stmt(
         &mut self,
-        mut stack: Stack<'_>,
+        mut stack: StackSpawn<'_>,
         mut start: usize,
         stmt: &'par ForStmt<'par>,
     ) -> Result<usize, CompileError<'par, 'vm>> {
@@ -218,7 +219,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     }
     async fn compile_if_stmt(
         &mut self,
-        mut stack: Stack<'_>,
+        mut stack: StackSpawn<'_>,
         init: usize,
         stmt: &'par IfStmt<'par>,
     ) -> Result<usize, CompileError<'par, 'vm>> {
@@ -255,7 +256,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
 
     async fn compile_loop_stmt(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
         mut init: usize,
         stmt: &'par LoopStmt<'par>,
     ) -> Result<usize, CompileError<'par, 'vm>> {
@@ -273,7 +274,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     }
     async fn compile_while_stmt(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
         init: usize,
         stmt: &'par WhileStmt<'par>,
     ) -> Result<usize, CompileError<'par, 'vm>> {

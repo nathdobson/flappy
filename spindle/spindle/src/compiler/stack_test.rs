@@ -13,17 +13,3 @@ fn test() {
     assert_eq!(*a1, "hello");
     assert_eq!(*a2, "world");
 }
-async fn recurse(mut stack: Stack<'_>) -> usize {
-    1 + stack
-        .recurse(async |stack| recurse(stack).await)
-        .await
-        .unwrap_or(0)
-}
-
-#[tokio::test]
-async fn test_rec() {
-    let mut stack = new_stack::<1024>();
-    let stack: &mut StackStorage = &mut stack;
-    let mut stack = stack.start();
-    assert!(recurse(stack).await > 5);
-}

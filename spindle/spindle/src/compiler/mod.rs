@@ -15,7 +15,7 @@ pub mod codegen;
 pub mod stack;
 #[cfg(test)]
 mod stack_test;
-mod stack_executor;
+pub mod stack_executor;
 #[cfg(test)]
 mod stack_executor_test;
 

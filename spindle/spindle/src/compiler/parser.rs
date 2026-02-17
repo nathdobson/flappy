@@ -19,6 +19,7 @@ use crate::compiler::stack::Stack;
 use crate::vec_ext::VecExt;
 use crate::vm::VmOperator;
 use alloc::vec::Vec;
+use crate::compiler::stack_executor::StackSpawn;
 
 #[derive(Debug)]
 pub enum ParserError<'par> {
@@ -92,7 +93,7 @@ where
     }
     pub async fn parse_program(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
     ) -> Result<Program<'par>, AnnotatedParserError<'par>> {
         match self.parse_program_ast(stack).await {
             Ok(program) => Ok(program),
@@ -107,7 +108,7 @@ where
     }
     async fn parse_program_ast(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
     ) -> Result<Program<'par>, ParserError<'par>> {
         Ok(Program {
             stmts: self.parse_statement_list(stack).await?,
@@ -115,7 +116,7 @@ where
     }
     async fn parse_statement_list(
         &mut self,
-        mut stack: Stack<'_>,
+        mut stack: StackSpawn<'_>,
     ) -> Result<&'par [Stmt<'par>], ParserError<'par>> {
         Ok(stack
             .recurse(async |mut stack| {
@@ -136,7 +137,7 @@ where
     }
     async fn try_parse_statement(
         &mut self,
-        mut stack: Stack<'_>,
+        mut stack: StackSpawn<'_>,
     ) -> Result<Option<Stmt<'par>>, ParserError<'par>> {
         match self.try_peek_token(0)? {
             None => return Ok(None),
@@ -185,7 +186,7 @@ where
     }
     async fn try_parse_for_statement(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
     ) -> Result<Option<ForStmt<'par>>, ParserError<'par>> {
         let Some(for_token) = self.try_parse_keyword(Keyword::For)? else {
             return Ok(None);
@@ -210,7 +211,7 @@ where
     }
     async fn try_parse_if_statement(
         &mut self,
-        mut stack: Stack<'_>,
+        mut stack: StackSpawn<'_>,
     ) -> Result<Option<IfStmt<'par>>, ParserError<'par>> {
         Ok(stack
             .recurse(async |mut stack| -> Result<_, ParserError<'par>> {
@@ -235,7 +236,7 @@ where
     }
     async fn try_parse_else_clause(
         &mut self,
-        mut stack: Stack<'_>,
+        mut stack: StackSpawn<'_>,
     ) -> Result<Option<ElseClause<'par>>, ParserError<'par>> {
         if let Some(else_token) = self.try_parse_keyword(Keyword::Else)? {
             if let Some(open_brace) = self.try_parse_symbol(Symbol::LBrace)? {
@@ -263,7 +264,7 @@ where
     }
     async fn try_parse_loop_statement(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
     ) -> Result<Option<LoopStmt<'par>>, ParserError<'par>> {
         let Some(loop_token) = self.try_parse_keyword(Keyword::Loop)? else {
             return Ok(None);
@@ -280,7 +281,7 @@ where
     }
     async fn try_parse_while_statement(
         &mut self,
-        stack: Stack<'_>,
+        stack: StackSpawn<'_>,
     ) -> Result<Option<WhileStmt<'par>>, ParserError<'par>> {
         let Some(while_token) = self.try_parse_keyword(Keyword::While)? else {
             return Ok(None);

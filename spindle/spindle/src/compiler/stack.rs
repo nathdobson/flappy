@@ -82,14 +82,6 @@ impl<'a> Stack<'a> {
         let (stack, slot) = self.push(Layout::new::<T>())?;
         Ok(slot.init(value)?)
     }
-    pub async fn recurse<O, F: for<'b> AsyncFnOnce(Stack<'b>) -> O>(
-        &mut self,
-        f: F,
-    ) -> Result<O, AllocError> {
-        let layout = Layout::new::<<F as AsyncFnOnce<(Stack<'static>,)>>::CallOnceFuture>();
-        let (stack, slot) = self.push(layout)?;
-        Ok(slot.init(f(stack))?.into_pin().await)
-    }
     pub fn reborrow(&mut self) -> Stack<'_> {
         self.borrowed_left = true;
         Stack {
