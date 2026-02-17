@@ -10,6 +10,9 @@ pub enum InterpError<'vm> {
     OperatorError,
     ForLoopTypeError,
     NativeError,
+    StackEmpty,
+    IntegerOverflow,
+    BadStackIndex,
 }
 
 impl From<AllocError> for InterpError<'_> {

@@ -1,13 +1,21 @@
 # Spindle
 
-Spindle is a simple scripting language for controlling the display.
+Spindle is a simple scripting language for controlling embedded systems.
 
 ## Features
 
+* Rust-based syntax
 * Imperative control flow
 * Dynamic typing
 * Reference-counted garbage collection
-* Incremental heap compaction to avoid memory fragmentation
+* [TODO] Incremental heap compaction to limit memory fragmentation
+* Does not invoke the [global allocator](https://doc.rust-lang.org/std/alloc/index.html#the-global_allocator-attribute).
+* Denial-of-service protection for untrusted scripts.
+  * Memory usage limits
+  * Compatible with `--cfg no_global_oom_handling`
+  * [TODO] Stack overflow protection
+  * [TODO] Execution time budget between yields to the executor
+* Compatible with `#![no_std]`.
 
 ## Types
 

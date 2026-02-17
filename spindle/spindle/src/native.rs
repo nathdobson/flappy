@@ -1,9 +1,10 @@
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
-use crate::interp::value::Value;
 use crate::interp::stack::{Stack, StackBox};
+use crate::interp::value::Value;
 use core::alloc::AllocError;
 use core::fmt;
+use core::pin::Pin;
 use log::info;
 
 pub struct NativeError;
@@ -15,7 +16,10 @@ pub trait NativeFn: 'static {
         stack: &'call mut Stack<'stack>,
         heap: &'call mut Heap<'heap>,
         args: &'call [Value],
-    ) -> Result<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>, AllocError>;
+    ) -> Result<
+        Pin<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>>,
+        AllocError,
+    >;
 }
 
 pub struct PrintFn;
@@ -30,24 +34,28 @@ impl NativeFn for PrintFn {
         mut stack: &'call mut Stack<'stack>,
         heap: &'call mut Heap<'heap>,
         args: &'call [Value],
-    ) -> Result<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>, AllocError>
-    {
-        Ok(stack.push_init(async move {
-            info!(
-                "{}",
-                fmt::from_fn(|f| {
-                    for arg in args {
-                        match arg {
-                            Value::Null => write!(f, "null")?,
-                            Value::Bool(arg) => write!(f, "{}", arg)?,
-                            Value::Number(arg) => write!(f, "{}", arg)?,
-                            Value::Ref(arg) => write!(f, "{}", heap.get(arg))?,
+    ) -> Result<
+        Pin<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>>,
+        AllocError,
+    > {
+        Ok(stack
+            .push_init(async move {
+                info!(
+                    "{}",
+                    fmt::from_fn(|f| {
+                        for arg in args {
+                            match arg {
+                                Value::Null => write!(f, "null")?,
+                                Value::Bool(arg) => write!(f, "{}", arg)?,
+                                Value::Number(arg) => write!(f, "{}", arg)?,
+                                Value::Ref(arg) => write!(f, "{}", heap.get(arg))?,
+                            }
                         }
-                    }
-                    Ok(())
-                })
-            );
-            Ok(Value::Null)
-        })? as StackBox<_>)
+                        Ok(())
+                    })
+                );
+                Ok(Value::Null)
+            })?
+            .into_pin())
     }
 }

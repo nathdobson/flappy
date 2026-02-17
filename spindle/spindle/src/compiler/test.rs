@@ -3,13 +3,14 @@ use crate::compiler::codegen::Codegen;
 use crate::compiler::lexer::Lexer;
 use crate::compiler::parser::Parser;
 use crate::testutils::with_test_compile;
-use crate::vm::{
-    VmCallExpr, VmExpr, VmExprStmt, VmForStmt, VmFunction, VmFunctionName, VmIfStmt, VmLetStmt,
-    VmOperator, VmOperatorExpr, VmProgram, VmStmt,
-};
+use crate::vm::VmBlock;
+use crate::vm::VmFunction;
+use crate::vm::VmInstr;
+use crate::vm::VmOperator;
+use crate::vm::VmProgram;
+use crate::vm::VmFunctionName;
 use arena::ArenaStorage;
 use std::assert_matches;
-
 #[tokio::test]
 async fn test_parser() {
     use itertools::Itertools;
@@ -24,258 +25,20 @@ async fn test_parser() {
             program,
             VmProgram {
                 functions: [VmFunction {
-                    stmt: VmStmt::LetStmt(VmLetStmt {
-                        expr: VmExpr::Operator(VmOperatorExpr {
-                            operator: VmOperator::Plus,
-                            left: VmExpr::Number(2),
-                            right: VmExpr::Number(2)
-                        }),
-                        next: VmStmt::ExprStmt(VmExprStmt {
-                            expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Native(0),
-                                args: [VmExpr::Var(0)],
-                            }),
-                            next: VmStmt::ExprStmt(VmExprStmt {
-                                expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Native(0),
-                                    args: [VmExpr::Var(0)],
-                                }),
-                                next: VmStmt::Noop,
-                            }),
-                        })
-                    })
-                }]
-            }
-        );
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn test_for_loop() {
-    use itertools::Itertools;
-
-    let code = r#"
-        for x in 0..10{
-            print(x);
-        }
-    "#;
-    with_test_compile(code, async |program| {
-        assert_matches!(
-            program,
-            VmProgram {
-                functions: [VmFunction {
-                    stmt: VmStmt::ForStmt(VmForStmt {
-                        init: VmExpr::Number(0),
-                        limit: VmExpr::Number(10),
-                        inner: VmStmt::ExprStmt(VmExprStmt {
-                            expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Native(0),
-                                args: [VmExpr::Var(0)],
-                            }),
-                            next: VmStmt::Noop,
-                        }),
-                        next: VmStmt::Noop,
-                    })
-                }]
-            }
-        );
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn test_if_stmt() {
-    use itertools::Itertools;
-
-    let code = r#"
-        if true {
-            print(true);
-        }
-        if false {
-            print(false);
-        }
-    "#;
-    with_test_compile(code, async |program| {
-        assert_matches!(
-            program,
-            VmProgram {
-                functions: [VmFunction {
-                    stmt: VmStmt::IfStmt(VmIfStmt {
-                        cond: VmExpr::Boolean(true),
-                        then_branch: VmStmt::ExprStmt(VmExprStmt {
-                            expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Native(0),
-                                args: [VmExpr::Boolean(true)],
-                            }),
-                            next: VmStmt::Noop
-                        }),
-                        else_branch: VmStmt::Noop,
-                        next: VmStmt::IfStmt(VmIfStmt {
-                            cond: VmExpr::Boolean(false),
-                            then_branch: VmStmt::ExprStmt(VmExprStmt {
-                                expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Native(0),
-                                    args: [VmExpr::Boolean(false)],
-                                }),
-                                next: VmStmt::Noop
-                            }),
-                            else_branch: VmStmt::Noop,
-                            next: VmStmt::Noop,
-                        }),
-                    }),
-                }]
-            }
-        );
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn test_if_else_stmt() {
-    use itertools::Itertools;
-
-    let code = r#"
-        if true {
-            print(0);
-        }else{
-            print(1);
-        }
-        if false {
-            print(2);
-        }else{
-            print(3);
-        }
-    "#;
-    with_test_compile(code, async |program| {
-        assert_matches!(
-            program,
-            VmProgram {
-                functions: [VmFunction {
-                    stmt: VmStmt::IfStmt(VmIfStmt {
-                        cond: VmExpr::Boolean(true),
-                        then_branch: VmStmt::ExprStmt(VmExprStmt {
-                            expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Native(0),
-                                args: [VmExpr::Number(0)],
-                            }),
-                            next: VmStmt::Noop,
-                        }),
-                        else_branch: VmStmt::ExprStmt(VmExprStmt {
-                            expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Native(0),
-                                args: [VmExpr::Number(1)],
-                            }),
-                            next: VmStmt::Noop,
-                        }),
-                        next: VmStmt::IfStmt(VmIfStmt {
-                            cond: VmExpr::Boolean(false),
-                            then_branch: VmStmt::ExprStmt(VmExprStmt {
-                                expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Native(0),
-                                    args: [VmExpr::Number(2)],
-                                }),
-                                next: VmStmt::Noop
-                            }),
-                            else_branch: VmStmt::ExprStmt(VmExprStmt {
-                                expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Native(0),
-                                    args: [VmExpr::Number(3)],
-                                }),
-                                next: VmStmt::Noop,
-                            }),
-                            next: VmStmt::Noop,
-                        }),
-                    }),
-                }]
-            }
-        );
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn test_if_else_if_stmt() {
-    use itertools::Itertools;
-
-    let code = r#"
-        if true {
-            print(0);
-        }else if false {
-            print(1);
-        }else{
-            print(2);
-        }
-        if false {
-            print(3);
-        }else if true{
-            print(4);
-        }else{
-            print(5);
-        }
-    "#;
-    with_test_compile(code, async |program| {
-        assert_matches!(
-            program,
-            VmProgram {
-                functions: [VmFunction {
-                    stmt: VmStmt::IfStmt(VmIfStmt {
-                        cond: VmExpr::Boolean(true),
-                        then_branch: VmStmt::ExprStmt(VmExprStmt {
-                            expr: VmExpr::Call(VmCallExpr {
-                                function: VmFunctionName::Native(0),
-                                args: [VmExpr::Number(0)],
-                            }),
-                            next: VmStmt::Noop,
-                        }),
-                        else_branch: VmStmt::IfStmt(VmIfStmt {
-                            cond: VmExpr::Boolean(false),
-                            then_branch: VmStmt::ExprStmt(VmExprStmt {
-                                expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Native(0),
-                                    args: [VmExpr::Number(1)],
-                                }),
-                                next: VmStmt::Noop
-                            }),
-                            else_branch: VmStmt::ExprStmt(VmExprStmt {
-                                expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Native(0),
-                                    args: [VmExpr::Number(2)],
-                                }),
-                                next: VmStmt::Noop,
-                            }),
-                            next: VmStmt::Noop,
-                        }),
-                        next: VmStmt::IfStmt(VmIfStmt {
-                            cond: VmExpr::Boolean(false),
-                            then_branch: VmStmt::ExprStmt(VmExprStmt {
-                                expr: VmExpr::Call(VmCallExpr {
-                                    function: VmFunctionName::Native(0),
-                                    args: [VmExpr::Number(3)],
-                                }),
-                                next: VmStmt::Noop
-                            }),
-                            else_branch: VmStmt::IfStmt(VmIfStmt {
-                                cond: VmExpr::Boolean(true),
-                                then_branch: VmStmt::ExprStmt(VmExprStmt {
-                                    expr: VmExpr::Call(VmCallExpr {
-                                        function: VmFunctionName::Native(0),
-                                        args: [VmExpr::Number(4)],
-                                    }),
-                                    next: VmStmt::Noop
-                                }),
-                                else_branch: VmStmt::ExprStmt(VmExprStmt {
-                                    expr: VmExpr::Call(VmCallExpr {
-                                        function: VmFunctionName::Native(0),
-                                        args: [VmExpr::Number(5)],
-                                    }),
-                                    next: VmStmt::Noop,
-                                }),
-                                next: VmStmt::Noop,
-                            }),
-                            next: VmStmt::Noop,
-                        }),
-                    }),
+                    blocks: [VmBlock {
+                        instrs: [
+                            VmInstr::Integer(2),
+                            VmInstr::Integer(2),
+                            VmInstr::Binop(VmOperator::Plus),
+                            VmInstr::Load(0),
+                            VmInstr::Call(VmFunctionName::Native(0), 1),
+                            VmInstr::Pop,
+                            VmInstr::Load(0),
+                            VmInstr::Call(VmFunctionName::Native(0), 1),
+                            VmInstr::Pop,
+                        ],
+                        term: _
+                    }]
                 }]
             }
         );

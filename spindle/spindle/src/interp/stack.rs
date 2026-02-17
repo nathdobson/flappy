@@ -7,7 +7,7 @@ use core::marker::{PhantomData, Unsize};
 use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::DerefMut;
 use core::ops::{CoerceUnsized, Deref};
-use core::pin::pin;
+use core::pin::{pin, PinCoerceUnsized};
 use core::pin::{Pin, UnsafePinned};
 use core::ptr::NonNull;
 use core::task::{Context, Poll};
@@ -189,3 +189,4 @@ impl<'a, T: ?Sized> DerefMut for StackBox<'a, T> {
 }
 
 impl<'a, T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<StackBox<'a, U>> for StackBox<'a, T> {}
+unsafe impl<'a, T: ?Sized> PinCoerceUnsized for StackBox<'a, T> {}

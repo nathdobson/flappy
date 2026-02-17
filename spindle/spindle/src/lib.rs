@@ -1,5 +1,4 @@
 #![feature(
-    assert_matches,
     allocator_api,
     never_type,
     type_alias_impl_trait,
@@ -14,6 +13,7 @@
 )]
 #![feature(unsize)]
 #![feature(coerce_unsized)]
+#![feature(pin_coerce_unsized_trait)]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use, unsafe_op_in_unsafe_fn)]
 #![allow(
