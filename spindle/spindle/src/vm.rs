@@ -16,7 +16,11 @@ pub enum VmOperator {
     Minus,
     Divide,
 
-    LessThan,
+    Less,
+    LessEquals,
+    Greater,
+    GreaterEquals,
+    EqualsEquals,
 }
 
 #[derive(Debug, Eq, PartialEq)]

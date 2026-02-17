@@ -23,6 +23,10 @@ pub enum Symbol {
     RBrace,
     Comma,
     DotDot,
+    Less,
+    LessEquals,
+    Greater,
+    GreaterEquals,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -54,7 +58,7 @@ pub struct KeywordToken {
     pub loc: Location,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct IdentToken<'src> {
     pub ident: &'src str,
     pub loc: Location,
@@ -96,6 +100,10 @@ impl Debug for Symbol {
                 Symbol::LBrace => "{",
                 Symbol::RBrace => "}",
                 Symbol::DotDot => "..",
+                Symbol::Less => "<",
+                Symbol::LessEquals => "<=",
+                Symbol::Greater => ">",
+                Symbol::GreaterEquals => ">=",
             }
         )
     }

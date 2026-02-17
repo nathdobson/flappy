@@ -36,6 +36,7 @@ async fn test_parser() {
                             VmInstr::Load(0),
                             VmInstr::Call(VmFunctionName::Native(0), 1),
                             VmInstr::Pop,
+                            VmInstr::Pop,
                         ],
                         term: _
                     }]

@@ -140,11 +140,19 @@ impl<'vm> Interp<'vm> {
                 };
                 self.push_value(Value::Number(c))?;
             }
-            VmOperator::LessThan => {
+            VmOperator::Less
+            | VmOperator::LessEquals
+            | VmOperator::Greater
+            | VmOperator::GreaterEquals
+            | VmOperator::EqualsEquals => {
                 let a = a.into_number()?;
                 let b = b.into_number()?;
                 let c = match op {
-                    VmOperator::LessThan => a < b,
+                    VmOperator::Less => a < b,
+                    VmOperator::LessEquals => a <= b,
+                    VmOperator::Greater => a > b,
+                    VmOperator::GreaterEquals => a >= b,
+                    VmOperator::EqualsEquals => a == b,
                     _ => unreachable!(),
                 };
                 self.push_value(Value::Bool(c))?;

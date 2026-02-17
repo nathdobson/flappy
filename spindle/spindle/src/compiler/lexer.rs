@@ -184,6 +184,26 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
                 self.next()?;
                 Symbol::Comma
             }
+            '<' => {
+                self.next()?;
+                match self.peek(0)? {
+                    '=' => {
+                        self.next()?;
+                        Symbol::LessEquals
+                    }
+                    _ => Symbol::Less,
+                }
+            }
+            '>' => {
+                self.next()?;
+                match self.peek(0)? {
+                    '=' => {
+                        self.next()?;
+                        Symbol::GreaterEquals
+                    }
+                    _ => Symbol::Greater,
+                }
+            }
             c => return Err(LexerError::UnexpectedChar(c)),
         };
         Ok(Token::Symbol(SymbolToken {

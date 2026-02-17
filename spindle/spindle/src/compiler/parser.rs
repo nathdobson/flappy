@@ -1,6 +1,6 @@
 use crate::compiler::ast::{
     CallExpr, ElseClause, Expr, ExprList, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt,
-    ParensExpr, Program, Stmt, WhileStmt,
+    ParensExpr, Program, ReassignStmt, Stmt, WhileStmt,
 };
 use crate::compiler::lexer::{Lexer, LexerError};
 use crate::compiler::token::{
@@ -11,10 +11,12 @@ use arena::{Arena, ArenaVec};
 use core::iter::Peekable;
 
 pub struct Parser<'par, I: Iterator<Item = Result<Token<'par>, LexerError<'par>>>> {
-    tokens: Peekable<I>,
+    tokens: Lookahead<2, I>,
     arena: &'par Arena,
 }
+use crate::compiler::lookahead::Lookahead;
 use crate::vec_ext::VecExt;
+use crate::vm::VmOperator;
 use alloc::vec::Vec;
 
 #[derive(Debug)]
@@ -59,12 +61,12 @@ where
 {
     pub fn new(tokens: I, arena: &'par Arena) -> Self {
         Self {
-            tokens: tokens.peekable(),
+            tokens: Lookahead::new(tokens),
             arena,
         }
     }
-    fn try_peek_token(&mut self) -> Result<Option<&Token<'par>>, ParserError<'par>> {
-        if let Some(token) = self.tokens.peek() {
+    fn try_peek_token(&mut self, n: usize) -> Result<Option<&Token<'par>>, ParserError<'par>> {
+        if let Some(token) = self.tokens.peek(n) {
             match token {
                 Ok(x) => Ok(Some(x)),
                 Err(e) => Err((*e).into()),
@@ -73,8 +75,9 @@ where
             Ok(None)
         }
     }
-    fn peek_token(&mut self) -> Result<&Token<'par>, ParserError<'par>> {
-        Ok(self.try_peek_token()?.ok_or(ParserError::UnexpectedEof)?)
+
+    fn peek_token(&mut self, n: usize) -> Result<&Token<'par>, ParserError<'par>> {
+        Ok(self.try_peek_token(n)?.ok_or(ParserError::UnexpectedEof)?)
     }
     fn try_next_token(&mut self) -> Result<Option<Token<'par>>, ParserError<'par>> {
         if let Some(token) = self.tokens.next() {
@@ -111,14 +114,14 @@ where
         Ok(stmts)
     }
     fn try_parse_eof(&mut self) -> Result<Option<()>, ParserError<'par>> {
-        if let Some(_) = self.try_peek_token()? {
+        if let Some(_) = self.try_peek_token(0)? {
             Ok(None)
         } else {
             Ok(Some(()))
         }
     }
     fn try_parse_statement(&mut self) -> Result<Option<Stmt<'par>>, ParserError<'par>> {
-        match self.try_peek_token()? {
+        match self.try_peek_token(0)? {
             None => return Ok(None),
             Some(token) => match token {
                 Token::Symbol(symbol) => match symbol.symbol {
@@ -138,6 +141,10 @@ where
             Ok(Some(Stmt::Loop(loop_stmt)))
         } else if let Some(while_stmt) = self.try_parse_while_statement()? {
             Ok(Some(Stmt::While(while_stmt)))
+        } else if let Some(break_stmt) = self.try_parse_break_statement()? {
+            Ok(Some(Stmt::Break))
+        } else if let Some(reassign_stmt) = self.try_parse_reassign_statement()? {
+            Ok(Some(Stmt::Reassign(reassign_stmt)))
         } else {
             let result = Stmt::ExprStmt(self.parse_expr()?);
             self.parse_symbol(Symbol::Semi)?;
@@ -253,8 +260,70 @@ where
             close_brace,
         }))
     }
+    fn try_parse_break_statement(&mut self) -> Result<Option<()>, ParserError<'par>> {
+        let Some(break_token) = self.try_parse_keyword(Keyword::Break)? else {
+            return Ok(None);
+        };
+        self.parse_symbol(Symbol::Semi)?;
+        Ok(Some(()))
+    }
+    fn try_parse_reassign_statement(
+        &mut self,
+    ) -> Result<Option<ReassignStmt<'par>>, ParserError<'par>> {
+        match self.try_peek_token(0)? {
+            Some(Token::Ident(ident)) => {
+                let ident = *ident;
+                match self.try_peek_token(1)? {
+                    Some(Token::Symbol(
+                        equals @ SymbolToken {
+                            symbol: Symbol::Equals,
+                            ..
+                        },
+                    )) => {
+                        let equals = *equals;
+                        self.next_token()?;
+                        self.next_token()?;
+                        let expr = self.parse_expr()?;
+                        self.parse_symbol(Symbol::Semi)?;
+                        Ok(Some(ReassignStmt {
+                            ident,
+                            equals,
+                            expr,
+                        }))
+                    }
+                    _ => Ok(None),
+                }
+            }
+            _ => Ok(None),
+        }
+    }
     fn parse_expr(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
-        self.parse_expr2()
+        self.parse_expr3()
+    }
+    fn parse_expr3(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
+        let mut expr = self.parse_expr2()?;
+        loop {
+            let symbol = if let Some(less) = self.try_parse_symbol(Symbol::Less)? {
+                less
+            } else if let Some(less_equals) = self.try_parse_symbol(Symbol::LessEquals)? {
+                less_equals
+            } else if let Some(greater) = self.try_parse_symbol(Symbol::Greater)? {
+                greater
+            } else if let Some(greater_equals) = self.try_parse_symbol(Symbol::GreaterEquals)? {
+                greater_equals
+            } else if let Some(equals_equals) = self.try_parse_symbol(Symbol::EqualsEquals)? {
+                equals_equals
+            } else {
+                break;
+            };
+            let expr2 = self.parse_expr2()?;
+            expr = Expr::InfixExpr(InfixExpr {
+                left: self.arena.alloc_box(expr)?,
+                symbol,
+                right: self.arena.alloc_box(expr2)?,
+            });
+        }
+        Ok(expr)
     }
     fn parse_expr2(&mut self) -> Result<Expr<'par>, ParserError<'par>> {
         let mut expr = self.parse_expr1()?;
@@ -346,7 +415,7 @@ where
             .ok_or(ParserError::ExpectedKeyword(keyword))?)
     }
     fn try_parse_keyword(&mut self, k: Keyword) -> Result<Option<KeywordToken>, ParserError<'par>> {
-        match self.try_peek_token()? {
+        match self.try_peek_token(0)? {
             Some(Token::Keyword(KeywordToken { keyword, .. })) if *keyword == k => {
                 match self.next_token()? {
                     Token::Keyword(token) => Ok(Some(token)),
@@ -357,7 +426,7 @@ where
         }
     }
     fn try_parse_string_literal(&mut self) -> Result<Option<&'par str>, ParserError<'par>> {
-        match self.try_peek_token()? {
+        match self.try_peek_token(0)? {
             Some(Token::String(x)) => match self.next_token()? {
                 Token::String(x) => Ok(Some(x)),
                 _ => unreachable!(),
@@ -366,7 +435,7 @@ where
         }
     }
     fn try_parse_symbol(&mut self, s: Symbol) -> Result<Option<SymbolToken>, ParserError<'par>> {
-        match self.try_peek_token()? {
+        match self.try_peek_token(0)? {
             Some(Token::Symbol(SymbolToken { symbol, .. })) if *symbol == s => {
                 match self.next_token()? {
                     Token::Symbol(token) => Ok(Some(token)),
@@ -377,7 +446,7 @@ where
         }
     }
     fn try_parse_ident(&mut self) -> Result<Option<IdentToken<'par>>, ParserError<'par>> {
-        match self.try_peek_token()? {
+        match self.try_peek_token(0)? {
             Some(Token::Ident(_)) => match self.next_token()? {
                 Token::Ident(token) => Ok(Some(token)),
                 _ => unreachable!(),
@@ -386,7 +455,7 @@ where
         }
     }
     fn try_parse_number(&mut self) -> Result<Option<NumberToken<'par>>, ParserError<'par>> {
-        match self.try_peek_token()? {
+        match self.try_peek_token(0)? {
             Some(Token::Number(_)) => match self.next_token()? {
                 Token::Number(token) => Ok(Some(token)),
                 _ => unreachable!(),

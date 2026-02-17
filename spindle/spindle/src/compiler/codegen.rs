@@ -1,6 +1,6 @@
 use crate::compiler::ast::{
-    CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, Program, Stmt,
-    WhileStmt,
+    CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, Program,
+    ReassignStmt, Stmt, WhileStmt,
 };
 use crate::compiler::token::{IdentToken, Symbol};
 use crate::native::NativeFn;
@@ -18,11 +18,18 @@ pub struct Codegen<'par, 'vm> {
     natives: &'vm [&'vm dyn NativeFn],
 }
 
+#[derive(Copy, Clone)]
+struct BreakPoint {
+    block: usize,
+    variables: usize,
+}
+
 pub struct FunctionCodegen<'par, 'vm> {
     arena: &'vm Arena,
     natives: &'vm [&'vm dyn NativeFn],
     variables: ArenaVec<'vm, Option<&'par str>>,
     blocks: ArenaVec<'vm, VmBlock<'vm>>,
+    break_points: ArenaVec<'vm, BreakPoint>,
 }
 
 #[derive(Debug)]
@@ -35,6 +42,7 @@ pub enum CompileError<'par, 'vm> {
     UnexpectedInfixSymbol,
     Unimplemented,
     UnknownFunction,
+    NotInLoop,
 }
 
 impl<'par, 'vm> From<TryReserveError> for CompileError<'par, 'vm> {
@@ -76,180 +84,11 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
                 natives: self.natives,
                 variables: Vec::new_in(self.arena),
                 blocks: Vec::new_in(self.arena),
+                break_points: Vec::new_in(self.arena),
             }
             .compile_function(stmts)?,
         })
     }
-
-    fn compile_stmt(
-        &mut self,
-        stmts: &'par [Stmt<'par>],
-        blocks: &'vm mut ArenaVec<'vm, VmBlock<'vm>>,
-    ) -> Result<(), CompileError<'par, 'vm>> {
-        match stmts.split_first() {
-            None => {
-                todo!();
-                // Ok(self.arena.alloc_box(VmStmt::Noop)?)
-            }
-            Some((stmt, next)) => match stmt {
-                Stmt::Let(stmt) => {
-                    todo!();
-                    // let expr = self.compile_expr(&stmt.expr)?;
-                    // self.variables.try_push(Some(stmt.ident.ident))?;
-                    // let result = self.arena.alloc_box(VmStmt::LetStmt(VmLetStmt {
-                    //     expr,
-                    //     next: self.compile_stmt(next)?,
-                    // }))?;
-                    // self.variables.pop();
-                    // Ok(result)
-                }
-                Stmt::ExprStmt(expr) => {
-                    todo!();
-                    //     Ok(self.arena.alloc_box(VmStmt::ExprStmt(VmExprStmt {
-                    //     expr: self.compile_expr(expr)?,
-                    //     next: self.compile_stmt(next)?,
-                    // }))?),
-                }
-                Stmt::For(stmt) => {
-                    todo!();
-                    // let init = self.compile_expr(&stmt.init_expr)?;
-                    // let limit = self.compile_expr(&stmt.limit_expr)?;
-                    // self.variables.try_push(Some(stmt.ident.ident))?;
-                    // let inner = self.compile_stmt(&stmt.inner)?;
-                    // self.variables.pop();
-                    // let next = self.compile_stmt(next)?;
-                    // let result = self.arena.alloc_box(VmStmt::ForStmt(VmForStmt {
-                    //     init,
-                    //     limit,
-                    //     inner,
-                    //     next,
-                    // }))?;
-                    // Ok(result)
-                }
-                Stmt::If(stmt) => {
-                    todo!();
-                    // self.compile_if_stmt(stmt, next)
-                }
-                Stmt::Loop(stmt) => {
-                    todo!();
-                    // self.compile_loop_stmt(stmt, next)
-                }
-                Stmt::While(stmt) => {
-                    todo!();
-                    // self.compile_while_stmt(stmt, next)
-                }
-            },
-        }
-    }
-    // fn compile_if_stmt(
-    //     &mut self,
-    //     stmt: &'par IfStmt<'par>,
-    //     next: &'par [Stmt<'par>],
-    // ) -> Result<BoxVmStmt<'vm>, CompileError<'par, 'vm>> {
-    //     let cond = self.compile_expr(&stmt.cond_expr)?;
-    //     let then = self.compile_stmt(&stmt.then_stmt)?;
-    //     let else_clause = match &stmt.else_clause {
-    //         None => self.arena.alloc_box(VmStmt::Noop)?,
-    //         Some(else_clause) => match else_clause {
-    //             ElseClause::Else { else_stmt, .. } => self.compile_stmt(else_stmt)?,
-    //             ElseClause::ElseIf { else_if_stmt, .. } => {
-    //                 self.compile_if_stmt(else_if_stmt, &[])?
-    //             }
-    //         },
-    //     };
-    //     let next = self.compile_stmt(next)?;
-    //     Ok(self.arena.alloc_box(VmStmt::IfStmt(VmIfStmt {
-    //         cond,
-    //         then_branch: then,
-    //         else_branch: else_clause,
-    //         next,
-    //     }))?)
-    // }
-    // fn compile_loop_stmt(
-    //     &mut self,
-    //     stmt: &'par LoopStmt<'par>,
-    //     next: &'par [Stmt<'par>],
-    // ) -> Result<BoxVmStmt<'vm>, CompileError<'par, 'vm>> {
-    //     let inner = self.compile_stmt(&stmt.inner)?;
-    //     let next = self.compile_stmt(next)?;
-    //     todo!();
-    // }
-    // fn compile_while_stmt(
-    //     &mut self,
-    //     stmt: &'par WhileStmt<'par>,
-    //     next: &'par [Stmt<'par>],
-    // ) -> Result<BoxVmStmt<'vm>, CompileError<'par, 'vm>> {
-    //     todo!();
-    // }
-    // fn compile_expr(&mut self, expr: &Expr) -> Result<BoxVmExpr<'vm>, CompileError<'par, 'vm>> {
-    //     match expr {
-    //         Expr::Var(v) => {
-    //             let index = self
-    //                 .variables
-    //                 .iter()
-    //                 .rev()
-    //                 .position(|x| *x == Some(v.ident))
-    //                 .ok_or_else(|| CompileError::UnknownVariable)?;
-    //             Ok(self.arena.alloc_box(VmExpr::Var(index))?)
-    //         }
-    //         Expr::Parens(x) => self.compile_expr(&x.expr),
-    //         Expr::Number(x) => Ok(self.arena.alloc_box(VmExpr::Number(
-    //             x.number
-    //                 .parse()
-    //                 .map_err(|_| CompileError::BadNumberLiteral)?,
-    //         ))?),
-    //         Expr::InfixExpr(expr) => {
-    //             let operator = match expr.symbol.symbol {
-    //                 Symbol::Plus => VmOperator::Plus,
-    //                 Symbol::Minus => VmOperator::Minus,
-    //                 Symbol::Times => VmOperator::Times,
-    //                 Symbol::Divide => VmOperator::Divide,
-    //                 _ => return Err(CompileError::UnexpectedInfixSymbol),
-    //             };
-    //             Ok(self.arena.alloc_box(VmExpr::Operator(VmOperatorExpr {
-    //                 operator,
-    //                 left: self.compile_expr(&expr.left)?,
-    //                 right: self.compile_expr(&expr.right)?,
-    //             }))?)
-    //         }
-    //         Expr::Call(expr) => self.compile_call_expr(expr),
-    //         Expr::Null(_) => Ok(self.arena.alloc_box(VmExpr::Null)?),
-    //         Expr::False(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(false))?),
-    //         Expr::True(_) => Ok(self.arena.alloc_box(VmExpr::Boolean(true))?),
-    //         Expr::String(x) => Ok(self
-    //             .arena
-    //             .alloc_box(VmExpr::String(self.arena.alloc_str(x)?))?),
-    //     }
-    // }
-    //
-    // fn compile_call_expr(
-    //     &mut self,
-    //     expr: &CallExpr,
-    // ) -> Result<BoxVmExpr<'vm>, CompileError<'par, 'vm>> {
-    //     let function = match &*expr.callee {
-    //         Expr::Var(ident) => {
-    //             let function = self
-    //                 .natives
-    //                 .iter()
-    //                 .position(|x| x.name() == ident.ident)
-    //                 .ok_or(CompileError::UnknownFunction)?;
-    //             VmFunctionName::Native(function)
-    //         }
-    //         _ => return Err(CompileError::Unimplemented),
-    //     };
-    //     let mut args = ArenaVec::try_with_capacity_in(expr.args.exprs.len(), &self.arena)?;
-    //     for arg in &expr.args.exprs {
-    //         args.try_push(self.compile_expr(arg)?)?;
-    //         self.variables.push(None);
-    //     }
-    //     let result = self
-    //         .arena
-    //         .alloc_box(VmExpr::Call(VmCallExpr { function, args }))?;
-    //     for _ in 0..expr.args.exprs.len() {
-    //         self.variables.pop();
-    //     }
-    //     Ok(result)
-    // }
 }
 
 impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
@@ -279,9 +118,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         for stmt in stmt {
             block = self.compile_stmt(stmt, block)?;
         }
-        while self.variables.len() > orig_vars {
-            self.variables.pop();
-        }
+        block = self.pop_until(orig_vars, block)?;
         Ok(block)
     }
     fn compile_stmt(
@@ -296,6 +133,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
             Stmt::If(stmt) => self.compile_if_stmt(stmt, block),
             Stmt::Loop(stmt) => self.compile_loop_stmt(stmt, block),
             Stmt::While(stmt) => self.compile_while_stmt(stmt, block),
+            Stmt::Break => self.compile_break_stmt(block),
+            Stmt::Reassign(stmt) => self.compile_reassign_stmt(stmt, block),
         }
     }
 
@@ -332,9 +171,13 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         let cond = self.add_block()?;
         let mut inner = self.add_block()?;
         let join = self.add_block()?;
+        self.break_points.try_push(BreakPoint {
+            block: join,
+            variables: counter,
+        })?;
         self.push_instr(cond, VmInstr::Load(counter))?;
         self.push_instr(cond, VmInstr::Load(limit))?;
-        self.push_instr(cond, VmInstr::Binop(VmOperator::LessThan))?;
+        self.push_instr(cond, VmInstr::Binop(VmOperator::Less))?;
         self.terminate(start, VmTerm::Jump(cond))?;
         self.terminate(
             cond,
@@ -352,6 +195,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
 
         self.variables.pop();
         self.variables.pop();
+        self.break_points.pop();
         Ok(join)
     }
     fn compile_if_stmt(
@@ -383,17 +227,56 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     fn compile_loop_stmt(
         &mut self,
         stmt: &'par LoopStmt<'par>,
-        mut block: usize,
+        mut init: usize,
     ) -> Result<usize, CompileError<'par, 'vm>> {
-        todo!();
-        Ok(block)
+        let enter = self.add_block()?;
+        let join = self.add_block()?;
+        self.break_points.push(BreakPoint {
+            block: join,
+            variables: self.variables.len(),
+        });
+        self.terminate(init, VmTerm::Jump(enter))?;
+        let exit = self.compile_stmts(&stmt.inner, enter)?;
+        self.terminate(exit, VmTerm::Jump(enter))?;
+        self.break_points.pop();
+        Ok(join)
     }
     fn compile_while_stmt(
         &mut self,
         stmt: &'par WhileStmt<'par>,
+        init: usize,
+    ) -> Result<usize, CompileError<'par, 'vm>> {
+        let cond_enter = self.add_block()?;
+        let inner_enter = self.add_block()?;
+        let join = self.add_block()?;
+        self.terminate(init, VmTerm::Jump(cond_enter))?;
+        let cond_exit = self.compile_expr(&stmt.cond, cond_enter)?;
+        self.terminate(
+            cond_exit,
+            VmTerm::CondJump {
+                yes: inner_enter,
+                no: join,
+            },
+        )?;
+        let inner_exit = self.compile_stmts(&stmt.inner, inner_enter)?;
+        self.terminate(inner_exit, VmTerm::Jump(cond_enter))?;
+        Ok(join)
+    }
+    fn compile_break_stmt(&mut self, mut block: usize) -> Result<usize, CompileError<'par, 'vm>> {
+        let point = *self.break_points.last().ok_or(CompileError::NotInLoop)?;
+        self.pop_until(point.variables, block)?;
+        self.terminate(block, VmTerm::Jump(point.block))?;
+        block = self.add_block()?;
+        Ok(block)
+    }
+    fn compile_reassign_stmt(
+        &mut self,
+        stmt: &'par ReassignStmt<'par>,
         mut block: usize,
     ) -> Result<usize, CompileError<'par, 'vm>> {
-        todo!();
+        let var = self.find_var(&stmt.ident)?;
+        block = self.compile_expr(&stmt.expr, block)?;
+        self.push_instr(block, VmInstr::Store(var))?;
         Ok(block)
     }
     fn compile_expr(
@@ -418,13 +301,15 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         var: &'par IdentToken,
         block: usize,
     ) -> Result<usize, CompileError<'par, 'vm>> {
-        let var = self
-            .variables
-            .iter()
-            .position(|x| *x == Some(var.ident))
-            .ok_or(CompileError::UnknownVariable(var))?;
+        let var = self.find_var(var)?;
         self.push_instr(block, VmInstr::Load(var))?;
         Ok(block)
+    }
+    fn find_var(&self, var: &'par IdentToken) -> Result<usize, CompileError<'par, 'vm>> {
+        self.variables
+            .iter()
+            .position(|x| *x == Some(var.ident))
+            .ok_or(CompileError::UnknownVariable(var))
     }
     fn compile_number_literal(
         &mut self,
@@ -467,6 +352,11 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
                 Symbol::Minus => VmOperator::Minus,
                 Symbol::Times => VmOperator::Times,
                 Symbol::Divide => VmOperator::Divide,
+                Symbol::Less => VmOperator::Less,
+                Symbol::LessEquals => VmOperator::LessEquals,
+                Symbol::Greater => VmOperator::Greater,
+                Symbol::GreaterEquals => VmOperator::GreaterEquals,
+                Symbol::EqualsEquals => VmOperator::EqualsEquals,
                 _ => todo!("{:?}", expr.symbol),
             }),
         )?;
@@ -509,5 +399,12 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
             _ => panic!("double termination of block"),
         }
         Ok(())
+    }
+    fn pop_until(&mut self, count: usize, block: usize) -> Result<usize, CompileError<'par, 'vm>> {
+        while self.variables.len() > count {
+            self.push_instr(block, VmInstr::Pop)?;
+            self.variables.pop();
+        }
+        Ok(block)
     }
 }

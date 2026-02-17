@@ -1,9 +1,9 @@
 use crate::interp::Interp;
 use crate::interp::heap::HeapStorage;
+use crate::interp::stack::{StackStorage, new_stack};
 use crate::interp::value::Value;
 use crate::native::{NativeFn, PrintFn};
-use crate::interp::stack::{StackStorage, new_stack};
-use crate::testutils::{with_test_compile};
+use crate::testutils::with_test_compile;
 use log::info;
 use std::assert_matches;
 use testing_logger::CapturedLog;
@@ -15,12 +15,7 @@ async fn interp(code: &str) {
         let mut stack: &mut StackStorage = &mut stack;
         let stack = stack.start();
         let mut heap_storage = HeapStorage::<1024, 65536>::new();
-        let mut interp = Interp::new(
-            program,
-            &mut value_stack,
-            heap_storage.start(),
-            &[&PrintFn],
-        );
+        let mut interp = Interp::new(program, &mut value_stack, heap_storage.start(), &[&PrintFn]);
         interp.interp(stack).await.unwrap();
     })
     .await;
@@ -222,7 +217,7 @@ async fn test_two_argument() {
         print(a, b);
        "#,
     )
-        .await;
+    .await;
     assert_matches!(
         testing_logger::take()[..],
         [CapturedLog {
@@ -230,5 +225,73 @@ async fn test_two_argument() {
             level: _,
             target: _
         },]
+    );
+}
+
+#[tokio::test]
+async fn test_loop() {
+    testing_logger::setup();
+    interp(
+        r#"
+        let a = 1;
+        loop {
+            if a > 3 {
+               break;
+            }
+            print(a);
+            a = a + 1;
+        }
+       "#,
+    )
+    .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [
+            CapturedLog {
+                body: "1",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "2",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "3",
+                level: _,
+                target: _
+            },
+        ]
+    );
+}
+
+#[tokio::test]
+async fn test_while() {
+    testing_logger::setup();
+    interp(
+        r#"
+        let a = 1;
+        while a < 3 {
+            print(a);
+            a = a + 1;
+        }
+       "#,
+    )
+        .await;
+    assert_matches!(
+        testing_logger::take()[..],
+        [
+            CapturedLog {
+                body: "1",
+                level: _,
+                target: _
+            },
+            CapturedLog {
+                body: "2",
+                level: _,
+                target: _
+            },
+        ]
     );
 }

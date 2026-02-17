@@ -1,4 +1,4 @@
-use crate::compiler::token::{IdentToken, Keyword, KeywordToken, NumberToken, SymbolToken};
+use crate::compiler::token::{IdentToken, Keyword, KeywordToken, NumberToken, SymbolToken, Token};
 use arena::{ArenaBox, ArenaVec};
 
 #[derive(Debug)]
@@ -14,6 +14,8 @@ pub enum Stmt<'par> {
     If(IfStmt<'par>),
     Loop(LoopStmt<'par>),
     While(WhileStmt<'par>),
+    Reassign(ReassignStmt<'par>),
+    Break,
 }
 
 #[derive(Debug)]
@@ -74,6 +76,13 @@ pub enum ElseClause<'par> {
         else_token: KeywordToken,
         else_if_stmt: ArenaBox<'par, IfStmt<'par>>,
     },
+}
+
+#[derive(Debug)]
+pub struct ReassignStmt<'par> {
+    pub ident: IdentToken<'par>,
+    pub equals: SymbolToken,
+    pub expr: Expr<'par>,
 }
 
 pub type BoxExpr<'par> = ArenaBox<'par, Expr<'par>>;
