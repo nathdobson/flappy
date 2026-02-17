@@ -64,7 +64,7 @@ pub struct IdentToken<'src> {
     pub loc: Location,
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub struct NumberToken<'src> {
     pub number: &'src str,
     pub loc: Location,

@@ -7,7 +7,7 @@ use crate::compiler::token::{
     IdentToken, Keyword, KeywordToken, Location, NumberToken, Symbol, SymbolToken, Token,
 };
 use alloc::collections::TryReserveError;
-use arena::{Arena, ArenaVec};
+use arena::{Arena, ArenaVec, IntoRef};
 use core::iter::Peekable;
 
 pub struct Parser<'par, I: Iterator<Item = Result<Token<'par>, LexerError<'par>>>> {
@@ -103,15 +103,15 @@ where
     }
     fn parse_program_ast(&mut self) -> Result<Program<'par>, ParserError<'par>> {
         Ok(Program {
-            stmts: self.parse_statement_vec()?,
+            stmts: self.parse_statement_list()?,
         })
     }
-    fn parse_statement_vec(&mut self) -> Result<ArenaVec<'par, Stmt<'par>>, ParserError<'par>> {
+    fn parse_statement_list(&mut self) -> Result<&'par [Stmt<'par>], ParserError<'par>> {
         let mut stmts = Vec::new_in(self.arena);
         while let Some(stmt) = self.try_parse_statement()? {
             stmts.try_push(stmt)?;
         }
-        Ok(stmts)
+        Ok(stmts.into_ref())
     }
     fn try_parse_eof(&mut self) -> Result<Option<()>, ParserError<'par>> {
         if let Some(_) = self.try_peek_token(0)? {
@@ -176,7 +176,7 @@ where
         self.parse_symbol(Symbol::DotDot)?;
         let limit_expr = self.parse_expr()?;
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let inner = self.parse_statement_vec()?;
+        let inner = self.parse_statement_list()?;
         let close_brace = self.parse_symbol(Symbol::RBrace)?;
         Ok(Some(ForStmt {
             for_token,
@@ -194,7 +194,7 @@ where
         };
         let cond = self.parse_expr()?;
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let then = self.parse_statement_vec()?;
+        let then = self.parse_statement_list()?;
         let close_brace = self.parse_symbol(Symbol::RBrace)?;
         let else_clause = self.try_parse_else_clause()?;
         Ok(Some(IfStmt {
@@ -209,10 +209,10 @@ where
     fn try_parse_else_clause(&mut self) -> Result<Option<ElseClause<'par>>, ParserError<'par>> {
         if let Some(else_token) = self.try_parse_keyword(Keyword::Else)? {
             if let Some(open_brace) = self.try_parse_symbol(Symbol::LBrace)? {
-                let else_stmt = self.parse_statement_vec()?;
+                let else_stmt = self.parse_statement_list()?;
                 let close_brace = self.parse_symbol(Symbol::RBrace)?;
                 Ok(Some(ElseClause::Else {
-                    else_token: else_token,
+                    else_token,
                     open_brace,
                     else_stmt,
                     close_brace,
@@ -220,7 +220,7 @@ where
             } else {
                 Ok(Some(ElseClause::ElseIf {
                     else_token,
-                    else_if_stmt: self.arena.alloc_box(
+                    else_if_stmt: self.arena.alloc_ref(
                         self.try_parse_if_statement()?
                             .ok_or(ParserError::ExpectedIfOrBrace)?,
                     )?,
@@ -235,7 +235,7 @@ where
             return Ok(None);
         };
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let inner = self.parse_statement_vec()?;
+        let inner = self.parse_statement_list()?;
         let close_brace = self.parse_symbol(Symbol::RBrace)?;
         Ok(Some(LoopStmt {
             loop_token,
@@ -250,7 +250,7 @@ where
         };
         let cond = self.parse_expr()?;
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let inner = self.parse_statement_vec()?;
+        let inner = self.parse_statement_list()?;
         let close_brace = self.parse_symbol(Symbol::RBrace)?;
         Ok(Some(WhileStmt {
             while_token,
@@ -318,9 +318,9 @@ where
             };
             let expr2 = self.parse_expr2()?;
             expr = Expr::InfixExpr(InfixExpr {
-                left: self.arena.alloc_box(expr)?,
+                left: self.arena.alloc_ref(expr)?,
                 symbol,
-                right: self.arena.alloc_box(expr2)?,
+                right: self.arena.alloc_ref(expr2)?,
             });
         }
         Ok(expr)
@@ -337,9 +337,9 @@ where
             };
             let expr2 = self.parse_expr1()?;
             expr = Expr::InfixExpr(InfixExpr {
-                left: self.arena.alloc_box(expr)?,
+                left: self.arena.alloc_ref(expr)?,
                 symbol,
-                right: self.arena.alloc_box(expr2)?,
+                right: self.arena.alloc_ref(expr2)?,
             });
         }
         Ok(expr)
@@ -351,7 +351,7 @@ where
                 let args = self.parse_expr_list()?;
                 let rparen = self.parse_symbol(Symbol::RParen)?;
                 expr = Expr::Call(CallExpr {
-                    callee: self.arena.alloc_box(expr)?,
+                    callee: self.arena.alloc_ref(expr)?,
                     lparen,
                     args,
                     rparen,
@@ -380,7 +380,7 @@ where
             let rparen = self.parse_symbol(Symbol::RParen)?;
             Ok(Expr::Parens(ParensExpr {
                 lparen,
-                expr: self.arena.alloc_box(expr)?,
+                expr: self.arena.alloc_ref(expr)?,
                 rparen,
             }))
         } else {
@@ -399,7 +399,10 @@ where
                 break;
             }
         }
-        Ok(ExprList { exprs, commas })
+        Ok(ExprList {
+            exprs: exprs.into_ref(),
+            commas: commas.into_ref(),
+        })
     }
     fn parse_ident(&mut self) -> Result<IdentToken<'par>, ParserError<'par>> {
         Ok(self.try_parse_ident()?.ok_or(ParserError::ExpectedIdent)?)

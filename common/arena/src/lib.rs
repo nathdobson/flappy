@@ -139,3 +139,30 @@ unsafe impl<'ar> Allocator for ArenaErase<'ar> {
 
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {}
 }
+
+pub trait IntoRef {
+    type Target;
+    fn into_ref(self) -> Self::Target;
+}
+
+impl<'ar, T: 'ar> IntoRef for ArenaVec<'ar, T>
+where
+    T: Copy,
+{
+    type Target = &'ar [T];
+
+    fn into_ref(self) -> Self::Target {
+        Vec::leak(self)
+    }
+}
+
+impl<'ar, T: 'ar> IntoRef for ArenaBox<'ar, T>
+where
+    T: Copy,
+{
+    type Target = &'ar T;
+
+    fn into_ref(self) -> Self::Target {
+        Box::leak(self)
+    }
+}

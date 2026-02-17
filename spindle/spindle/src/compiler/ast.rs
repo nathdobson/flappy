@@ -1,12 +1,11 @@
 use crate::compiler::token::{IdentToken, Keyword, KeywordToken, NumberToken, SymbolToken, Token};
-use arena::{ArenaBox, ArenaVec};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Program<'par> {
-    pub stmts: ArenaVec<'par, Stmt<'par>>,
+    pub stmts: &'par [Stmt<'par>],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Stmt<'par> {
     Let(LetStmt<'par>),
     ExprStmt(Expr<'par>),
@@ -18,7 +17,7 @@ pub enum Stmt<'par> {
     Break,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct LetStmt<'par> {
     pub let_token: KeywordToken,
     pub ident: IdentToken<'par>,
@@ -26,91 +25,88 @@ pub struct LetStmt<'par> {
     pub expr: Expr<'par>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ForStmt<'par> {
     pub for_token: KeywordToken,
     pub ident: IdentToken<'par>,
     pub init_expr: Expr<'par>,
     pub limit_expr: Expr<'par>,
     pub open_brace: SymbolToken,
-    pub inner: ArenaVec<'par, Stmt<'par>>,
+    pub inner: &'par [Stmt<'par>],
     pub close_brace: SymbolToken,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct IfStmt<'par> {
     pub if_token: KeywordToken,
     pub cond_expr: Expr<'par>,
     pub open_brace: SymbolToken,
-    pub then_stmt: ArenaVec<'par, Stmt<'par>>,
+    pub then_stmt: &'par [Stmt<'par>],
     pub close_brace: SymbolToken,
     pub else_clause: Option<ElseClause<'par>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct LoopStmt<'par> {
     pub loop_token: KeywordToken,
     pub open_brace: SymbolToken,
-    pub inner: ArenaVec<'par, Stmt<'par>>,
+    pub inner: &'par [Stmt<'par>],
     pub close_brace: SymbolToken,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct WhileStmt<'par> {
     pub while_token: KeywordToken,
     pub cond: Expr<'par>,
     pub open_brace: SymbolToken,
-    pub inner: ArenaVec<'par, Stmt<'par>>,
+    pub inner: &'par [Stmt<'par>],
     pub close_brace: SymbolToken,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ElseClause<'par> {
     Else {
         else_token: KeywordToken,
         open_brace: SymbolToken,
-        else_stmt: ArenaVec<'par, Stmt<'par>>,
+        else_stmt: &'par [Stmt<'par>],
         close_brace: SymbolToken,
     },
     ElseIf {
         else_token: KeywordToken,
-        else_if_stmt: ArenaBox<'par, IfStmt<'par>>,
+        else_if_stmt: &'par IfStmt<'par>,
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ReassignStmt<'par> {
     pub ident: IdentToken<'par>,
     pub equals: SymbolToken,
     pub expr: Expr<'par>,
 }
 
-pub type BoxExpr<'par> = ArenaBox<'par, Expr<'par>>;
-pub type BoxStmt<'par> = ArenaBox<'par, Stmt<'par>>;
-
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct InfixExpr<'par> {
-    pub left: BoxExpr<'par>,
+    pub left: &'par Expr<'par>,
     pub symbol: SymbolToken,
-    pub right: BoxExpr<'par>,
+    pub right: &'par Expr<'par>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct CallExpr<'par> {
-    pub callee: BoxExpr<'par>,
+    pub callee: &'par Expr<'par>,
     pub lparen: SymbolToken,
     pub args: ExprList<'par>,
     pub rparen: SymbolToken,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ParensExpr<'par> {
     pub lparen: SymbolToken,
-    pub expr: BoxExpr<'par>,
+    pub expr: &'par Expr<'par>,
     pub rparen: SymbolToken,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Expr<'par> {
     Var(IdentToken<'par>),
     Parens(ParensExpr<'par>),
@@ -123,8 +119,8 @@ pub enum Expr<'par> {
     String(&'par str),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ExprList<'par> {
-    pub exprs: ArenaVec<'par, Expr<'par>>,
-    pub commas: ArenaVec<'par, SymbolToken>,
+    pub exprs: &'par [Expr<'par>],
+    pub commas: &'par [SymbolToken],
 }

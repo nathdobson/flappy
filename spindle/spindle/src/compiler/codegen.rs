@@ -367,7 +367,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         expr: &'par CallExpr<'par>,
         mut block: usize,
     ) -> Result<usize, CompileError<'par, 'vm>> {
-        for arg in &expr.args.exprs {
+        for arg in expr.args.exprs {
             block = self.compile_expr(arg, block)?;
         }
         let name = match &*expr.callee {
