@@ -1,4 +1,4 @@
-use crate::interp::stack::{Stack, StackStorage, new_stack};
+use crate::compiler::stack::{Stack, StackStorage, new_stack};
 use core::alloc::Layout;
 
 #[test]

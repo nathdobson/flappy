@@ -10,20 +10,15 @@ pub mod value;
 // mod inline_metadata;
 mod heap_types;
 mod inline_slice;
-pub mod stack;
-#[cfg(test)]
-mod stack_test;
 
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
 use crate::interp::heap_types::{HeapString, HeapStringInPlace};
-use crate::interp::stack::Stack;
+use crate::compiler::stack::Stack;
 use crate::interp::value::Value;
 use crate::native::NativeFn;
 use crate::vm::{VmFunction, VmFunctionName, VmInstr, VmOperator, VmProgram, VmTerm};
 use core::fmt::Display;
-use core::intrinsics::unreachable;
-use core::pin::pin;
 use heapless::VecView;
 use heapless::string::StringInPlace;
 

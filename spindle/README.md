@@ -13,7 +13,7 @@ Spindle is a simple scripting language for controlling embedded systems.
 * Denial-of-service protection for untrusted scripts.
   * Memory usage limits
   * Compatible with `--cfg no_global_oom_handling`
-  * [TODO] Stack overflow protection
+  * Stack overflow protection
   * [TODO] Execution time budget between yields to the executor
 * Compatible with `#![no_std]`.
 

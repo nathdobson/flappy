@@ -21,7 +21,7 @@ use spindle::interp::value::Value;
 use spindle::compiler::lexer::Lexer;
 use spindle::native::{NativeError, NativeFn, PrintFn};
 use spindle::compiler::parser::{AnnotatedParserError, Parser};
-use spindle::interp::stack::{Stack, StackBox, StackStorage, new_stack};
+use spindle::compiler::stack::{Stack, StackBox, StackStorage, new_stack};
 
 struct SpindleState {}
 

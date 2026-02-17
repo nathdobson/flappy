@@ -1,9 +1,10 @@
+use crate::compiler::stack::{StackStorage, new_stack};
 use crate::interp::Interp;
 use crate::interp::heap::HeapStorage;
-use crate::interp::stack::{StackStorage, new_stack};
 use crate::interp::value::Value;
 use crate::native::{NativeFn, PrintFn};
 use crate::testutils::with_test_compile;
+use heapless::String;
 use log::info;
 use std::assert_matches;
 use testing_logger::CapturedLog;
@@ -278,7 +279,7 @@ async fn test_while() {
         }
        "#,
     )
-        .await;
+    .await;
     assert_matches!(
         testing_logger::take()[..],
         [
@@ -295,3 +296,15 @@ async fn test_while() {
         ]
     );
 }
+
+// #[tokio::test]
+// async fn test_recursive_parsing() {
+//     testing_logger::setup();
+//     let mut code = "1".to_string();
+//     for x in 0..1000 {
+//         code.push_str("+1");
+//     }
+//     code.push_str(";");
+//     interp(&code).await;
+//     assert_matches!(testing_logger::take()[..], []);
+// }

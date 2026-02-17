@@ -15,6 +15,7 @@ pub struct Parser<'par, I: Iterator<Item = Result<Token<'par>, LexerError<'par>>
     arena: &'par Arena,
 }
 use crate::compiler::lookahead::Lookahead;
+use crate::compiler::stack::Stack;
 use crate::vec_ext::VecExt;
 use crate::vm::VmOperator;
 use alloc::vec::Vec;
@@ -89,8 +90,11 @@ where
     fn next_token(&mut self) -> Result<Token<'par>, ParserError<'par>> {
         Ok(self.try_next_token()?.ok_or(ParserError::UnexpectedEof)?)
     }
-    pub fn parse_program(&mut self) -> Result<Program<'par>, AnnotatedParserError<'par>> {
-        match self.parse_program_ast() {
+    pub async fn parse_program(
+        &mut self,
+        stack: Stack<'_>,
+    ) -> Result<Program<'par>, AnnotatedParserError<'par>> {
+        match self.parse_program_ast(stack).await {
             Ok(program) => Ok(program),
             Err(e) => Err(AnnotatedParserError {
                 cause: e,
@@ -101,17 +105,27 @@ where
             }),
         }
     }
-    fn parse_program_ast(&mut self) -> Result<Program<'par>, ParserError<'par>> {
+    async fn parse_program_ast(
+        &mut self,
+        stack: Stack<'_>,
+    ) -> Result<Program<'par>, ParserError<'par>> {
         Ok(Program {
-            stmts: self.parse_statement_list()?,
+            stmts: self.parse_statement_list(stack).await?,
         })
     }
-    fn parse_statement_list(&mut self) -> Result<&'par [Stmt<'par>], ParserError<'par>> {
-        let mut stmts = Vec::new_in(self.arena);
-        while let Some(stmt) = self.try_parse_statement()? {
-            stmts.try_push(stmt)?;
-        }
-        Ok(stmts.into_ref())
+    async fn parse_statement_list(
+        &mut self,
+        mut stack: Stack<'_>,
+    ) -> Result<&'par [Stmt<'par>], ParserError<'par>> {
+        Ok(stack
+            .recurse(async |mut stack| {
+                let mut stmts = Vec::new_in(self.arena);
+                while let Some(stmt) = self.try_parse_statement(stack.reborrow()).await? {
+                    stmts.try_push(stmt)?;
+                }
+                Ok::<_, ParserError<'par>>(stmts.into_ref())
+            })
+            .await??)
     }
     fn try_parse_eof(&mut self) -> Result<Option<()>, ParserError<'par>> {
         if let Some(_) = self.try_peek_token(0)? {
@@ -120,7 +134,10 @@ where
             Ok(Some(()))
         }
     }
-    fn try_parse_statement(&mut self) -> Result<Option<Stmt<'par>>, ParserError<'par>> {
+    async fn try_parse_statement(
+        &mut self,
+        mut stack: Stack<'_>,
+    ) -> Result<Option<Stmt<'par>>, ParserError<'par>> {
         match self.try_peek_token(0)? {
             None => return Ok(None),
             Some(token) => match token {
@@ -131,15 +148,15 @@ where
                 _ => {}
             },
         }
-        if let Some(if_stmt) = self.try_parse_if_statement()? {
+        if let Some(if_stmt) = self.try_parse_if_statement(stack.reborrow()).await? {
             Ok(Some(Stmt::If(if_stmt)))
         } else if let Some(let_stmt) = self.try_parse_let_statement()? {
             Ok(Some(Stmt::Let(let_stmt)))
-        } else if let Some(for_stmt) = self.try_parse_for_statement()? {
+        } else if let Some(for_stmt) = self.try_parse_for_statement(stack.reborrow()).await? {
             Ok(Some(Stmt::For(for_stmt)))
-        } else if let Some(loop_stmt) = self.try_parse_loop_statement()? {
+        } else if let Some(loop_stmt) = self.try_parse_loop_statement(stack.reborrow()).await? {
             Ok(Some(Stmt::Loop(loop_stmt)))
-        } else if let Some(while_stmt) = self.try_parse_while_statement()? {
+        } else if let Some(while_stmt) = self.try_parse_while_statement(stack.reborrow()).await? {
             Ok(Some(Stmt::While(while_stmt)))
         } else if let Some(break_stmt) = self.try_parse_break_statement()? {
             Ok(Some(Stmt::Break))
@@ -166,7 +183,10 @@ where
             expr,
         }))
     }
-    fn try_parse_for_statement(&mut self) -> Result<Option<ForStmt<'par>>, ParserError<'par>> {
+    async fn try_parse_for_statement(
+        &mut self,
+        stack: Stack<'_>,
+    ) -> Result<Option<ForStmt<'par>>, ParserError<'par>> {
         let Some(for_token) = self.try_parse_keyword(Keyword::For)? else {
             return Ok(None);
         };
@@ -176,7 +196,7 @@ where
         self.parse_symbol(Symbol::DotDot)?;
         let limit_expr = self.parse_expr()?;
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let inner = self.parse_statement_list()?;
+        let inner = self.parse_statement_list(stack).await?;
         let close_brace = self.parse_symbol(Symbol::RBrace)?;
         Ok(Some(ForStmt {
             for_token,
@@ -188,28 +208,38 @@ where
             close_brace,
         }))
     }
-    fn try_parse_if_statement(&mut self) -> Result<Option<IfStmt<'par>>, ParserError<'par>> {
-        let Some(if_token) = self.try_parse_keyword(Keyword::If)? else {
-            return Ok(None);
-        };
-        let cond = self.parse_expr()?;
-        let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let then = self.parse_statement_list()?;
-        let close_brace = self.parse_symbol(Symbol::RBrace)?;
-        let else_clause = self.try_parse_else_clause()?;
-        Ok(Some(IfStmt {
-            if_token,
-            cond_expr: cond,
-            open_brace,
-            then_stmt: then,
-            close_brace,
-            else_clause,
-        }))
+    async fn try_parse_if_statement(
+        &mut self,
+        mut stack: Stack<'_>,
+    ) -> Result<Option<IfStmt<'par>>, ParserError<'par>> {
+        Ok(stack
+            .recurse(async |mut stack| -> Result<_, ParserError<'par>> {
+                let Some(if_token) = self.try_parse_keyword(Keyword::If)? else {
+                    return Ok(None);
+                };
+                let cond = self.parse_expr()?;
+                let open_brace = self.parse_symbol(Symbol::LBrace)?;
+                let then = self.parse_statement_list(stack.reborrow()).await?;
+                let close_brace = self.parse_symbol(Symbol::RBrace)?;
+                let else_clause = self.try_parse_else_clause(stack.reborrow()).await?;
+                Ok(Some(IfStmt {
+                    if_token,
+                    cond_expr: cond,
+                    open_brace,
+                    then_stmt: then,
+                    close_brace,
+                    else_clause,
+                }))
+            })
+            .await??)
     }
-    fn try_parse_else_clause(&mut self) -> Result<Option<ElseClause<'par>>, ParserError<'par>> {
+    async fn try_parse_else_clause(
+        &mut self,
+        mut stack: Stack<'_>,
+    ) -> Result<Option<ElseClause<'par>>, ParserError<'par>> {
         if let Some(else_token) = self.try_parse_keyword(Keyword::Else)? {
             if let Some(open_brace) = self.try_parse_symbol(Symbol::LBrace)? {
-                let else_stmt = self.parse_statement_list()?;
+                let else_stmt = self.parse_statement_list(stack).await?;
                 let close_brace = self.parse_symbol(Symbol::RBrace)?;
                 Ok(Some(ElseClause::Else {
                     else_token,
@@ -221,7 +251,8 @@ where
                 Ok(Some(ElseClause::ElseIf {
                     else_token,
                     else_if_stmt: self.arena.alloc_ref(
-                        self.try_parse_if_statement()?
+                        self.try_parse_if_statement(stack.reborrow())
+                            .await?
                             .ok_or(ParserError::ExpectedIfOrBrace)?,
                     )?,
                 }))
@@ -230,12 +261,15 @@ where
             Ok(None)
         }
     }
-    fn try_parse_loop_statement(&mut self) -> Result<Option<LoopStmt<'par>>, ParserError<'par>> {
+    async fn try_parse_loop_statement(
+        &mut self,
+        stack: Stack<'_>,
+    ) -> Result<Option<LoopStmt<'par>>, ParserError<'par>> {
         let Some(loop_token) = self.try_parse_keyword(Keyword::Loop)? else {
             return Ok(None);
         };
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let inner = self.parse_statement_list()?;
+        let inner = self.parse_statement_list(stack).await?;
         let close_brace = self.parse_symbol(Symbol::RBrace)?;
         Ok(Some(LoopStmt {
             loop_token,
@@ -244,13 +278,16 @@ where
             close_brace,
         }))
     }
-    fn try_parse_while_statement(&mut self) -> Result<Option<WhileStmt<'par>>, ParserError<'par>> {
+    async fn try_parse_while_statement(
+        &mut self,
+        stack: Stack<'_>,
+    ) -> Result<Option<WhileStmt<'par>>, ParserError<'par>> {
         let Some(while_token) = self.try_parse_keyword(Keyword::While)? else {
             return Ok(None);
         };
         let cond = self.parse_expr()?;
         let open_brace = self.parse_symbol(Symbol::LBrace)?;
-        let inner = self.parse_statement_list()?;
+        let inner = self.parse_statement_list(stack).await?;
         let close_brace = self.parse_symbol(Symbol::RBrace)?;
         Ok(Some(WhileStmt {
             while_token,

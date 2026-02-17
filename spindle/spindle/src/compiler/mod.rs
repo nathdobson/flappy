@@ -12,4 +12,7 @@ pub mod parser;
 mod parser_test;
 pub mod token;
 pub mod codegen;
+pub mod stack;
+#[cfg(test)]
+mod stack_test;
 

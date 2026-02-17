@@ -7,11 +7,12 @@ use core::marker::{PhantomData, Unsize};
 use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::DerefMut;
 use core::ops::{CoerceUnsized, Deref};
-use core::pin::{pin, PinCoerceUnsized};
 use core::pin::{Pin, UnsafePinned};
+use core::pin::{PinCoerceUnsized, pin};
 use core::ptr::NonNull;
 use core::task::{Context, Poll};
 use core::{mem, ptr};
+use log::{info, log};
 
 pub struct StackStorage<B: ?Sized = [u8]> {
     borrowed: bool,
@@ -85,9 +86,8 @@ impl<'a> Stack<'a> {
         &mut self,
         f: F,
     ) -> Result<O, AllocError> {
-        let (stack, slot) = self.push(Layout::new::<
-            <F as AsyncFnOnce<(Stack<'static>,)>>::CallOnceFuture,
-        >())?;
+        let layout = Layout::new::<<F as AsyncFnOnce<(Stack<'static>,)>>::CallOnceFuture>();
+        let (stack, slot) = self.push(layout)?;
         Ok(slot.init(f(stack))?.into_pin().await)
     }
     pub fn reborrow(&mut self) -> Stack<'_> {
