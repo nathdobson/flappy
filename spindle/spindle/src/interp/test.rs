@@ -186,3 +186,23 @@ async fn test_recursive_parsing() {
         }))
     );
 }
+
+#[tokio::test]
+async fn test_continue() {
+    let result = interp(
+        r#"
+        let a = 1;
+        loop {
+            if a < 3 {
+                a = a + 1;
+                continue;
+            }
+            print(a);
+            break;
+        }
+       "#,
+    )
+        .await
+        .unwrap();
+    assert_matches!(result, ["3"]);
+}
