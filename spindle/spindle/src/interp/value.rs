@@ -1,3 +1,4 @@
+use core::fmt;
 use crate::interp::error::InterpError;
 use crate::interp::heap::{Heap, HeapRef};
 use core::fmt::{Display, Formatter, write};
@@ -22,7 +23,7 @@ impl Display for Value {
 }
 
 impl Value {
-    pub fn into_number(self) -> Result<i64, InterpError<'static>> {
+    pub fn into_number(self) -> Result<i64, InterpError> {
         match self {
             Value::Number(x) => Ok(x),
             _ => Err(InterpError::ForLoopTypeError),
@@ -43,5 +44,14 @@ impl Value {
             Value::Number(x) => Value::Number(*x),
             Value::Ref(x) => Value::Ref(heap.clone_ref(x)),
         }
+    }
+    pub fn format(&self, heap: &Heap, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Null => write!(f, "null")?,
+            Value::Bool(arg) => write!(f, "{}", arg)?,
+            Value::Number(arg) => write!(f, "{}", arg)?,
+            Value::Ref(arg) => write!(f, "{}", heap.get(arg))?,
+        }
+        Ok(())
     }
 }

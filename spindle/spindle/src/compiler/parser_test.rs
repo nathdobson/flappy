@@ -8,7 +8,7 @@ use arena::ArenaStorage;
 use itertools::Itertools;
 use std::assert_matches;
 
-async fn expect_program(code: &str, expect: impl for<'a> FnOnce(&'a Program<'a>)) {
+async fn expect_program<'src>(code: &'src str, expect: impl for<'a> FnOnce(&'a Program<'src, 'a>)) {
     let capacity = 100000usize;
     let mut arena_slice = vec![0; capacity];
     let mut arena = ArenaStorage::new(&mut arena_slice);

@@ -70,13 +70,20 @@ pub struct NumberToken<'src> {
     pub loc: Location,
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub struct StringToken<'src, 'par> {
+    pub source: &'src str,
+    pub value: Option<&'par str>,
+    pub loc: Location,
+}
+
 #[derive(Eq, PartialEq)]
-pub enum Token<'src> {
+pub enum Token<'src, 'par> {
     Ident(IdentToken<'src>),
     Number(NumberToken<'src>),
     Symbol(SymbolToken),
     Keyword(KeywordToken),
-    String(&'src str),
+    String(StringToken<'src, 'par>),
 }
 
 impl Debug for Symbol {
@@ -139,7 +146,17 @@ impl<'src> Debug for SymbolToken {
     }
 }
 
-impl<'src> Debug for Token<'src> {
+impl<'src, 'par> Debug for StringToken<'src, 'par> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        if let Some(value) = self.value {
+            write!(f, "{:?}({:?})", value, self.loc)
+        } else {
+            write!(f, "{:?}({:?})", self.source, self.loc)
+        }
+    }
+}
+
+impl<'src, 'par> Debug for Token<'src, 'par> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             Token::Ident(t) => write!(f, "{:?}", t),
@@ -167,6 +184,22 @@ impl Debug for Keyword {
             Keyword::Loop => write!(f, "loop"),
             Keyword::Break => write!(f, "break"),
             Keyword::Continue => write!(f, "continue"),
+        }
+    }
+}
+
+impl<'src, 'par> Token<'src, 'par> {
+    pub fn erased(&self) -> Token<'src, 'static> {
+        match self {
+            Token::Ident(x) => Token::Ident(*x),
+            Token::Number(x) => Token::Number(*x),
+            Token::Symbol(x) => Token::Symbol(*x),
+            Token::Keyword(x) => Token::Keyword(*x),
+            Token::String(x) => Token::String(StringToken {
+                source: x.source,
+                value: None,
+                loc: x.loc,
+            }),
         }
     }
 }

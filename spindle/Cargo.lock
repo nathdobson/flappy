@@ -82,7 +82,6 @@ dependencies = [
  "heapless",
  "itertools",
  "log",
- "testing_logger",
  "tokio",
 ]
 
@@ -101,13 +100,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "testing_logger"
-version = "0.1.1"
-dependencies = [
- "log",
 ]
 
 [[package]]

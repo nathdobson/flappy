@@ -43,7 +43,7 @@ impl<'vm> Interp<'vm> {
             natives,
         }
     }
-    pub async fn interp(&mut self, mut stack: Stack<'_>) -> Result<(), InterpError<'vm>> {
+    pub async fn interp(&mut self, mut stack: Stack<'_>) -> Result<(), InterpError> {
         let main: &VmFunction = self
             .program
             .functions
@@ -56,7 +56,7 @@ impl<'vm> Interp<'vm> {
         &mut self,
         fun: &'vm VmFunction<'vm>,
         mut stack: Stack<'_>,
-    ) -> Result<(), InterpError<'vm>> {
+    ) -> Result<(), InterpError> {
         let mut block = 0;
         loop {
             for instr in &fun.blocks[block].instrs {
@@ -77,7 +77,7 @@ impl<'vm> Interp<'vm> {
         &mut self,
         instr: &'vm VmInstr<'vm>,
         mut stack: Stack<'_>,
-    ) -> Result<(), InterpError<'vm>> {
+    ) -> Result<(), InterpError> {
         match instr {
             VmInstr::Unused(x) => match **x {},
             VmInstr::Integer(x) => self.push_value(Value::Number(*x)),
@@ -119,7 +119,7 @@ impl<'vm> Interp<'vm> {
             }
         }
     }
-    pub fn interp_binop(&mut self, op: VmOperator) -> Result<(), InterpError<'vm>> {
+    pub fn interp_binop(&mut self, op: VmOperator) -> Result<(), InterpError> {
         let b = self.pop_value()?;
         let a = self.pop_value()?;
         match op {
@@ -160,7 +160,7 @@ impl<'vm> Interp<'vm> {
         fun: &'vm VmFunctionName,
         args: usize,
         mut stack: Stack<'_>,
-    ) -> Result<(), InterpError<'vm>> {
+    ) -> Result<(), InterpError> {
         match fun {
             VmFunctionName::Native(native) => {
                 let result = self.natives[*native]
@@ -179,7 +179,7 @@ impl<'vm> Interp<'vm> {
         &mut self,
         term: &'vm VmTerm<'vm>,
         mut stack: Stack<'_>,
-    ) -> Result<Option<usize>, InterpError<'vm>> {
+    ) -> Result<Option<usize>, InterpError> {
         match term {
             VmTerm::Unused(x) => match **x {},
             VmTerm::Jump(x) => Ok(Some(*x)),
@@ -198,7 +198,7 @@ impl<'vm> Interp<'vm> {
     //     &mut self,
     //     mut stack: Stack<'_>,
     //     stmt: &'vm VmStmt<'vm>,
-    // ) -> Result<(), InterpError<'vm>> {
+    // ) -> Result<(), InterpError> {
     //     match stmt {
     //         VmStmt::LetStmt(stmt) => {
     //             let value = self.interp_expr(stack.reborrow(), &stmt.expr).await?;
@@ -248,7 +248,7 @@ impl<'vm> Interp<'vm> {
     //     &mut self,
     //     mut stack: Stack<'_>,
     //     stmt: &'vm VmStmt<'vm>,
-    // ) -> Result<(), InterpError<'vm>> {
+    // ) -> Result<(), InterpError> {
     //     Ok(stack
     //         .recurse(async move |stack| self.interp_stmt(stack, stmt).await)
     //         .await??)
@@ -258,7 +258,7 @@ impl<'vm> Interp<'vm> {
     //     &mut self,
     //     mut stack: Stack<'_>,
     //     expr: &'vm VmExpr<'vm>,
-    // ) -> Result<Value, InterpError<'vm>> {
+    // ) -> Result<Value, InterpError> {
     //     match expr {
     //         VmExpr::Call(call) => {
     //             for arg in &call.args {
@@ -315,7 +315,7 @@ impl<'vm> Interp<'vm> {
     //     &mut self,
     //     mut stack: Stack<'_>,
     //     call: &'vm VmCallExpr<'vm>,
-    // ) -> Result<Value, InterpError<'vm>> {
+    // ) -> Result<Value, InterpError> {
     //     match call.function {
     //         // VmFunctionName::Print => self.interp_print(call.args.len()).await?,
     //         VmFunctionName::Native(x) => Ok(self.natives[x]
@@ -333,20 +333,20 @@ impl<'vm> Interp<'vm> {
     //     &mut self,
     //     mut stack: Stack<'_>,
     //     expr: &'vm VmExpr<'vm>,
-    // ) -> Result<Value, InterpError<'vm>> {
+    // ) -> Result<Value, InterpError> {
     //     Ok(stack
     //         .recurse(async move |stack| self.interp_expr(stack, expr).await)
     //         .await??)
     // }
 
-    fn push_value(&mut self, value: Value) -> Result<(), InterpError<'vm>> {
+    fn push_value(&mut self, value: Value) -> Result<(), InterpError> {
         self.value_stack
             .push(value)
             .map_err(|_| InterpError::AllocError)?;
         Ok(())
     }
 
-    fn pop_value(&mut self) -> Result<Value, InterpError<'vm>> {
+    fn pop_value(&mut self) -> Result<Value, InterpError> {
         self.value_stack.pop().ok_or(InterpError::StackEmpty)
     }
 }

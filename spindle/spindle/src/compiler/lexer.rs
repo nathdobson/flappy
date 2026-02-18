@@ -1,6 +1,7 @@
 use crate::compiler::lookahead::Lookahead;
 use crate::compiler::token::{
-    IdentToken, Keyword, KeywordToken, Location, NumberToken, Symbol, SymbolToken, Token,
+    IdentToken, Keyword, KeywordToken, Location, NumberToken, StringToken, Symbol, SymbolToken,
+    Token,
 };
 use crate::vec_ext::VecExt;
 use alloc::vec::Vec;
@@ -19,15 +20,15 @@ pub enum LexerError<'src> {
     Utf8Error,
 }
 
-pub struct Lexer<'src> {
+pub struct Lexer<'src: 'par, 'par> {
     src: &'src str,
-    arena: &'src Arena,
+    arena: &'par Arena,
     iter: Lookahead<2, CharIndices<'src>>,
     loc: Location,
 }
 
-pub struct TokenReader<'lexer, 'src> {
-    lexer: &'lexer mut Lexer<'src>,
+pub struct TokenReader<'lexer, 'src, 'par> {
+    lexer: &'lexer mut Lexer<'src, 'par>,
     origin_loc: Location,
     origin_cursor: usize,
 }
@@ -48,7 +49,7 @@ impl<'src> From<Utf8Error> for LexerError<'src> {
     }
 }
 
-impl<'lexer, 'src> TokenReader<'lexer, 'src> {
+impl<'lexer, 'src: 'par, 'par> TokenReader<'lexer, 'src, 'par> {
     pub fn peek(&mut self, index: usize) -> Result<char, LexerError<'src>> {
         Ok(self
             .lexer
@@ -73,7 +74,7 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
     fn into_str(self) -> &'src str {
         &self.lexer.src[self.origin_cursor..self.lexer.cursor()]
     }
-    fn read_numeric(mut self) -> Result<Token<'src>, LexerError<'src>> {
+    fn read_numeric(mut self) -> Result<Token<'src, 'par>, LexerError<'src>> {
         loop {
             let c = self.peek(0)?;
             if c == '.' {
@@ -94,7 +95,7 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
             loc,
         }))
     }
-    fn read_ident(mut self) -> Result<Token<'src>, LexerError<'src>> {
+    fn read_ident(mut self) -> Result<Token<'src, 'par>, LexerError<'src>> {
         loop {
             let c = self.peek(0)?;
             if char_is_ident(c) {
@@ -124,7 +125,7 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
             }
         }
     }
-    fn read_symbol(mut self) -> Result<Token<'src>, LexerError<'src>> {
+    fn read_symbol(mut self) -> Result<Token<'src, 'par>, LexerError<'src>> {
         let symbol = match self.peek(0)? {
             '.' => {
                 self.next()?;
@@ -211,7 +212,7 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
             loc: self.origin_loc,
         }))
     }
-    fn read_string_literal(mut self) -> Result<Token<'src>, LexerError<'src>> {
+    fn read_string_literal(mut self) -> Result<Token<'src, 'par>, LexerError<'src>> {
         self.next()?;
         let arena = self.lexer.arena;
         let mut buf = Vec::<u8, _>::new_in(arena);
@@ -234,9 +235,14 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
             let tmp = c.encode_utf8(&mut tmp);
             buf.try_extend_from_slice(tmp.as_bytes())?;
         }
-        Ok(Token::String(str::from_utf8(Vec::leak(buf))?))
+        let loc = self.origin_loc;
+        Ok(Token::String(StringToken {
+            source: self.into_str(),
+            value: Some(str::from_utf8(Vec::leak(buf))?),
+            loc,
+        }))
     }
-    fn read_token(mut self) -> Result<Option<Token<'src>>, LexerError<'src>> {
+    fn read_token(mut self) -> Result<Option<Token<'src, 'par>>, LexerError<'src>> {
         let c = self.peek(0)?;
         let token = if c.is_ascii_whitespace() {
             self.next()?;
@@ -254,8 +260,8 @@ impl<'lexer, 'src> TokenReader<'lexer, 'src> {
     }
 }
 
-impl<'src> Lexer<'src> {
-    pub fn new(src: &'src str, arena: &'src Arena) -> Lexer<'src> {
+impl<'src: 'par, 'par> Lexer<'src, 'par> {
+    pub fn new(src: &'src str, arena: &'par Arena) -> Lexer<'src, 'par> {
         Lexer {
             src,
             arena,
@@ -272,8 +278,8 @@ impl<'src> Lexer<'src> {
     }
 }
 
-impl<'src> Iterator for Lexer<'src> {
-    type Item = Result<Token<'src>, LexerError<'src>>;
+impl<'src: 'par, 'par> Iterator for Lexer<'src, 'par> {
+    type Item = Result<Token<'src, 'par>, LexerError<'src>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {

@@ -1,8 +1,6 @@
 use crate::native::NativeFn;
 use crate::vec_ext::VecExt;
 pub mod ast;
-#[cfg(test)]
-mod test;
 pub mod lexer;
 #[cfg(test)]
 mod lexer_test;

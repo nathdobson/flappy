@@ -3,8 +3,7 @@ use core::marker::PhantomData;
 use crate::native::NativeError;
 
 #[derive(Debug)]
-pub enum InterpError<'vm> {
-    Unused(!, PhantomData<&'vm ()>),
+pub enum InterpError {
     MissingMainFunction,
     AllocError,
     OperatorError,
@@ -15,13 +14,13 @@ pub enum InterpError<'vm> {
     BadStackIndex,
 }
 
-impl From<AllocError> for InterpError<'_> {
+impl From<AllocError> for InterpError {
     fn from(_: AllocError) -> Self {
         InterpError::AllocError
     }
 }
 
-impl From<NativeError> for InterpError<'_> {
+impl From<NativeError> for InterpError {
     fn from(_: NativeError) -> Self {
         InterpError::NativeError
     }

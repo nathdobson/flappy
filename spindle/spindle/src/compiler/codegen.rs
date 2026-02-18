@@ -3,6 +3,7 @@ use crate::compiler::ast::{
     ReassignStmt, Stmt, WhileStmt,
 };
 use crate::compiler::stack::Stack;
+use crate::compiler::stack_executor::StackSpawn;
 use crate::compiler::token::{IdentToken, Symbol};
 use crate::native::NativeFn;
 use crate::vec_ext::VecExt;
@@ -12,11 +13,10 @@ use alloc::vec::Vec;
 use arena::{Arena, ArenaVec};
 use core::marker::PhantomData;
 use core::mem;
-use crate::compiler::stack_executor::StackSpawn;
 
-pub struct Codegen<'par, 'vm> {
+pub struct Codegen<'src, 'par, 'vm> {
     arena: &'vm Arena,
-    program: &'par Program<'par>,
+    program: &'par Program<'src, 'par>,
     natives: &'vm [&'vm dyn NativeFn],
 }
 
@@ -26,19 +26,19 @@ struct BreakPoint {
     variables: usize,
 }
 
-pub struct FunctionCodegen<'par, 'vm> {
+pub struct FunctionCodegen<'src, 'par, 'vm> {
     arena: &'vm Arena,
     natives: &'vm [&'vm dyn NativeFn],
-    variables: ArenaVec<'vm, Option<&'par str>>,
+    variables: ArenaVec<'vm, Option<&'src str>>,
     blocks: ArenaVec<'vm, VmBlock<'vm>>,
     break_points: ArenaVec<'vm, BreakPoint>,
+    phantom: PhantomData<&'par ()>,
 }
 
 #[derive(Debug)]
-pub enum CompileError<'par, 'vm> {
-    Unused(!, PhantomData<(&'par (), &'vm ())>),
+pub enum CompileError<'src> {
     AllocError,
-    UnknownVariable(&'par IdentToken<'par>),
+    UnknownVariable(IdentToken<'src>),
     VariableIndexOverflow,
     BadNumberLiteral,
     UnexpectedInfixSymbol,
@@ -47,23 +47,23 @@ pub enum CompileError<'par, 'vm> {
     NotInLoop,
 }
 
-impl<'par, 'vm> From<TryReserveError> for CompileError<'par, 'vm> {
+impl<'src> From<TryReserveError> for CompileError<'src> {
     fn from(_: TryReserveError) -> Self {
         CompileError::AllocError
     }
 }
 
-impl<'par, 'vm> From<core::alloc::AllocError> for CompileError<'par, 'vm> {
+impl<'src> From<core::alloc::AllocError> for CompileError<'src> {
     fn from(_: core::alloc::AllocError) -> Self {
         CompileError::AllocError
     }
 }
 
-impl<'par, 'vm> Codegen<'par, 'vm> {
+impl<'src, 'par, 'vm> Codegen<'src, 'par, 'vm> {
     pub fn new(
         arena: &'vm Arena,
         natives: &'vm [&'vm dyn NativeFn],
-        program: &'par Program<'par>,
+        program: &'par Program<'src, 'par>,
     ) -> Self {
         Codegen {
             arena,
@@ -74,7 +74,7 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
     pub async fn compile(
         &mut self,
         stack: StackSpawn<'_>,
-    ) -> Result<VmProgram<'vm>, CompileError<'par, 'vm>> {
+    ) -> Result<VmProgram<'vm>, CompileError<'src>> {
         let mut functions = ArenaVec::try_with_capacity_in(1, self.arena)?;
         functions.try_push(self.compile_function(stack, &self.program.stmts).await?)?;
         Ok(VmProgram { functions })
@@ -82,8 +82,8 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
     async fn compile_function(
         &mut self,
         stack: StackSpawn<'_>,
-        stmts: &'par [Stmt<'par>],
-    ) -> Result<VmFunction<'vm>, CompileError<'par, 'vm>> {
+        stmts: &'par [Stmt<'src, 'par>],
+    ) -> Result<VmFunction<'vm>, CompileError<'src>> {
         Ok(VmFunction {
             blocks: FunctionCodegen {
                 arena: self.arena,
@@ -91,6 +91,7 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
                 variables: Vec::new_in(self.arena),
                 blocks: Vec::new_in(self.arena),
                 break_points: Vec::new_in(self.arena),
+                phantom: PhantomData,
             }
             .compile_function(stack, stmts)
             .await?,
@@ -98,18 +99,18 @@ impl<'par, 'vm> Codegen<'par, 'vm> {
     }
 }
 
-impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
+impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
     async fn compile_function(
         mut self,
         stack: StackSpawn<'_>,
-        stmt: &'par [Stmt<'par>],
-    ) -> Result<ArenaVec<'vm, VmBlock<'vm>>, CompileError<'par, 'vm>> {
+        stmt: &'par [Stmt<'src, 'par>],
+    ) -> Result<ArenaVec<'vm, VmBlock<'vm>>, CompileError<'src>> {
         let mut block = self.add_block()?;
         let block = self.compile_stmts(stack, block, stmt).await?;
         self.terminate(block, VmTerm::Return)?;
         Ok(self.blocks)
     }
-    fn add_block(&mut self) -> Result<usize, CompileError<'par, 'vm>> {
+    fn add_block(&mut self) -> Result<usize, CompileError<'src>> {
         let index = self.blocks.len();
         self.blocks.try_push(VmBlock {
             instrs: Vec::new_in(self.arena),
@@ -121,27 +122,25 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         &mut self,
         mut stack: StackSpawn<'_>,
         mut block: usize,
-        stmt: &'par [Stmt<'par>],
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par [Stmt<'src, 'par>],
+    ) -> Result<usize, CompileError<'src>> {
         Ok(stack
-            .recurse(
-                async |mut stack| -> Result<usize, CompileError<'par, 'vm>> {
-                    let orig_vars = self.variables.len();
-                    for stmt in stmt {
-                        block = self.compile_stmt(stack.reborrow(), block, stmt).await?;
-                    }
-                    block = self.pop_until(block, orig_vars)?;
-                    Ok(block)
-                },
-            )
+            .recurse(async |mut stack| -> Result<usize, CompileError<'src>> {
+                let orig_vars = self.variables.len();
+                for stmt in stmt {
+                    block = self.compile_stmt(stack.reborrow(), block, stmt).await?;
+                }
+                block = self.pop_until(block, orig_vars)?;
+                Ok(block)
+            })
             .await??)
     }
     async fn compile_stmt(
         &mut self,
         stack: StackSpawn<'_>,
         block: usize,
-        stmt: &'par Stmt<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par Stmt<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         match stmt {
             Stmt::Let(stmt) => self.compile_let_stmt(block, stmt),
             Stmt::ExprStmt(expr) => self.compile_expr_stmt(block, expr),
@@ -157,8 +156,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     fn compile_let_stmt(
         &mut self,
         mut block: usize,
-        stmt: &'par LetStmt,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par LetStmt<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         block = self.compile_expr(block, &stmt.expr)?;
         self.variables.try_push(Some(stmt.ident.ident))?;
         Ok(block)
@@ -166,8 +165,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     fn compile_expr_stmt(
         &mut self,
         mut block: usize,
-        expr: &'par Expr,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        expr: &'par Expr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         block = self.compile_expr(block, expr)?;
         self.push_instr(block, VmInstr::Pop)?;
         Ok(block)
@@ -176,8 +175,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         &mut self,
         mut stack: StackSpawn<'_>,
         mut start: usize,
-        stmt: &'par ForStmt<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par ForStmt<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         let counter = self.variables.len();
         let limit = counter + 1;
         start = self.compile_expr(start, &stmt.init_expr)?;
@@ -221,36 +220,34 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         &mut self,
         mut stack: StackSpawn<'_>,
         init: usize,
-        stmt: &'par IfStmt<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par IfStmt<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         Ok(stack
-            .recurse(
-                async |mut stack| -> Result<usize, CompileError<'par, 'vm>> {
-                    let init = self.compile_expr(init, &stmt.cond_expr)?;
-                    let mut yes = self.add_block()?;
-                    let mut no = self.add_block()?;
-                    self.terminate(init, VmTerm::CondJump { yes, no })?;
-                    yes = self
-                        .compile_stmts(stack.reborrow(), yes, &stmt.then_stmt)
-                        .await?;
-                    if let Some(else_clause) = &stmt.else_clause {
-                        match else_clause {
-                            ElseClause::Else { else_stmt, .. } => {
-                                no = self.compile_stmts(stack.reborrow(), no, else_stmt).await?;
-                            }
-                            ElseClause::ElseIf { else_if_stmt, .. } => {
-                                no = self
-                                    .compile_if_stmt(stack.reborrow(), no, else_if_stmt)
-                                    .await?;
-                            }
+            .recurse(async |mut stack| -> Result<usize, CompileError<'src>> {
+                let init = self.compile_expr(init, &stmt.cond_expr)?;
+                let mut yes = self.add_block()?;
+                let mut no = self.add_block()?;
+                self.terminate(init, VmTerm::CondJump { yes, no })?;
+                yes = self
+                    .compile_stmts(stack.reborrow(), yes, &stmt.then_stmt)
+                    .await?;
+                if let Some(else_clause) = &stmt.else_clause {
+                    match else_clause {
+                        ElseClause::Else { else_stmt, .. } => {
+                            no = self.compile_stmts(stack.reborrow(), no, else_stmt).await?;
+                        }
+                        ElseClause::ElseIf { else_if_stmt, .. } => {
+                            no = self
+                                .compile_if_stmt(stack.reborrow(), no, else_if_stmt)
+                                .await?;
                         }
                     }
-                    let join = self.add_block()?;
-                    self.terminate(yes, VmTerm::Jump(join))?;
-                    self.terminate(no, VmTerm::Jump(join))?;
-                    Ok(join)
-                },
-            )
+                }
+                let join = self.add_block()?;
+                self.terminate(yes, VmTerm::Jump(join))?;
+                self.terminate(no, VmTerm::Jump(join))?;
+                Ok(join)
+            })
             .await??)
     }
 
@@ -258,8 +255,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         &mut self,
         stack: StackSpawn<'_>,
         mut init: usize,
-        stmt: &'par LoopStmt<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par LoopStmt<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         let enter = self.add_block()?;
         let join = self.add_block()?;
         self.break_points.push(BreakPoint {
@@ -276,8 +273,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         &mut self,
         stack: StackSpawn<'_>,
         init: usize,
-        stmt: &'par WhileStmt<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par WhileStmt<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         let cond_enter = self.add_block()?;
         let inner_enter = self.add_block()?;
         let join = self.add_block()?;
@@ -294,7 +291,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         self.terminate(inner_exit, VmTerm::Jump(cond_enter))?;
         Ok(join)
     }
-    fn compile_break_stmt(&mut self, mut block: usize) -> Result<usize, CompileError<'par, 'vm>> {
+    fn compile_break_stmt(&mut self, mut block: usize) -> Result<usize, CompileError<'src>> {
         let point = *self.break_points.last().ok_or(CompileError::NotInLoop)?;
         self.pop_until(block, point.variables)?;
         self.terminate(block, VmTerm::Jump(point.block))?;
@@ -304,8 +301,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     fn compile_reassign_stmt(
         &mut self,
         mut block: usize,
-        stmt: &'par ReassignStmt<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        stmt: &'par ReassignStmt<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         let var = self.find_var(&stmt.ident)?;
         block = self.compile_expr(block, &stmt.expr)?;
         self.push_instr(block, VmInstr::Store(var))?;
@@ -314,8 +311,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     fn compile_expr(
         &mut self,
         block: usize,
-        expr: &'par Expr<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        expr: &'par Expr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         match expr {
             Expr::Var(x) => Ok(self.compile_var(block, x)?),
             Expr::Parens(_) => todo!(),
@@ -331,23 +328,23 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     fn compile_var(
         &mut self,
         block: usize,
-        var: &'par IdentToken,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        var: &'par IdentToken<'src>,
+    ) -> Result<usize, CompileError<'src>> {
         let var = self.find_var(var)?;
         self.push_instr(block, VmInstr::Load(var))?;
         Ok(block)
     }
-    fn find_var(&self, var: &'par IdentToken) -> Result<usize, CompileError<'par, 'vm>> {
+    fn find_var(&self, var: &'par IdentToken<'src>) -> Result<usize, CompileError<'src>> {
         self.variables
             .iter()
             .position(|x| *x == Some(var.ident))
-            .ok_or(CompileError::UnknownVariable(var))
+            .ok_or(CompileError::UnknownVariable(*var))
     }
     fn compile_number_literal(
         &mut self,
         block: usize,
         number: &'par str,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+    ) -> Result<usize, CompileError<'src>> {
         self.push_instr(
             block,
             VmInstr::Integer(number.parse().ok().ok_or(CompileError::BadNumberLiteral)?),
@@ -358,7 +355,7 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         &mut self,
         block: usize,
         value: bool,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+    ) -> Result<usize, CompileError<'src>> {
         self.push_instr(block, VmInstr::Bool(value))?;
         Ok(block)
     }
@@ -366,15 +363,15 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         &mut self,
         block: usize,
         value: &'par str,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+    ) -> Result<usize, CompileError<'src>> {
         self.push_instr(block, VmInstr::String(self.arena.alloc_str(value)?))?;
         Ok(block)
     }
     fn compile_infix_expr(
         &mut self,
         mut block: usize,
-        expr: &'par InfixExpr<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        expr: &'par InfixExpr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         block = self.compile_expr(block, &expr.left)?;
         block = self.compile_expr(block, &expr.right)?;
         self.push_instr(
@@ -397,8 +394,8 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
     fn compile_call_expr(
         &mut self,
         mut block: usize,
-        expr: &'par CallExpr<'par>,
-    ) -> Result<usize, CompileError<'par, 'vm>> {
+        expr: &'par CallExpr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
         for arg in expr.args.exprs {
             block = self.compile_expr(block, arg)?;
         }
@@ -414,25 +411,17 @@ impl<'par, 'vm> FunctionCodegen<'par, 'vm> {
         self.push_instr(block, VmInstr::Call(name, expr.args.exprs.len()))?;
         Ok(block)
     }
-    fn push_instr(
-        &mut self,
-        block: usize,
-        instr: VmInstr<'vm>,
-    ) -> Result<(), CompileError<'par, 'vm>> {
+    fn push_instr(&mut self, block: usize, instr: VmInstr<'vm>) -> Result<(), CompileError<'src>> {
         Ok(self.blocks[block].instrs.try_push(instr)?)
     }
-    fn terminate(
-        &mut self,
-        block: usize,
-        term: VmTerm<'vm>,
-    ) -> Result<(), CompileError<'par, 'vm>> {
+    fn terminate(&mut self, block: usize, term: VmTerm<'vm>) -> Result<(), CompileError<'src>> {
         match mem::replace(&mut self.blocks[block].term, term) {
             VmTerm::Uninit => {}
             _ => panic!("double termination of block"),
         }
         Ok(())
     }
-    fn pop_until(&mut self, block: usize, count: usize) -> Result<usize, CompileError<'par, 'vm>> {
+    fn pop_until(&mut self, block: usize, count: usize) -> Result<usize, CompileError<'src>> {
         while self.variables.len() > count {
             self.push_instr(block, VmInstr::Pop)?;
             self.variables.pop();

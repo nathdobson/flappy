@@ -44,12 +44,7 @@ impl NativeFn for PrintFn {
                     "{}",
                     fmt::from_fn(|f| {
                         for arg in args {
-                            match arg {
-                                Value::Null => write!(f, "null")?,
-                                Value::Bool(arg) => write!(f, "{}", arg)?,
-                                Value::Number(arg) => write!(f, "{}", arg)?,
-                                Value::Ref(arg) => write!(f, "{}", heap.get(arg))?,
-                            }
+                            arg.format(heap, f)?;
                         }
                         Ok(())
                     })
