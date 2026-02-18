@@ -21,8 +21,9 @@ pub struct Codegen<'src, 'par, 'vm> {
 }
 
 #[derive(Copy, Clone)]
-struct BreakPoint {
-    block: usize,
+struct LoopContext {
+    break_block: usize,
+    continue_block: usize,
     variables: usize,
 }
 
@@ -31,7 +32,7 @@ pub struct FunctionCodegen<'src, 'par, 'vm> {
     natives: &'vm [&'vm dyn NativeFn],
     variables: ArenaVec<'vm, Option<&'src str>>,
     blocks: ArenaVec<'vm, VmBlock<'vm>>,
-    break_points: ArenaVec<'vm, BreakPoint>,
+    break_points: ArenaVec<'vm, LoopContext>,
     phantom: PhantomData<&'par ()>,
 }
 
@@ -108,6 +109,8 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
         let mut block = self.add_block()?;
         let block = self.compile_stmts(stack, block, stmt).await?;
         self.terminate(block, VmTerm::Return)?;
+        assert!(self.break_points.is_empty());
+        assert!(self.variables.is_empty());
         Ok(self.blocks)
     }
     fn add_block(&mut self) -> Result<usize, CompileError<'src>> {
@@ -149,6 +152,7 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
             Stmt::Loop(stmt) => self.compile_loop_stmt(stack, block, stmt).await,
             Stmt::While(stmt) => self.compile_while_stmt(stack, block, stmt).await,
             Stmt::Break => self.compile_break_stmt(block),
+            Stmt::Continue => self.compile_continue_stmt(block),
             Stmt::Reassign(stmt) => self.compile_reassign_stmt(block, stmt),
         }
     }
@@ -187,8 +191,9 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
         let cond = self.add_block()?;
         let mut inner = self.add_block()?;
         let join = self.add_block()?;
-        self.break_points.try_push(BreakPoint {
-            block: join,
+        self.break_points.try_push(LoopContext {
+            break_block: join,
+            continue_block: cond,
             variables: counter,
         })?;
         self.push_instr(cond, VmInstr::Load(counter))?;
@@ -211,6 +216,8 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
         self.push_instr(inner, VmInstr::Store(counter))?;
         self.terminate(inner, VmTerm::Jump(cond))?;
 
+        self.push_instr(join, VmInstr::Pop)?;
+        self.push_instr(join, VmInstr::Pop)?;
         self.variables.pop();
         self.variables.pop();
         self.break_points.pop();
@@ -259,8 +266,9 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
     ) -> Result<usize, CompileError<'src>> {
         let enter = self.add_block()?;
         let join = self.add_block()?;
-        self.break_points.push(BreakPoint {
-            block: join,
+        self.break_points.push(LoopContext {
+            break_block: join,
+            continue_block: enter,
             variables: self.variables.len(),
         });
         self.terminate(init, VmTerm::Jump(enter))?;
@@ -294,7 +302,14 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
     fn compile_break_stmt(&mut self, mut block: usize) -> Result<usize, CompileError<'src>> {
         let point = *self.break_points.last().ok_or(CompileError::NotInLoop)?;
         self.pop_until(block, point.variables)?;
-        self.terminate(block, VmTerm::Jump(point.block))?;
+        self.terminate(block, VmTerm::Jump(point.break_block))?;
+        block = self.add_block()?;
+        Ok(block)
+    }
+    fn compile_continue_stmt(&mut self, mut block: usize) -> Result<usize, CompileError<'src>> {
+        let point = *self.break_points.last().ok_or(CompileError::NotInLoop)?;
+        self.pop_until(block, point.variables)?;
+        self.terminate(block, VmTerm::Jump(point.continue_block))?;
         block = self.add_block()?;
         Ok(block)
     }

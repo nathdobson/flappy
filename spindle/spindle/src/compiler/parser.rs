@@ -165,6 +165,8 @@ where
             Ok(Some(Stmt::While(while_stmt)))
         } else if let Some(break_stmt) = self.try_parse_break_statement()? {
             Ok(Some(Stmt::Break))
+        } else if let Some(break_stmt) = self.try_parse_continue_statement()? {
+            Ok(Some(Stmt::Continue))
         } else if let Some(reassign_stmt) = self.try_parse_reassign_statement()? {
             Ok(Some(Stmt::Reassign(reassign_stmt)))
         } else {
@@ -306,6 +308,13 @@ where
     }
     fn try_parse_break_statement(&mut self) -> Result<Option<()>, ParserError<'src>> {
         let Some(break_token) = self.try_parse_keyword(Keyword::Break)? else {
+            return Ok(None);
+        };
+        self.parse_symbol(Symbol::Semi)?;
+        Ok(Some(()))
+    }
+    fn try_parse_continue_statement(&mut self) -> Result<Option<()>, ParserError<'src>> {
+        let Some(break_token) = self.try_parse_keyword(Keyword::Continue)? else {
             return Ok(None);
         };
         self.parse_symbol(Symbol::Semi)?;

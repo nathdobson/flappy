@@ -1,3 +1,4 @@
+use crate::AnnotatedParserError;
 use crate::SpindleError;
 use crate::compiler::parser::ParserError;
 use crate::compiler::stack::{StackStorage, new_stack};
@@ -9,7 +10,6 @@ use crate::testutils::interp;
 use heapless::String;
 use log::info;
 use std::assert_matches;
-use crate::AnnotatedParserError;
 
 #[tokio::test]
 async fn test_interp() {
@@ -180,6 +180,9 @@ async fn test_recursive_parsing() {
     let result = interp(&code).await;
     assert_matches!(
         result,
-        Err(SpindleError::ParserError(AnnotatedParserError { .. }))
+        Err(SpindleError::ParserError(AnnotatedParserError {
+            cause: ParserError::AllocError,
+            ..
+        }))
     );
 }

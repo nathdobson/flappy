@@ -11,10 +11,10 @@ pub mod value;
 mod heap_types;
 mod inline_slice;
 
+use crate::compiler::stack::Stack;
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
 use crate::interp::heap_types::{HeapString, HeapStringInPlace};
-use crate::compiler::stack::Stack;
 use crate::interp::value::Value;
 use crate::native::NativeFn;
 use crate::vm::{VmFunction, VmFunctionName, VmInstr, VmOperator, VmProgram, VmTerm};
@@ -50,6 +50,11 @@ impl<'vm> Interp<'vm> {
             .get(0)
             .ok_or(InterpError::MissingMainFunction)?;
         self.interp_func(main, stack).await?;
+        assert!(
+            self.value_stack.is_empty(),
+            "Not empty: {:?}",
+            self.value_stack
+        );
         Ok(())
     }
     pub async fn interp_func(
@@ -170,6 +175,9 @@ impl<'vm> Interp<'vm> {
                         &self.value_stack[self.value_stack.len() - args..],
                     )?
                     .await?;
+                for x in 0..args {
+                    self.pop_value()?;
+                }
                 self.push_value(result)?;
             }
         }

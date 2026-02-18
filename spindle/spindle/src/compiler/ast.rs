@@ -15,6 +15,7 @@ pub enum Stmt<'src, 'par> {
     While(WhileStmt<'src, 'par>),
     Reassign(ReassignStmt<'src, 'par>),
     Break,
+    Continue,
 }
 
 #[derive(Debug, Copy, Clone)]
