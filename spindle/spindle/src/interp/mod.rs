@@ -10,6 +10,8 @@ pub mod value;
 // mod inline_metadata;
 mod heap_types;
 mod inline_slice;
+#[cfg(test)]
+mod linked_slab_test;
 
 use crate::compiler::stack::Stack;
 use crate::interp::error::InterpError;
@@ -105,7 +107,8 @@ impl<'vm> Interp<'vm> {
             VmInstr::Binop(x) => self.interp_binop(*x),
             VmInstr::Call(fun, args) => self.interp_call(fun, *args, stack).await,
             VmInstr::Pop => {
-                self.pop_value()?;
+                let value = self.pop_value()?;
+                self.drop_value(value)?;
                 Ok(())
             }
             VmInstr::Load(x) => {
@@ -145,8 +148,8 @@ impl<'vm> Interp<'vm> {
         let a = self.pop_value()?;
         match op {
             VmOperator::Plus | VmOperator::Times | VmOperator::Minus | VmOperator::Divide => {
-                let a = a.into_number()?;
-                let b = b.into_number()?;
+                let a = self.into_number(a)?;
+                let b = self.into_number(b)?;
                 let c = match op {
                     VmOperator::Plus => a.checked_add(b).ok_or(InterpError::IntegerOverflow)?,
                     VmOperator::Times => a.checked_mul(b).ok_or(InterpError::IntegerOverflow)?,
@@ -161,8 +164,8 @@ impl<'vm> Interp<'vm> {
             | VmOperator::Greater
             | VmOperator::GreaterEquals
             | VmOperator::EqualsEquals => {
-                let a = a.into_number()?;
-                let b = b.into_number()?;
+                let a = self.into_number(a)?;
+                let b = self.into_number(b)?;
                 let c = match op {
                     VmOperator::Less => a < b,
                     VmOperator::LessEquals => a <= b,
@@ -180,11 +183,11 @@ impl<'vm> Interp<'vm> {
         let a = self.pop_value()?;
         let result = match op {
             VmUnaryOperator::Negate => {
-                let a = a.into_number()?;
+                let a = self.into_number(a)?;
                 Value::Number(-a)
             }
             VmUnaryOperator::Not => {
-                let a = a.into_bool();
+                let a = self.into_bool(a)?;
                 Value::Bool(!a)
             }
         };
@@ -207,7 +210,8 @@ impl<'vm> Interp<'vm> {
                     )?
                     .await?;
                 for x in 0..args {
-                    self.pop_value()?;
+                    let value = self.pop_value()?;
+                    self.drop_value(value)?;
                 }
                 self.push_value(result)?;
             }
@@ -225,159 +229,12 @@ impl<'vm> Interp<'vm> {
             VmTerm::Uninit => todo!(),
             VmTerm::Return => Ok(None),
             VmTerm::CondJump { yes, no } => {
-                if self.pop_value()?.into_bool() {
-                    Ok(Some(*yes))
-                } else {
-                    Ok(Some(*no))
-                }
+                let value = self.pop_value()?;
+                let value = self.into_bool(value)?;
+                if value { Ok(Some(*yes)) } else { Ok(Some(*no)) }
             }
         }
     }
-    // async fn interp_stmt(
-    //     &mut self,
-    //     mut stack: Stack<'_>,
-    //     stmt: &'vm VmStmt<'vm>,
-    // ) -> Result<(), InterpError> {
-    //     match stmt {
-    //         VmStmt::LetStmt(stmt) => {
-    //             let value = self.interp_expr(stack.reborrow(), &stmt.expr).await?;
-    //             self.push_value(value)?;
-    //             self.interp_stmt_rec(stack.reborrow(), &stmt.next).await?;
-    //             self.pop_value();
-    //             Ok(())
-    //         }
-    //         VmStmt::ExprStmt(stmt) => {
-    //             self.interp_expr(stack.reborrow(), &stmt.expr).await?;
-    //             self.interp_stmt_rec(stack.reborrow(), &stmt.next).await?;
-    //             Ok(())
-    //         }
-    //         VmStmt::Noop => Ok(()),
-    //         VmStmt::ForStmt(stmt) => {
-    //             let init = self
-    //                 .interp_expr(stack.reborrow(), &stmt.init)
-    //                 .await?
-    //                 .into_number()?;
-    //             let limit = self
-    //                 .interp_expr(stack.reborrow(), &stmt.limit)
-    //                 .await?
-    //                 .into_number()?;
-    //             for x in init..limit {
-    //                 self.push_value(Value::Number(x))?;
-    //                 self.interp_stmt_rec(stack.reborrow(), &stmt.inner).await?;
-    //                 self.pop_value();
-    //             }
-    //             self.interp_stmt_rec(stack.reborrow(), &stmt.next).await?;
-    //             Ok(())
-    //         }
-    //         VmStmt::IfStmt(stmt) => {
-    //             let cond = self.interp_expr(stack.reborrow(), &stmt.cond).await?;
-    //             if cond.into_bool() {
-    //                 self.interp_stmt_rec(stack.reborrow(), &stmt.then_branch)
-    //                     .await?;
-    //             } else {
-    //                 self.interp_stmt_rec(stack.reborrow(), &stmt.else_branch)
-    //                     .await?;
-    //             }
-    //             self.interp_stmt_rec(stack.reborrow(), &stmt.next).await?;
-    //             Ok(())
-    //         }
-    //     }
-    // }
-    // async fn interp_stmt_rec(
-    //     &mut self,
-    //     mut stack: Stack<'_>,
-    //     stmt: &'vm VmStmt<'vm>,
-    // ) -> Result<(), InterpError> {
-    //     Ok(stack
-    //         .recurse(async move |stack| self.interp_stmt(stack, stmt).await)
-    //         .await??)
-    // }
-    //
-    // pub async fn interp_expr(
-    //     &mut self,
-    //     mut stack: Stack<'_>,
-    //     expr: &'vm VmExpr<'vm>,
-    // ) -> Result<Value, InterpError> {
-    //     match expr {
-    //         VmExpr::Call(call) => {
-    //             for arg in &call.args {
-    //                 let value = self.interp_expr_rec(stack.reborrow(), arg).await?;
-    //                 self.push_value(value)?;
-    //             }
-    //             let result = self.call_fn(stack.reborrow(), call).await?;
-    //             for arg in &call.args {
-    //                 self.pop_value();
-    //             }
-    //             Ok(result)
-    //         }
-    //         VmExpr::Operator(op) => {
-    //             let left = self.interp_expr_rec(stack.reborrow(), &op.left).await?;
-    //             let right = self.interp_expr_rec(stack.reborrow(), &op.right).await?;
-    //             match (op.operator, left, right) {
-    //                 (VmOperator::Plus, Value::Number(left), Value::Number(right)) => {
-    //                     Ok(Value::Number(left + right))
-    //                 }
-    //                 (VmOperator::Minus, Value::Number(left), Value::Number(right)) => {
-    //                     Ok(Value::Number(left - right))
-    //                 }
-    //                 (VmOperator::Times, Value::Number(left), Value::Number(right)) => {
-    //                     Ok(Value::Number(left * right))
-    //                 }
-    //                 (VmOperator::Divide, Value::Number(left), Value::Number(right)) => {
-    //                     Ok(Value::Number(left / right))
-    //                 }
-    //                 _ => return Err(InterpError::OperatorError),
-    //             }
-    //         }
-    //         VmExpr::Var(n) => {
-    //             Ok(self.value_stack[self.value_stack.len() - n - 1].clone_in(&mut self.heap))
-    //         }
-    //         VmExpr::Number(n) => Ok(Value::Number(*n)),
-    //         VmExpr::Null => Ok(Value::Null),
-    //         VmExpr::Boolean(x) => Ok(Value::Bool(*x)),
-    //         VmExpr::String(s) => {
-    //             let r = self
-    //                 .heap
-    //                 .insert(HeapStringInPlace::new(StringInPlace::new(s.len()))?)
-    //                 .unwrap();
-    //             self.heap
-    //                 .get_typed_mut::<HeapString>(&r)
-    //                 .unwrap()
-    //                 .push_str(s)
-    //                 .unwrap();
-    //             Ok(Value::Ref(r))
-    //         }
-    //     }
-    // }
-    //
-    // async fn call_fn(
-    //     &mut self,
-    //     mut stack: Stack<'_>,
-    //     call: &'vm VmCallExpr<'vm>,
-    // ) -> Result<Value, InterpError> {
-    //     match call.function {
-    //         // VmFunctionName::Print => self.interp_print(call.args.len()).await?,
-    //         VmFunctionName::Native(x) => Ok(self.natives[x]
-    //             .native_call(
-    //                 &mut stack,
-    //                 &mut self.heap,
-    //                 &self.value_stack[self.value_stack.len() - call.args.len()..],
-    //             )?
-    //             .into_pin()
-    //             .await?),
-    //     }
-    // }
-    //
-    // async fn interp_expr_rec(
-    //     &mut self,
-    //     mut stack: Stack<'_>,
-    //     expr: &'vm VmExpr<'vm>,
-    // ) -> Result<Value, InterpError> {
-    //     Ok(stack
-    //         .recurse(async move |stack| self.interp_expr(stack, expr).await)
-    //         .await??)
-    // }
-
     fn push_value(&mut self, value: Value) -> Result<(), InterpError> {
         self.value_stack
             .push(value)
@@ -387,5 +244,36 @@ impl<'vm> Interp<'vm> {
 
     fn pop_value(&mut self) -> Result<Value, InterpError> {
         self.value_stack.pop().ok_or(InterpError::StackEmpty)
+    }
+
+    fn drop_value(&mut self, value: Value) -> Result<(), InterpError> {
+        match value {
+            Value::Ref(r) => self.heap.drop_ref(r)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn into_bool(&mut self, value: Value) -> Result<bool, InterpError> {
+        Ok(match value {
+            Value::Null => false,
+            Value::Bool(b) => b,
+            Value::Number(n) => n != 0,
+            Value::Ref(r) => {
+                self.heap.drop_ref(r)?;
+                true
+            }
+        })
+    }
+    fn into_number(&mut self, value: Value) -> Result<i64, InterpError> {
+        match value {
+            Value::Null => Err(InterpError::NotNumber),
+            Value::Bool(b) => Err(InterpError::NotNumber),
+            Value::Number(n) => Ok(n),
+            Value::Ref(r) => {
+                self.heap.drop_ref(r)?;
+                Err(InterpError::NotNumber)
+            }
+        }
     }
 }

@@ -20,6 +20,7 @@ pub struct HeapRef(HeapIndex);
 
 struct HeapEntry {
     address: Range<HeapAddress>,
+    layout: Layout,
     refcount: u8,
     metadata: DynMetadata<dyn HeapObject>,
 }
@@ -29,9 +30,12 @@ pub struct HeapStorage<const N: usize, const C: usize> {
     heap: UnsafePinned<[u8; C]>,
 }
 
+#[derive(Debug)]
 pub struct Heap<'a> {
     entries: LinkedSlab<'a, HeapEntry, HeapIndex>,
     heap: &'a mut UnsafePinned<[u8]>,
+    compaction_ratio: f32,
+    compaction_potential: f32,
 }
 
 pub trait HeapObject: Any + Debug + Display {}
@@ -45,10 +49,12 @@ impl<const N: usize, const C: usize> HeapStorage<N, C> {
             heap: UnsafePinned::new([0u8; C]),
         }
     }
-    pub fn start(&mut self) -> Heap<'_> {
+    pub fn start(&mut self, compaction_ratio: f32) -> Heap<'_> {
         Heap {
             entries: self.entries.start(),
             heap: &mut self.heap,
+            compaction_ratio,
+            compaction_potential: 0.0,
         }
     }
 }
@@ -93,6 +99,23 @@ impl<'a> Heap<'a> {
                 return Err(AllocError);
             }
         };
+        if new_start <= free_limit {
+            if new_start
+                .checked_add(layout.size() as HeapAddress)
+                .ok_or(AllocError)?
+                >= free_limit
+            {
+                return Err(AllocError);
+            }
+        } else {
+            if new_start
+                .checked_add(layout.size() as HeapAddress)
+                .ok_or(AllocError)?
+                >= self.heap.get().len() as HeapAddress
+            {
+                return Err(AllocError);
+            }
+        }
         Ok(new_start..new_start + layout.size() as HeapAddress)
     }
     fn heap_raw_mut(&mut self, index: HeapAddress) -> *mut () {
@@ -113,6 +136,7 @@ impl<'a> Heap<'a> {
             let metadata = metadata(result);
             let heap_index = self.entries.push_back(HeapEntry {
                 address,
+                layout,
                 refcount: 1,
                 metadata,
             })?;
@@ -149,10 +173,58 @@ impl<'a> Heap<'a> {
         self.entries[heap_ref.0].refcount += 1;
         HeapRef(heap_ref.0)
     }
-    pub fn drop_ref(&mut self, heap_ref: HeapRef) {
-        self.entries[heap_ref.0].refcount -= 1;
-        if self.entries[heap_ref.0].refcount == 0 {
-            self.entries.remove(heap_ref.0);
+    pub fn drop_ref(&mut self, heap_ref: HeapRef) -> Result<(), AllocError> {
+        let heap_index = heap_ref.0;
+        mem::forget(heap_ref);
+        self.entries[heap_index].refcount -= 1;
+        if self.entries[heap_index].refcount == 0 {
+            let len = self.entries[heap_index].address.len();
+            self.entries.remove(heap_index);
+            self.compact_bytes(len as f32 * self.compaction_ratio)?;
         }
+        Ok(())
+    }
+
+    fn compact_bytes(&mut self, n: f32) -> Result<(), AllocError> {
+        unsafe {
+            self.compaction_potential += n;
+            loop {
+                let (Some(head_index), Some(head)) =
+                    (self.entries.front_index(), self.entries.front())
+                else {
+                    break;
+                };
+                if head.address.len() > self.compaction_potential as usize {
+                    break;
+                }
+                let old_address = head.address.clone();
+                let layout = head.layout;
+                let new_address = self.find_address(layout)?;
+                self.entries.move_to_back(head_index);
+                let old_ptr = self.heap_raw_mut(old_address.start) as *mut u8;
+                let new_ptr = self.heap_raw_mut(new_address.start) as *mut u8;
+                ptr::copy_nonoverlapping(old_ptr, new_ptr, layout.size());
+                self.entries.back_mut().unwrap().address = new_address;
+                self.compaction_potential -= layout.size() as f32;
+            }
+            Ok(())
+        }
+    }
+}
+
+impl Debug for HeapEntry {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HeapEntry")
+            .field("address", &self.address)
+            .field_with("layout", |f| {
+                write!(
+                    f,
+                    "{} (align {:?})",
+                    self.layout.size(),
+                    self.layout.alignment().as_nonzero()
+                )
+            })
+            .field("refcount", &self.refcount)
+            .finish()
     }
 }

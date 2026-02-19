@@ -11,3 +11,5 @@ log = "0.4.29"
 [dev-dependencies]
 itertools = "0.14.0"
 tokio = {version = "1.49.0",features = ["macros","rt"]}
+rand_xorshift = "0.5.0"
+rand = "0.10.0"

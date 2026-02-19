@@ -7,7 +7,7 @@ use crate::interp::heap::Heap;
 use crate::interp::value::Value;
 use crate::native::{NativeError, NativeFn, PrintFn};
 use crate::vm::VmProgram;
-use crate::{Spindle, SpindleError};
+use crate::{Spindle, SpindleError, SpindleOptions};
 use alloc::string::String;
 use alloc::vec::Vec;
 use arena::ArenaStorage;
@@ -60,7 +60,13 @@ impl NativeFn for TestPrintFn {
     }
 }
 
+pub static TEST_SPINDLE_OPTIONS: SpindleOptions = SpindleOptions {
+    compaction_ratio: 1.0,
+};
+
 pub async fn interp(code: &str) -> Result<Vec<String>, SpindleError<'_>> {
-    TestSpindle::new().run(code, &[&TestPrintFn]).await?;
+    TestSpindle::new()
+        .run(TEST_SPINDLE_OPTIONS.clone(), code, &[&TestPrintFn])
+        .await?;
     Ok(TEST_LOGS.with(|x| x.take()))
 }

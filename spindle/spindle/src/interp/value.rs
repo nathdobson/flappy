@@ -23,20 +23,6 @@ impl Display for Value {
 }
 
 impl Value {
-    pub fn into_number(self) -> Result<i64, InterpError> {
-        match self {
-            Value::Number(x) => Ok(x),
-            _ => Err(InterpError::ForLoopTypeError),
-        }
-    }
-    pub fn into_bool(self) -> bool {
-        match self {
-            Value::Null => false,
-            Value::Bool(value) => value,
-            Value::Number(value) => value != 0,
-            Value::Ref(_) => true,
-        }
-    }
     pub fn clone_in(&self, heap: &mut Heap<'_>) -> Self {
         match self {
             Value::Null => Value::Null,

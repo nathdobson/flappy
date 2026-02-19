@@ -10,11 +10,14 @@
     unboxed_closures,
     deref_patterns,
     trait_alias,
-    super_let
+    super_let,
+    try_blocks
 )]
 #![feature(unsize)]
 #![feature(coerce_unsized)]
 #![feature(pin_coerce_unsized_trait)]
+#![feature(debug_closure_helpers)]
+#![feature(ptr_alignment_type)]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use, unsafe_op_in_unsafe_fn)]
 #![allow(
@@ -74,6 +77,11 @@ pub struct Spindle<
     heap: HeapStorage<HEAP_COUNT, HEAP_BYTES>,
 }
 
+#[derive(Clone)]
+pub struct SpindleOptions {
+    pub compaction_ratio: f32,
+}
+
 pub struct SpindleMut<'vm> {
     arena: &'vm Arena,
     stack: Stack<'vm>,
@@ -97,26 +105,28 @@ impl<
             heap: HeapStorage::new(),
         }
     }
-    pub fn start(&'_ mut self) -> SpindleMut<'_> {
+    pub fn start(&'_ mut self, options: SpindleOptions) -> SpindleMut<'_> {
         SpindleMut {
             arena: self.arena.start(),
             stack: (&mut self.stack as &mut StackStorage).start(),
             value_stack: &mut self.value_stack,
-            heap: self.heap.start(),
+            heap: self.heap.start(options.compaction_ratio),
         }
     }
     async fn run<'src>(
         &mut self,
+        options: SpindleOptions,
         code: &'src str,
         natives: &[&dyn NativeFn],
     ) -> Result<(), SpindleError<'src>> {
-        self.start().run(code, natives).await
+        self.start(options).run(code, natives).await
     }
     async fn parse<'vm, 'src: 'vm>(
         &'vm mut self,
+        options: SpindleOptions,
         code: &'src str,
     ) -> Result<&'vm Program<'src, 'vm>, SpindleError<'src>> {
-        self.start().parse(code).await
+        self.start(options).parse(code).await
     }
 }
 

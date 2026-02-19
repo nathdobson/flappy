@@ -12,6 +12,7 @@ pub enum InterpError {
     StackEmpty,
     IntegerOverflow,
     BadStackIndex,
+    NotNumber,
 }
 
 impl From<AllocError> for InterpError {
