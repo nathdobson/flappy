@@ -23,6 +23,12 @@ pub enum VmOperator {
     EqualsEquals,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum VmUnaryOperator {
+    Not,
+    Negate,
+}
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum VmInstr<'vm> {
     Unused(&'vm !),
@@ -30,6 +36,7 @@ pub enum VmInstr<'vm> {
     Integer(i64),
     Bool(bool),
 
+    Unop(VmUnaryOperator),
     Binop(VmOperator),
     Call(VmFunctionName, usize),
 
@@ -37,6 +44,7 @@ pub enum VmInstr<'vm> {
     Load(usize),
     Store(usize),
     String(&'vm str),
+    Null,
 }
 
 #[derive(Debug, Eq, PartialEq)]

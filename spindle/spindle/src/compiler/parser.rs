@@ -1,6 +1,6 @@
 use crate::compiler::ast::{
     CallExpr, ElseClause, Expr, ExprList, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt,
-    ParensExpr, Program, ReassignStmt, Stmt, WhileStmt,
+    ParensExpr, PrefixExpr, Program, ReassignStmt, Stmt, WhileStmt,
 };
 use crate::compiler::lexer::{Lexer, LexerError};
 use crate::compiler::token::{
@@ -351,10 +351,29 @@ where
         }
     }
     fn parse_expr(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
-        self.parse_expr3()
+        self.parse_expr5()
     }
-    fn parse_expr3(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
-        let mut expr = self.parse_expr2()?;
+    fn parse_expr5(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
+        let mut expr = self.parse_expr4()?;
+        loop {
+            let symbol = if let Some(and_and) = self.try_parse_symbol(Symbol::AndAnd)? {
+                and_and
+            } else if let Some(or_or) = self.try_parse_symbol(Symbol::OrOr)? {
+                or_or
+            } else {
+                break;
+            };
+            let expr2 = self.parse_expr4()?;
+            expr = Expr::InfixExpr(InfixExpr {
+                left: self.arena.alloc_ref(expr)?,
+                symbol,
+                right: self.arena.alloc_ref(expr2)?,
+            });
+        }
+        Ok(expr)
+    }
+    fn parse_expr4(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
+        let mut expr = self.parse_expr3()?;
         loop {
             let symbol = if let Some(less) = self.try_parse_symbol(Symbol::Less)? {
                 less
@@ -366,6 +385,25 @@ where
                 greater_equals
             } else if let Some(equals_equals) = self.try_parse_symbol(Symbol::EqualsEquals)? {
                 equals_equals
+            } else {
+                break;
+            };
+            let expr2 = self.parse_expr3()?;
+            expr = Expr::InfixExpr(InfixExpr {
+                left: self.arena.alloc_ref(expr)?,
+                symbol,
+                right: self.arena.alloc_ref(expr2)?,
+            });
+        }
+        Ok(expr)
+    }
+    fn parse_expr3(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
+        let mut expr = self.parse_expr2()?;
+        loop {
+            let symbol = if let Some(plus) = self.try_parse_symbol(Symbol::Plus)? {
+                plus
+            } else if let Some(minus) = self.try_parse_symbol(Symbol::Minus)? {
+                minus
             } else {
                 break;
             };
@@ -381,9 +419,9 @@ where
     fn parse_expr2(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
         let mut expr = self.parse_expr1()?;
         loop {
-            let symbol = if let Some(plus) = self.try_parse_symbol(Symbol::Plus)? {
+            let symbol = if let Some(plus) = self.try_parse_symbol(Symbol::Times)? {
                 plus
-            } else if let Some(minus) = self.try_parse_symbol(Symbol::Minus)? {
+            } else if let Some(minus) = self.try_parse_symbol(Symbol::Divide)? {
                 minus
             } else {
                 break;
@@ -397,6 +435,7 @@ where
         }
         Ok(expr)
     }
+
     fn parse_expr1(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
         let mut expr = self.parse_expr0()?;
         loop {
@@ -418,6 +457,8 @@ where
     fn parse_expr0(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
         if let Some(str) = self.try_parse_string_literal()? {
             Ok(Expr::String(str))
+        } else if let Some(prefix) = self.try_parse_prefix_expr()? {
+            Ok(Expr::PrefixExpr(prefix))
         } else if let Some(false_token) = self.try_parse_keyword(Keyword::False)? {
             Ok(Expr::False(false_token))
         } else if let Some(true_token) = self.try_parse_keyword(Keyword::True)? {
@@ -439,6 +480,22 @@ where
         } else {
             return Err(ParserError::ExpectedExpr);
         }
+    }
+    fn try_parse_prefix_expr(
+        &mut self,
+    ) -> Result<Option<PrefixExpr<'src, 'par>>, ParserError<'src>> {
+        let symbol = if let Some(symbol) = self.try_parse_symbol(Symbol::Not)? {
+            symbol
+        } else if let Some(symbol) = self.try_parse_symbol(Symbol::Minus)? {
+            symbol
+        } else {
+            return Ok(None);
+        };
+        let inner = self.parse_expr()?;
+        Ok(Some(PrefixExpr {
+            symbol,
+            inner: self.arena.alloc_ref(inner)?,
+        }))
     }
     fn parse_expr_list(&mut self) -> Result<ExprList<'src, 'par>, ParserError<'src>> {
         let mut exprs = Vec::new_in(self.arena);

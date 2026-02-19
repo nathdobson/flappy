@@ -93,6 +93,12 @@ pub struct InfixExpr<'src, 'par> {
 }
 
 #[derive(Debug, Copy, Clone)]
+pub struct PrefixExpr<'src, 'par> {
+    pub symbol: SymbolToken,
+    pub inner: &'par Expr<'src, 'par>,
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct CallExpr<'src, 'par> {
     pub callee: &'par Expr<'src, 'par>,
     pub lparen: SymbolToken,
@@ -116,6 +122,7 @@ pub enum Expr<'src, 'par> {
     True(KeywordToken),
     Null(KeywordToken),
     InfixExpr(InfixExpr<'src, 'par>),
+    PrefixExpr(PrefixExpr<'src, 'par>),
     Call(CallExpr<'src, 'par>),
     String(&'par str),
 }

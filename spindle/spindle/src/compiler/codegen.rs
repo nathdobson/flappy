@@ -1,13 +1,10 @@
-use crate::compiler::ast::{
-    CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, Program,
-    ReassignStmt, Stmt, WhileStmt,
-};
+use crate::compiler::ast::{CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, PrefixExpr, Program, ReassignStmt, Stmt, WhileStmt};
 use crate::compiler::stack::Stack;
 use crate::compiler::stack_executor::StackSpawn;
 use crate::compiler::token::{IdentToken, Symbol};
 use crate::native::NativeFn;
 use crate::vec_ext::VecExt;
-use crate::vm::{VmBlock, VmFunction, VmFunctionName, VmInstr, VmOperator, VmProgram, VmTerm};
+use crate::vm::{VmBlock, VmFunction, VmFunctionName, VmInstr, VmOperator, VmUnaryOperator, VmProgram, VmTerm};
 use alloc::collections::TryReserveError;
 use alloc::vec::Vec;
 use arena::{Arena, ArenaVec};
@@ -334,10 +331,11 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
             Expr::Number(n) => self.compile_number_literal(block, n.number),
             Expr::False(x) => self.compile_bool_literal(block, false),
             Expr::True(x) => self.compile_bool_literal(block, true),
-            Expr::Null(_) => todo!(),
+            Expr::Null(x) => self.compile_null_literal(block),
             Expr::InfixExpr(expr) => self.compile_infix_expr(block, expr),
             Expr::Call(expr) => self.compile_call_expr(block, expr),
             Expr::String(x) => self.compile_string_literal(block, x),
+            Expr::PrefixExpr(expr) => self.compile_prefix_expr(block, expr),
         }
     }
     fn compile_var(
@@ -374,6 +372,13 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
         self.push_instr(block, VmInstr::Bool(value))?;
         Ok(block)
     }
+    fn compile_null_literal(
+        &mut self,
+        block: usize,
+    ) -> Result<usize, CompileError<'src>> {
+        self.push_instr(block, VmInstr::Null)?;
+        Ok(block)
+    }
     fn compile_string_literal(
         &mut self,
         block: usize,
@@ -401,6 +406,22 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
                 Symbol::Greater => VmOperator::Greater,
                 Symbol::GreaterEquals => VmOperator::GreaterEquals,
                 Symbol::EqualsEquals => VmOperator::EqualsEquals,
+                _ => todo!("{:?}", expr.symbol),
+            }),
+        )?;
+        Ok(block)
+    }
+    fn compile_prefix_expr(
+        &mut self,
+        mut block: usize,
+        expr: &'par PrefixExpr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
+        block = self.compile_expr(block, &expr.inner)?;
+        self.push_instr(
+            block,
+            VmInstr::Unop(match expr.symbol.symbol {
+                Symbol::Not => VmUnaryOperator::Not,
+                Symbol::Minus => VmUnaryOperator::Negate,
                 _ => todo!("{:?}", expr.symbol),
             }),
         )?;

@@ -25,6 +25,11 @@ pub struct ArenaStorage<'a> {
     arena: Option<Arena>,
 }
 
+pub struct ArenaArrayStorage<const N: usize> {
+    buffer: [u8; N],
+    arena: Option<Arena>,
+}
+
 struct ArenaState {
     buffer: &'static mut [u8],
 }
@@ -50,6 +55,18 @@ impl<'a> ArenaStorage<'a> {
     }
     pub fn start<'ar>(&'ar mut self) -> &'ar Arena {
         unsafe { self.arena.insert(Arena::new(self.buffer)) }
+    }
+}
+
+impl<const N: usize> ArenaArrayStorage<N> {
+    pub fn new() -> Self {
+        ArenaArrayStorage {
+            buffer: [0u8; N],
+            arena: None,
+        }
+    }
+    pub fn start<'ar>(&'ar mut self) -> &'ar Arena {
+        unsafe { self.arena.insert(Arena::new(&mut self.buffer)) }
     }
 }
 

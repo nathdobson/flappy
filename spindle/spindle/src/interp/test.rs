@@ -206,3 +206,29 @@ async fn test_continue() {
         .unwrap();
     assert_matches!(result, ["3"]);
 }
+
+#[tokio::test]
+async fn test_not() {
+    let result = interp(
+        r#"
+        print(!false);
+        print(!true);
+        print(!null);
+       "#,
+    )
+        .await
+        .unwrap();
+    assert_matches!(result, ["true","false","true"]);
+}
+
+#[tokio::test]
+async fn test_neg() {
+    let result = interp(
+        r#"
+        print(10 + - 5);
+       "#,
+    )
+        .await
+        .unwrap();
+    assert_matches!(result, ["5"]);
+}

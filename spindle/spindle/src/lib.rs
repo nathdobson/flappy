@@ -33,17 +33,17 @@ use crate::compiler::ast::Program;
 use crate::compiler::codegen::{Codegen, CompileError};
 use crate::compiler::lexer::Lexer;
 use crate::compiler::parser::{AnnotatedParserError, Parser};
-use crate::compiler::stack::{StackStorage, new_stack};
+use crate::compiler::stack::{Stack, StackStorage, new_stack};
 use crate::compiler::stack_executor::stack_executor;
 use crate::interp::Interp;
-use crate::interp::heap::HeapStorage;
+use crate::interp::error::InterpError;
+use crate::interp::heap::{Heap, HeapStorage};
 use crate::interp::value::Value;
 use crate::native::{NativeFn, PrintFn};
 use crate::vm::VmProgram;
-use arena::ArenaStorage;
+use arena::{Arena, ArenaArrayStorage, ArenaStorage};
 use core::alloc::AllocError;
-use heapless::Vec;
-use crate::interp::error::InterpError;
+use heapless::{Vec, VecView};
 
 pub mod compiler;
 pub mod interp;
@@ -68,10 +68,17 @@ pub struct Spindle<
     const HEAP_COUNT: usize,
     const HEAP_BYTES: usize,
 > {
-    arena: [u8; ARENA],
+    arena: ArenaArrayStorage<ARENA>,
     stack: StackStorage<[u8; STACK_PAR]>,
     value_stack: Vec<Value, STACK_VALUE>,
     heap: HeapStorage<HEAP_COUNT, HEAP_BYTES>,
+}
+
+pub struct SpindleMut<'vm> {
+    arena: &'vm Arena,
+    stack: Stack<'vm>,
+    value_stack: &'vm mut VecView<Value>,
+    heap: Heap<'vm>,
 }
 
 impl<
@@ -84,10 +91,18 @@ impl<
 {
     pub fn new() -> Self {
         Spindle {
-            arena: [0u8; ARENA],
+            arena: ArenaArrayStorage::new(),
             stack: new_stack(),
             value_stack: Vec::new(),
             heap: HeapStorage::new(),
+        }
+    }
+    pub fn start(&'_ mut self) -> SpindleMut<'_> {
+        SpindleMut {
+            arena: self.arena.start(),
+            stack: (&mut self.stack as &mut StackStorage).start(),
+            value_stack: &mut self.value_stack,
+            heap: self.heap.start(),
         }
     }
     async fn run<'src>(
@@ -95,21 +110,53 @@ impl<
         code: &'src str,
         natives: &[&dyn NativeFn],
     ) -> Result<(), SpindleError<'src>> {
-        super let arena = ArenaStorage::new(&mut self.arena).start();
-        super let mut stack = (&mut self.stack as &mut StackStorage).start();
-        let program: VmProgram = stack_executor(stack.reborrow(), async |mut spawn| {
-            let lexer: Lexer<'src, '_> = Lexer::new(code, arena);
-            let program: &'_ Program<'src, '_> = Parser::new(lexer, arena)
-                .parse_program(spawn.reborrow())
-                .await?;
-            let program: VmProgram<'_> = Codegen::new(arena, natives, &program)
+        self.start().run(code, natives).await
+    }
+    async fn parse<'vm, 'src: 'vm>(
+        &'vm mut self,
+        code: &'src str,
+    ) -> Result<&'vm Program<'src, 'vm>, SpindleError<'src>> {
+        self.start().parse(code).await
+    }
+}
+
+impl<'vm> SpindleMut<'vm> {
+    async fn run<'src>(
+        mut self,
+        code: &'src str,
+        natives: &[&dyn NativeFn],
+    ) -> Result<(), SpindleError<'src>> {
+        let program = self.compile(code, natives).await?;
+        Ok(Interp::new(&program, self.value_stack, self.heap, natives)
+            .interp(self.stack.reborrow())
+            .await?)
+    }
+    async fn compile<'src: 'vm>(
+        &mut self,
+        code: &'src str,
+        natives: &'vm [&'vm dyn NativeFn],
+    ) -> Result<VmProgram<'vm>, SpindleError<'src>> {
+        let program = self.parse(code).await?;
+        Ok(stack_executor(self.stack.reborrow(), async |mut spawn| {
+            let program: VmProgram<'_> = Codegen::new(self.arena, natives, &program)
                 .compile(spawn.reborrow())
                 .await?;
-            Ok::<VmProgram<'_>, SpindleError<'src>>(program)
+            Ok::<_, SpindleError>(program)
         })
-        .await??;
-        Interp::new(&program, &mut self.value_stack, self.heap.start(), natives).interp(stack.reborrow()).await?;
-        Ok(())
+        .await??)
+    }
+    async fn parse<'src: 'vm>(
+        &mut self,
+        code: &'src str,
+    ) -> Result<&'vm Program<'src, 'vm>, SpindleError<'src>> {
+        Ok(stack_executor(self.stack.reborrow(), async |mut spawn| {
+            let lexer: Lexer<'src, '_> = Lexer::new(code, self.arena);
+            let program: &'_ Program<'src, '_> = Parser::new(lexer, self.arena)
+                .parse_program(spawn.reborrow())
+                .await?;
+            Ok::<_, SpindleError>(program)
+        })
+        .await??)
     }
 }
 

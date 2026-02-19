@@ -17,7 +17,9 @@ use crate::interp::heap::Heap;
 use crate::interp::heap_types::{HeapString, HeapStringInPlace};
 use crate::interp::value::Value;
 use crate::native::NativeFn;
-use crate::vm::{VmFunction, VmFunctionName, VmInstr, VmOperator, VmProgram, VmTerm};
+use crate::vm::{
+    VmFunction, VmFunctionName, VmInstr, VmOperator, VmProgram, VmTerm, VmUnaryOperator,
+};
 use core::fmt::Display;
 use heapless::VecView;
 use heapless::string::StringInPlace;
@@ -122,6 +124,11 @@ impl<'vm> Interp<'vm> {
                     .ok_or(InterpError::BadStackIndex)? = self.pop_value()?;
                 Ok(())
             }
+            VmInstr::Unop(x) => self.interp_unop(*x),
+            VmInstr::Null => {
+                self.push_value(Value::Null)?;
+                Ok(())
+            }
         }
     }
     pub fn interp_binop(&mut self, op: VmOperator) -> Result<(), InterpError> {
@@ -158,6 +165,21 @@ impl<'vm> Interp<'vm> {
                 self.push_value(Value::Bool(c))?;
             }
         }
+        Ok(())
+    }
+    pub fn interp_unop(&mut self, op: VmUnaryOperator) -> Result<(), InterpError> {
+        let a = self.pop_value()?;
+        let result = match op {
+            VmUnaryOperator::Negate => {
+                let a = a.into_number()?;
+                Value::Number(-a)
+            }
+            VmUnaryOperator::Not => {
+                let a = a.into_bool();
+                Value::Bool(!a)
+            }
+        };
+        self.push_value(result)?;
         Ok(())
     }
     pub async fn interp_call(

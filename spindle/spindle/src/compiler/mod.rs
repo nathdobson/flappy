@@ -16,4 +16,6 @@ mod stack_test;
 pub mod stack_executor;
 #[cfg(test)]
 mod stack_executor_test;
+#[cfg(test)]
+mod test;
 

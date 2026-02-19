@@ -27,6 +27,9 @@ pub enum Symbol {
     LessEquals,
     Greater,
     GreaterEquals,
+    AndAnd,
+    OrOr,
+    Not,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -111,6 +114,9 @@ impl Debug for Symbol {
                 Symbol::LessEquals => "<=",
                 Symbol::Greater => ">",
                 Symbol::GreaterEquals => ">=",
+                Symbol::AndAnd => "&&",
+                Symbol::OrOr => "||",
+                Symbol::Not => "!",
             }
         )
     }

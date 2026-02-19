@@ -205,6 +205,42 @@ impl<'lexer, 'src: 'par, 'par> TokenReader<'lexer, 'src, 'par> {
                     _ => Symbol::Greater,
                 }
             }
+            '&' => {
+                self.next()?;
+                match self.peek(0)? {
+                    '&' => {
+                        self.next()?;
+                        Symbol::AndAnd
+                    }
+                    c => return Err(LexerError::UnexpectedChar(c)),
+                }
+            }
+            '|' => {
+                self.next()?;
+                match self.peek(0)? {
+                    '|' => {
+                        self.next()?;
+                        Symbol::OrOr
+                    }
+                    c => return Err(LexerError::UnexpectedChar(c)),
+                }
+            }
+            '!' => {
+                self.next()?;
+                Symbol::Not
+            }
+            '-' => {
+                self.next()?;
+                Symbol::Minus
+            }
+            '*' => {
+                self.next()?;
+                Symbol::Times
+            }
+            '/' => {
+                self.next()?;
+                Symbol::Divide
+            }
             c => return Err(LexerError::UnexpectedChar(c)),
         };
         Ok(Token::Symbol(SymbolToken {
