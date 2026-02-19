@@ -43,6 +43,7 @@ pub enum VmInstr<'vm> {
     Pop,
     Load(usize),
     Store(usize),
+    Dup,
     String(&'vm str),
     Null,
 }

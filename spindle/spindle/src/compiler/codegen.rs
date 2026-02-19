@@ -1,10 +1,15 @@
-use crate::compiler::ast::{CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, PrefixExpr, Program, ReassignStmt, Stmt, WhileStmt};
+use crate::compiler::ast::{
+    CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, PrefixExpr, Program,
+    ReassignStmt, Stmt, WhileStmt,
+};
 use crate::compiler::stack::Stack;
 use crate::compiler::stack_executor::StackSpawn;
 use crate::compiler::token::{IdentToken, Symbol};
 use crate::native::NativeFn;
 use crate::vec_ext::VecExt;
-use crate::vm::{VmBlock, VmFunction, VmFunctionName, VmInstr, VmOperator, VmUnaryOperator, VmProgram, VmTerm};
+use crate::vm::{
+    VmBlock, VmFunction, VmFunctionName, VmInstr, VmOperator, VmProgram, VmTerm, VmUnaryOperator,
+};
 use alloc::collections::TryReserveError;
 use alloc::vec::Vec;
 use arena::{Arena, ArenaVec};
@@ -372,10 +377,7 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
         self.push_instr(block, VmInstr::Bool(value))?;
         Ok(block)
     }
-    fn compile_null_literal(
-        &mut self,
-        block: usize,
-    ) -> Result<usize, CompileError<'src>> {
+    fn compile_null_literal(&mut self, block: usize) -> Result<usize, CompileError<'src>> {
         self.push_instr(block, VmInstr::Null)?;
         Ok(block)
     }
@@ -388,6 +390,59 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
         Ok(block)
     }
     fn compile_infix_expr(
+        &mut self,
+        mut block: usize,
+        expr: &'par InfixExpr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
+        match expr.symbol.symbol {
+            Symbol::AndAnd => self.compile_and_expr(block, expr),
+            Symbol::OrOr => self.compile_or_expr(block, expr),
+            _ => self.compile_infix_expr_func(block, expr),
+        }
+    }
+    fn compile_or_expr(
+        &mut self,
+        mut enter: usize,
+        expr: &'par InfixExpr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
+        enter = self.compile_expr(enter, expr.left)?;
+        self.push_instr(enter, VmInstr::Dup)?;
+        let mut first_false = self.add_block()?;
+        let join = self.add_block()?;
+        self.terminate(
+            enter,
+            VmTerm::CondJump {
+                yes: join,
+                no: first_false,
+            },
+        )?;
+        self.push_instr(first_false, VmInstr::Pop)?;
+        first_false = self.compile_expr(first_false, expr.right)?;
+        self.terminate(first_false, VmTerm::Jump(join))?;
+        Ok(join)
+    }
+    fn compile_and_expr(
+        &mut self,
+        mut enter: usize,
+        expr: &'par InfixExpr<'src, 'par>,
+    ) -> Result<usize, CompileError<'src>> {
+        enter = self.compile_expr(enter, expr.left)?;
+        self.push_instr(enter, VmInstr::Dup)?;
+        let mut first_true = self.add_block()?;
+        let join = self.add_block()?;
+        self.terminate(
+            enter,
+            VmTerm::CondJump {
+                yes: first_true,
+                no: join,
+            },
+        )?;
+        self.push_instr(first_true, VmInstr::Pop)?;
+        first_true = self.compile_expr(first_true, expr.right)?;
+        self.terminate(first_true, VmTerm::Jump(join))?;
+        Ok(join)
+    }
+    fn compile_infix_expr_func(
         &mut self,
         mut block: usize,
         expr: &'par InfixExpr<'src, 'par>,

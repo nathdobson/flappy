@@ -129,6 +129,15 @@ impl<'vm> Interp<'vm> {
                 self.push_value(Value::Null)?;
                 Ok(())
             }
+            VmInstr::Dup => {
+                let top = self
+                    .value_stack
+                    .last()
+                    .ok_or(InterpError::StackEmpty)?
+                    .clone_in(&mut self.heap);
+                self.push_value(top)?;
+                Ok(())
+            }
         }
     }
     pub fn interp_binop(&mut self, op: VmOperator) -> Result<(), InterpError> {

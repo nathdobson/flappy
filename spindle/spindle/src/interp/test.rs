@@ -202,8 +202,8 @@ async fn test_continue() {
         }
        "#,
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
     assert_matches!(result, ["3"]);
 }
 
@@ -216,9 +216,9 @@ async fn test_not() {
         print(!null);
        "#,
     )
-        .await
-        .unwrap();
-    assert_matches!(result, ["true","false","true"]);
+    .await
+    .unwrap();
+    assert_matches!(result, ["true", "false", "true"]);
 }
 
 #[tokio::test]
@@ -228,7 +228,96 @@ async fn test_neg() {
         print(10 + - 5);
        "#,
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
     assert_matches!(result, ["5"]);
 }
+
+#[tokio::test]
+async fn test_and() {
+    let result = interp(
+        r#"
+        print(false && false);
+        print(false && true);
+        print(true && false);
+        print(true && true);
+       "#,
+    )
+    .await
+    .unwrap();
+    assert_matches!(result, ["false", "false", "false", "true"]);
+}
+
+#[tokio::test]
+async fn test_and_short_circuit() {
+    let result = interp(
+        r#"
+        false && print("a");
+        true && print("b");
+       "#,
+    )
+    .await
+    .unwrap();
+    assert_matches!(result, ["b"]);
+}
+
+#[tokio::test]
+async fn test_and_falsy() {
+    let result = interp(
+        r#"
+        print(null && 0);
+        print(1 && 0);
+        print(null && 2);
+        print(1 && 2);
+
+       "#,
+    )
+    .await
+    .unwrap();
+    assert_matches!(result, ["null", "0", "null", "2"]);
+}
+
+#[tokio::test]
+async fn test_or() {
+    let result = interp(
+        r#"
+        print(false || false);
+        print(false || true);
+        print(true || false);
+        print(true || true);
+       "#,
+    )
+        .await
+        .unwrap();
+    assert_matches!(result, ["false", "true", "true", "true"]);
+}
+
+#[tokio::test]
+async fn test_or_short_circuit() {
+    let result = interp(
+        r#"
+        false || print("a");
+        true || print("b");
+       "#,
+    )
+        .await
+        .unwrap();
+    assert_matches!(result, ["a"]);
+}
+
+#[tokio::test]
+async fn test_or_falsy() {
+    let result = interp(
+        r#"
+        print(null || 0);
+        print(1 || 0);
+        print(null || 2);
+        print(1 || 2);
+
+       "#,
+    )
+        .await
+        .unwrap();
+    assert_matches!(result, ["0", "1", "2", "1"]);
+}
+
