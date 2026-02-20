@@ -6,7 +6,6 @@ use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo2::polygon2::Polygon2;
 use patina_geo::geo3::aabb3::Aabb3;
-use patina_geo::geo3::cylinder::Cylinder;
 use patina_sdf::sdf::AsSdf;
 use patina_vec::mat4::Mat4;
 use patina_vec::vec2::Vec2;
@@ -54,7 +53,7 @@ impl LeftCap {
     }
     pub async fn build(&self) -> anyhow::Result<()> {
         encode_model(
-            "right_cap",
+            "right-cap",
             self.build_sdf(),
             BambuBuilder::new(),
             &[],

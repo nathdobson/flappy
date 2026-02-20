@@ -7,6 +7,7 @@ use patina_geo::geo3::aabb3::Aabb3;
 use patina_geo::geo3::cylinder::Cylinder;
 use patina_sdf::sdf::AsSdf;
 use patina_threads::{THREAD_M2, ThreadMetrics};
+use patina_vec::mat4::Mat4;
 use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
 
@@ -57,10 +58,11 @@ impl LeftCap {
     }
     pub async fn build(&self) -> anyhow::Result<()> {
         encode_model(
-            "left_cap",
+            "left-cap",
             self.build_sdf(),
             BambuBuilder::new(),
             &[],
+            Mat4::id(),
             &Aabb::new(
                 self.aabb.min() - Vec3::splat(0.1),
                 self.aabb.max() + Vec3::splat(0.1) + Vec3::new(0.0, 0.0, self.tabs.size),

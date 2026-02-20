@@ -20,6 +20,7 @@ use patina_vec::vec3::Vec3;
 use std::f64;
 use std::path::Path;
 use std::time::Instant;
+use patina_vec::mat4::Mat4;
 
 pub struct DrumBuilder {
     eps: f64,
@@ -192,6 +193,8 @@ impl DrumBuilder {
             "outer",
             self.build_sdf(),
             bambu,
+            &[],
+            Mat4::id(),
             &Aabb::new(
                 Vec3::new(
                     -self.flange_radius - self.eps,
