@@ -7,8 +7,8 @@ use core::ops::Index;
 use core::{fmt, iter};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::{Mutex, MutexGuard};
-use embassy_time::Timer;
-use heapless::{String, Vec};
+use embassy_time::{Instant, Timer};
+use heapless::{CapacityError, String, Vec};
 use log::{error, info};
 use protocol::display::MAX_GLYPHS;
 use protocol::setup::{DisplaySettings, DriverVersion};
@@ -16,6 +16,12 @@ use protocol::setup::{DisplaySettings, DriverVersion};
 const MODULE: &'static str = "[CTRL ]";
 const STEPS_PER_REV: usize = 2048;
 const FLAP_COUNT: usize = 45;
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum SegmentMode {
+    Disabled,
+    Spinning,
+    Decelerating,
+}
 #[derive(Debug)]
 pub struct SegmentController {
     target: isize,
@@ -25,7 +31,9 @@ pub struct SegmentController {
     homed: bool,
 
     phase: usize,
-    spinning: bool,
+    mode: SegmentMode,
+    ticks_until_step: usize,
+    accel_step: usize,
 }
 
 pub struct DisplayController {
@@ -52,7 +60,7 @@ impl ControllerModule {
 impl<'a> Drop for DisplayControllerGuard<'a> {
     fn drop(&mut self) {
         for segment in &mut self.guard.segments {
-            segment.spinning = false;
+            segment.mode = SegmentMode::Disabled;
         }
         self.guard.driver.set_enabled(false);
     }
@@ -91,6 +99,50 @@ impl SegmentController {
     }
 }
 
+struct AccelerationCurve {
+    micros_per_tick: u64,
+    ticks_per_step: Vec<u8, 256>,
+}
+
+struct AccelerationStage {
+    ticks_per_step: u32,
+    steps_per_stage: u32,
+}
+
+impl AccelerationCurve {
+    pub fn new(settings: &DisplaySettings) -> Result<AccelerationCurve, Error> {
+        let micros_per_tick = settings.micros_per_tick.unwrap_or(350);
+        let slow_ticks_per_step = settings.slow_ticks_per_step.unwrap_or(3);
+        let fast_ticks_per_step = settings.fast_ticks_per_step.unwrap_or(6);
+        let slow_steps_per_stage = settings.slow_steps_per_stage.unwrap_or(6);
+        let mut ticks_per_step_vec = Vec::new();
+        let slow_ticks_per_step_1 = slow_ticks_per_step as f32;
+        let slow_ticks_per_step_2 = slow_ticks_per_step_1 * slow_ticks_per_step_1;
+        let slow_ticks_per_step_4 = slow_ticks_per_step_2 * slow_ticks_per_step_2;
+        for ticks_per_step in (fast_ticks_per_step + 1..=slow_ticks_per_step).rev() {
+            // This formula delivers approximately constant mechanical power.
+            let ticks_per_step_1 = ticks_per_step as f32;
+            let ticks_per_step_2 = ticks_per_step_1 * ticks_per_step_1;
+            let ticks_per_step_4 = ticks_per_step_2 * ticks_per_step_2;
+            let steps_per_stage =
+                ((slow_steps_per_stage as f32) * slow_ticks_per_step_4 / ticks_per_step_4) as u32;
+            for i in 0..steps_per_stage {
+                ticks_per_step_vec
+                    .push(ticks_per_step)
+                    .map_err(|_| Error::CapacityError)?;
+            }
+        }
+        ticks_per_step_vec
+            .push(fast_ticks_per_step)
+            .map_err(|_| Error::CapacityError)?;
+        assert!(ticks_per_step_vec.len() > 1);
+        Ok(AccelerationCurve {
+            micros_per_tick,
+            ticks_per_step: ticks_per_step_vec,
+        })
+    }
+}
+
 impl<'a> DisplayControllerGuard<'a> {
     async fn run(&mut self, message: &[usize]) -> Result<(), Error> {
         self.recount()?;
@@ -115,7 +167,9 @@ impl<'a> DisplayControllerGuard<'a> {
                     prev_hall: None,
                     homed: false,
                     phase: 0,
-                    spinning: false,
+                    mode: SegmentMode::Disabled,
+                    ticks_until_step: 0,
+                    accel_step: 0,
                 })
                 .ok()
                 .unwrap();
@@ -130,7 +184,8 @@ impl<'a> DisplayControllerGuard<'a> {
                 % STEPS_PER_REV) as isize;
             if !char.homed || new_target != char.position {
                 char.target = new_target;
-                char.spinning = true;
+                char.mode = SegmentMode::Spinning;
+                char.accel_step = 0;
             }
         }
     }
@@ -145,7 +200,7 @@ impl<'a> DisplayControllerGuard<'a> {
             for (i, c) in cs.iter_mut().enumerate() {
                 let mut mask = 0;
 
-                if c.spinning {
+                if c.mode != SegmentMode::Disabled {
                     let phase1 = if reverse { 3 - c.phase } else { c.phase };
                     // full step drive (two phases enabled at a time)
                     let phase2 = (phase1 + 1) % 4;
@@ -212,39 +267,56 @@ impl<'a> DisplayControllerGuard<'a> {
         Ok(())
     }
     async fn drive_all_to_targets(&mut self, message: &[usize]) -> Result<(), Error> {
-        let delay_micros = self.settings.delay_micros.unwrap_or(3000);
-        let delay_micros_init = self.settings.delay_micros_init.unwrap_or(10000);
-        let delay_accel_steps = self.settings.delay_accel_steps.unwrap_or(128);
+        let curve = AccelerationCurve::new(&self.settings)?;
         for step in 0u64.. {
-            let delay = if step < delay_accel_steps {
-                let speed_init = 1.0f64 / (delay_micros_init as f64);
-                let speed = 1.0f64 / (delay_micros as f64);
-                let average = (speed_init * ((delay_accel_steps - step) as f64)
-                    + speed * (step as f64))
-                    / (delay_accel_steps as f64);
-                (1.0 / average) as u64
-            } else {
-                delay_micros
-            };
-            let timer = Timer::after_micros(delay);
+            let timer = Timer::after_micros(curve.micros_per_tick);
             let mut done = true;
             for char in &mut self.guard.segments {
-                if char.spinning {
-                    if char.position == char.target && char.homed {
-                        done = false;
-                        char.spinning = false;
-                    } else if char.position > ((STEPS_PER_REV * 3) / 2) as isize {
-                        // We're well past the homing point, so the homing sensor must be malfunctioning.
-                        char.spinning = false;
-                        char.homed = false;
-                        char.position = 0;
-                        char.prev_hall = None;
-                        char.target = 0;
+                match &mut char.mode {
+                    SegmentMode::Disabled => {
                         continue;
-                    } else {
-                        done = false;
-                        char.advance();
                     }
+                    _ => {}
+                }
+                if char.position > ((STEPS_PER_REV * 3) / 2) as isize {
+                    // We're well past the homing point, so the homing sensor must be malfunctioning.
+                    char.mode = SegmentMode::Disabled;
+                    char.homed = false;
+                    char.position = 0;
+                    char.prev_hall = None;
+                    char.target = 0;
+                    continue;
+                }
+                done = false;
+                if char.ticks_until_step <= 1 {
+                    char.advance();
+                    char.ticks_until_step = curve.ticks_per_step[char.accel_step] as usize;
+                    match char.mode {
+                        SegmentMode::Disabled => unreachable!(),
+                        SegmentMode::Spinning => {
+                            if char.accel_step < curve.ticks_per_step.len() - 1 {
+                                char.accel_step += 1;
+                            }
+                            if char.homed {
+                                let distance = (char.target as usize + STEPS_PER_REV
+                                    - char.position as usize)
+                                    % STEPS_PER_REV;
+                                if distance == char.accel_step {
+                                    char.mode = SegmentMode::Decelerating;
+                                }
+                            }
+                        }
+                        SegmentMode::Decelerating => {
+                            if char.accel_step > 0 {
+                                char.accel_step -= 1;
+                            }
+                            if char.position as usize % STEPS_PER_REV == char.target as usize {
+                                char.mode = SegmentMode::Disabled;
+                            }
+                        }
+                    }
+                } else {
+                    char.ticks_until_step -= 1;
                 }
             }
             self.write_to_drivers()?;

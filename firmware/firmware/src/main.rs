@@ -58,6 +58,7 @@ mod usb_setup;
 #[cfg(feature = "wifi")]
 mod wifi;
 mod make_static;
+#[cfg(feature = "spindle")]
 mod spindle;
 mod display;
 

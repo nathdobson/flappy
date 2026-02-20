@@ -1,5 +1,4 @@
 use crate::application::DisplayResponseContainer;
-use crate::controller::ControllerModule;
 use crate::make_static;
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
@@ -15,19 +14,21 @@ use protocol::setup::{DisplaySettings, FLAP_COUNT};
 
 const MODULE: &'static str = "[DISPL]";
 pub struct DisplayModule {
-    controller: &'static ControllerModule,
+    #[cfg(feature = "display")]
+    controller: &'static crate::controller::ControllerModule,
     display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     settings: RefCell<DisplaySettings>,
 }
 
 impl DisplayModule {
     pub fn new(
-        controller: &'static ControllerModule,
+        #[cfg(feature = "display")] controller: &'static crate::controller::ControllerModule,
         display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     ) -> &'static Self {
         make_static!(
             DisplayModule,
             DisplayModule {
+                #[cfg(feature = "display")]
                 controller,
                 display_response,
                 settings: RefCell::new(DisplaySettings::default()),

@@ -50,9 +50,9 @@ pub struct WifiSettings {
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DriverVersion {
-    #[serde(rename = "1.0")]
+    #[cfg_attr(feature = "serde", serde(rename = "1.0"))]
     V1_0,
-    #[serde(rename = "2.0")]
+    #[cfg_attr(feature = "serde", serde(rename = "2.0"))]
     V2_0,
 }
 
@@ -64,14 +64,16 @@ pub struct DisplaySettings {
     pub background: String<6>,
     pub foreground: String<6>,
     pub driver_version: DriverVersion,
-    #[serde(default)]
-    pub delay_micros_init: Option<u64>,
-    #[serde(default)]
-    pub delay_accel_steps: Option<u64>,
-    #[serde(default)]
-    pub delay_micros: Option<u64>,
-    #[serde(default)]
-    pub backpedal: usize,
+    /// The number of microseconds between "ticks" where the controller updates the motor driver.
+    /// Motor steps occur at some multiple of this time.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub micros_per_tick: Option<u64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub slow_ticks_per_step: Option<u8>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub slow_steps_per_stage: Option<u16>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub fast_ticks_per_step: Option<u8>,
 }
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

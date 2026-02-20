@@ -157,6 +157,7 @@ impl Application {
             old.display = settings.display.clone();
             #[cfg(feature = "display")]
             self.controller.set_settings(settings.display.clone());
+            #[cfg(feature = "display")]
             self.display.set_settings(settings.display.clone());
         }
         #[cfg(feature = "flash")]
@@ -276,6 +277,7 @@ impl Application {
     async fn handle_request(&'static self, request: DisplayRequest) {
         match request {
             DisplayRequest::Run(msg) => {
+                #[cfg(feature = "display")]
                 self.display.display_once(&msg).await;
             }
             DisplayRequest::Test => {
@@ -296,7 +298,13 @@ impl Application {
             DisplayRequest::RunSpindle(src) => {
                 #[cfg(feature = "spindle")]
                 {
-                    self.spindle.run_program(&src, self.display).await;
+                    self.spindle
+                        .run_program(
+                            &src,
+                            #[cfg(feature = "display")]
+                            self.display,
+                        )
+                        .await;
                 }
             }
         }

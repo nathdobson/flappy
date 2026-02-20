@@ -1,9 +1,7 @@
 use crate::application::Application;
-use crate::controller::ControllerModule;
 use crate::display::DisplayModule;
 use crate::error::Error;
 use crate::make_static;
-use arena::Arena;
 use core::alloc::AllocError;
 use core::cell::RefCell;
 use core::fmt::Display;
@@ -24,9 +22,12 @@ use spindle::interp::Interp;
 use spindle::interp::heap::{Heap, HeapStorage};
 use spindle::interp::value::Value;
 use spindle::native::{NativeError, NativeFn, PrintFn};
+use static_cell::StaticCell;
+
+type MySpindle = Spindle<16384, 16384, 256, 256, 16384>;
 
 struct SpindleState {
-    spindle: Spindle<65536, 65536, 256, 256, 65536>,
+    spindle: &'static mut MySpindle,
 }
 
 pub struct SpindleModule {
@@ -35,59 +36,38 @@ pub struct SpindleModule {
 
 impl SpindleModule {
     pub fn new() -> &'static Self {
+        static SPINDLE: StaticCell<MySpindle> = StaticCell::new();
+        let spindle = SPINDLE.init_with(|| Spindle::new());
         make_static!(
             SpindleModule,
             SpindleModule {
-                state: RefCell::new(SpindleState {
-                    spindle: Spindle::new()
-                }),
+                state: RefCell::new(SpindleState { spindle }),
             }
         )
     }
-    pub async fn run_program(&self, src: &str, display: &'static DisplayModule) {
-        self.state.borrow_mut().run_program(src, display).await;
+    pub async fn run_program(
+        &self,
+        src: &str,
+        #[cfg(feature = "display")] display: &'static DisplayModule,
+    ) {
+        self.state
+            .borrow_mut()
+            .run_program(
+                src,
+                #[cfg(feature = "display")]
+                display,
+            )
+            .await;
     }
 }
 
 impl SpindleState {
-    pub async fn run_program(&self, src: &str, display: &'static DisplayModule) {
-
-        // let mut arena = [0; 65536];
-        // let stack =
-        // let Ok(arena) = Arena::new(&mut arena) else {
-        //     error!("Can't start arena");
-        //     return;
-        // };
-        // let lexer = Lexer::new(src, arena);
-        // let mut parser = Parser::new(lexer, arena);
-        // let program = match parser.parse_program() {
-        //     Ok(program) => program,
-        //     Err(e) => {
-        //         error!("Parse failed: {:?}", e);
-        //         return;
-        //     }
-        // };
-        // let natives: &[&dyn NativeFn] = &[&PrintFn, &DisplayFn { display }, &SleepMsFn];
-        // let mut compiler = Codegen::new(arena, natives, &program);
-        // let program = match compiler.compile() {
-        //     Ok(program) => program,
-        //     Err(e) => {
-        //         error!("Compilation failed: {:?}", e);
-        //         return;
-        //     }
-        // };
-        // let mut value_stack = Vec::<_, 128>::new();
-        // let mut heap_storage = HeapStorage::<128, 65536>::new();
-        // let mut interp = Interp::new(&program, &mut value_stack, heap_storage.start(), natives);
-        // let mut stack = new_stack::<65536>();
-        // let mut stack: &mut StackStorage = &mut stack;
-        // match interp.interp(stack.start()).await {
-        //     Ok(_) => {}
-        //     Err(e) => {
-        //         error!("Execution failed: {:?}", e);
-        //         return;
-        //     }
-        // };
+    pub async fn run_program(
+        &self,
+        src: &str,
+        #[cfg(feature = "display")] display: &'static DisplayModule,
+    ) {
+        todo!();
     }
 }
 

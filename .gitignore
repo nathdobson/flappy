@@ -12,3 +12,4 @@ release/artifacts
 # Added by cargo
 
 /target
+**/rustc-ice-*.txt
