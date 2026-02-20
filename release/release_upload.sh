@@ -11,8 +11,8 @@ cp models/flaps.3mf release/artifacts/model-flaps.3mf
 cp models/simplified/housing.3mf release/artifacts/model-housing.3mf
 cp models/simplified/inner.3mf release/artifacts/model-inner.3mf
 cp models/simplified/outer.3mf release/artifacts/model-outer.3mf
-cp models/simplified/left_cap.3mf release/artifacts/model-left-cap.3mf
-cp models/simplified/right_cap.3mf release/artifacts/model-right-cap.3mf
+cp models/simplified/left-cap.3mf release/artifacts/model-left-cap.3mf
+cp models/simplified/right-cap.3mf release/artifacts/model-right-cap.3mf
 cp firmware/target/thumbv8m.main-none-eabihf/release/controller release/artifacts/firmware.elf
 
 cp setup-client/target/aarch64-apple-darwin/release/setup-client release/artifacts/setup-client-aarch64-apple-darwin
