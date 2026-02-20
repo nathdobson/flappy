@@ -31,7 +31,6 @@ use crate::utils::{
     create_element, sleep, spawn_local_joinable, try_create_div, try_document,
     try_get_element_by_id,
 };
-use arena::ArenaStorage;
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
 use futures_util::AsyncWriteExt;
 use io_adapters::split::split_io;
@@ -80,8 +79,9 @@ enum DisplayResponseContainer {
 
 impl Root {
     pub async fn new(status: Rc<Status>) -> Result<!, Error> {
+        let params = FlappyQueryParams::new()?;
         let mut display = Display::new()?;
-        let mut send_form = SendForm::new()?;
+        let mut send_form = SendForm::new(params.spindle)?;
         let (request_send, request_recv) = channel::<DisplayRequest>(10);
         let (response_send, mut response_recv) = channel::<DisplayResponseContainer>(10);
         send_form.set_on_submit(|value| {
@@ -117,7 +117,7 @@ impl Root {
                 },
             }
         });
-        let params = FlappyQueryParams::new()?;
+
         let mqtt_form = MqttForm::new(&params)?;
         let this = Rc::new(Root {
             send_form,

@@ -19,7 +19,7 @@ pub enum Error {
     MqttError(ProtocolError),
     TypeError,
     JsonSerError(serde_json_core::ser::Error),
-    CapacityError(CapacityError),
+    CapacityError,
     TrySendError,
     Disconnect(ReasonCode),
     SendError,
@@ -78,7 +78,7 @@ impl From<serde_json_core::ser::Error> for Error {
 
 impl From<CapacityError> for Error {
     fn from(value: CapacityError) -> Self {
-        Error::CapacityError(value)
+        Error::CapacityError
     }
 }
 
@@ -119,7 +119,7 @@ impl Display for Error {
             Error::MqttError(x) => write!(f, "{}", x),
             Error::TypeError => write!(f, "type error"),
             Error::JsonSerError(x) => write!(f, "{}", x),
-            Error::CapacityError(x) => write!(f, "{}", x),
+            Error::CapacityError => write!(f, "capacity error"),
             Error::TrySendError => write!(f, "failed to send internal message"),
             Error::Disconnect(x) => write!(f, "disconnected: {}", x),
             Error::SendError => write!(f, "failed to send internal message"),

@@ -1,6 +1,6 @@
+use crate::error::Error;
 use crate::utils::try_window;
 use serde::{Deserialize, Serialize};
-use crate::error::Error;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FlappyQueryParams {
@@ -8,6 +8,8 @@ pub struct FlappyQueryParams {
     pub username: String,
     pub password: String,
     pub topic: String,
+    #[serde(default)]
+    pub spindle: bool,
 }
 
 impl FlappyQueryParams {

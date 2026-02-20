@@ -10,6 +10,7 @@ use web_sys::{HtmlDivElement, HtmlElement};
 
 pub struct Display {
     inners: Vec<HtmlDivElement>,
+    outers: Vec<HtmlDivElement>,
     dots: Vec<char>,
 }
 
@@ -42,6 +43,7 @@ impl Display {
         }
         Ok(Display {
             inners: vec![],
+            outers: vec![],
             dots,
         })
     }
@@ -72,10 +74,12 @@ impl Display {
         display
             .style()
             .set_property("color", &format!("#{}", info.foreground))?;
-        for inner in &self.inners {
-            display.remove_child(inner)?;
+        self.inners.clear();
+        for outer in self.outers.drain(..) {
+            display.remove_child(&outer)?;
         }
         let mut inners = vec![];
+        let mut outers = vec![];
         for i in 0..info.glyphs {
             let letter_outer = create_element::<"div">()?;
             letter_outer.set_class_name("letter-outer");
@@ -94,8 +98,10 @@ impl Display {
             letter_outer.append_child(&letter_inner)?;
             display.append_child(&letter_outer)?;
             inners.push(letter_inner);
+            outers.push(letter_outer);
         }
         self.inners = inners;
+        self.outers = outers;
         Ok(())
     }
 }

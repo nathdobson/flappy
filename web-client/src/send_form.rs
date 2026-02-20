@@ -14,7 +14,7 @@ pub struct SendForm {
 }
 
 impl SendForm {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new(enable_spindle: bool) -> Result<Self, Error> {
         let form: HtmlFormElement = try_get_element_by_id("form")?;
         let input: HtmlInputElement = try_get_element_by_id("content")?;
         let submit: HtmlInputElement = try_get_element_by_id("submit")?;
@@ -22,6 +22,9 @@ impl SendForm {
         let form_src: HtmlFormElement = try_get_element_by_id("form-src")?;
         let input_src: HtmlTextAreaElement = try_get_element_by_id("content-src")?;
         let submit_src: HtmlInputElement = try_get_element_by_id("submit-src")?;
+        if enable_spindle{
+            form_src.set_class_name("content-form");
+        }
         Ok(SendForm {
             form,
             submit,
@@ -29,7 +32,7 @@ impl SendForm {
 
             form_src,
             input_src,
-            submit_src
+            submit_src,
         })
     }
     pub fn set_on_submit(&self, mut on_submit: impl FnMut(String)) {

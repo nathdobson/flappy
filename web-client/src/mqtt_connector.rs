@@ -3,7 +3,7 @@ use crate::query_params::FlappyQueryParams;
 use crate::status::{Status, StatusPriority};
 use crate::utils::{sleep, try_window};
 use crate::DisplayResponseContainer;
-use arena::ArenaStorage;
+use arena::Arena;
 use embassy_futures::select::{select, select5, Either, Either5};
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
@@ -22,11 +22,53 @@ use ws_stream_wasm::WsMeta;
 
 const KEEPALIVE: u16 = 60;
 
+pub struct PeekReceiver<T> {
+    receiver: Receiver<T>,
+    buffer: Option<T>,
+}
+
+impl<T> PeekReceiver<T> {
+    pub fn new(receiver: Receiver<T>) -> Self {
+        PeekReceiver {
+            receiver,
+            buffer: None,
+        }
+    }
+    pub async fn recv(&mut self) -> Option<T> {
+        if let Some(buffer) = self.buffer.take() {
+            return Some(buffer);
+        }
+        self.receiver.recv().await
+    }
+    pub async fn peek_recv(&mut self) -> Option<&T> {
+        if self.buffer.is_none() {
+            self.buffer = self.receiver.recv().await;
+        }
+        self.buffer.as_ref()
+    }
+}
+
 pub async fn run_mqtt(
     params: FlappyQueryParams,
     status: Rc<Status>,
-    mut requests: Receiver<DisplayRequest>,
-    responses: Sender<DisplayResponseContainer>,
+    requests: Receiver<DisplayRequest>,
+    mut responses: Sender<DisplayResponseContainer>,
+) -> Result<!, Error> {
+    let mut requests = PeekReceiver::new(requests);
+    loop {
+        let e = run_mqtt_once(&params, status.clone(), &mut requests, &mut responses)
+            .await
+            .into_err();
+        error!("MQTT Connection failure: {}", e);
+        status.set(StatusPriority::Error, format!("{}", e));
+        requests.peek_recv().await;
+    }
+}
+pub async fn run_mqtt_once(
+    params: &FlappyQueryParams,
+    status: Rc<Status>,
+    mut requests: &mut PeekReceiver<DisplayRequest>,
+    responses: &mut Sender<DisplayResponseContainer>,
 ) -> Result<!, Error> {
     status.set(
         StatusPriority::Info,
@@ -42,9 +84,9 @@ pub async fn run_mqtt(
     match select5(
         async {
             let mut arena_slice = [0u8; 1024];
-            let mut arena = ArenaStorage::new(&mut arena_slice);
             loop {
-                let (ack, packet) = receiver.receive(arena.start()).await?;
+                let mut arena = Arena::new(&mut arena_slice).map_err(|_| Error::CapacityError)?;
+                let (ack, packet) = receiver.receive(arena).await?;
                 match packet {
                     Packet::Publish(publish) => {
                         if publish.topic == resp_topic {
