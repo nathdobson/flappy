@@ -20,64 +20,43 @@ use core::mem;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 
-pub struct ArenaStorage<'a> {
-    buffer: &'a mut [u8],
-    arena: Option<Arena>,
-}
-
-pub struct ArenaArrayStorage<const N: usize> {
-    buffer: [u8; N],
-    arena: Option<Arena>,
-}
-
 struct ArenaState {
     buffer: &'static mut [u8],
 }
 
+/// An arena allocator with a fixed capacity.
 pub struct Arena {
     state: RefCell<ArenaState>,
 }
 
+/// An `ArenaErase<'ar>` is a zero-size no-op `Allocator` compatible with `&'ar Arena`. This allows
+/// ArenaBox to use less memory while maintaining the lifetime invariants and ensuring destructors
+/// are called.
 pub struct ArenaErase<'ar> {
     phantom: PhantomData<&'ar mut [MaybeUninit<u8>]>,
 }
 
+/// A Box allocated on an `Arena` instead of a heap.
 pub type ArenaBox<'ar, T> = Box<T, ArenaErase<'ar>>;
 
+/// A Vec allocated on an `Arena` instead of a heap.
 pub type ArenaVec<'ar, T> = Vec<T, &'ar Arena>;
 
-impl<'a> ArenaStorage<'a> {
-    pub fn new(buffer: &'a mut [u8]) -> Self {
-        ArenaStorage {
-            buffer,
-            arena: None,
-        }
-    }
-    pub fn start<'ar>(&'ar mut self) -> &'ar Arena {
-        unsafe { self.arena.insert(Arena::new(self.buffer)) }
-    }
-}
-
-impl<const N: usize> ArenaArrayStorage<N> {
-    pub fn new() -> Self {
-        ArenaArrayStorage {
-            buffer: [0u8; N],
-            arena: None,
-        }
-    }
-    pub fn start<'ar>(&'ar mut self) -> &'ar Arena {
-        unsafe { self.arena.insert(Arena::new(&mut self.buffer)) }
-    }
-}
-
 impl Arena {
-    unsafe fn new(buffer: *mut [u8]) -> Arena {
+    /// Construct a new arena in the specified buffer. The `Arena` struct itself is stored on the
+    /// arena, so this function may fail for especially small buffers.
+    pub fn new(buffer: &'_ mut [u8]) -> Result<&'_ Arena, AllocError> {
         unsafe {
-            Arena {
+            let arena = Arena {
                 state: RefCell::new(ArenaState {
-                    buffer: &mut *buffer,
+                    buffer: &mut *(buffer as *mut [u8]),
                 }),
-            }
+            };
+            let arena_ptr: &mut MaybeUninit<Arena> =
+                Box::leak(arena.alloc_box::<MaybeUninit<Arena>>(MaybeUninit::uninit())?);
+            let arena_ptr = &mut *(arena_ptr as *mut MaybeUninit<Arena>);
+            let arena_ptr = arena_ptr.write(arena);
+            Ok(arena_ptr)
         }
     }
     pub fn alloc_layout(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
@@ -103,6 +82,7 @@ impl Arena {
             Ok(str::from_utf8_unchecked(ptr.as_mut()))
         }
     }
+    /// Change the allocator for a Box to avoid the overhead of an extra pointer.
     pub fn erase_box<'ar, T>(b: Box<T, &'ar Self>) -> ArenaBox<'ar, T> {
         unsafe {
             ArenaBox::from_raw_in(
@@ -113,7 +93,10 @@ impl Arena {
             )
         }
     }
-    pub fn alloc_ref<'ar, T: Copy>(&'ar self, value: T) -> Result<&'ar T, AllocError> {
+    /// Place a value on the Arena, and return a mutable reference. This can be a reference instead
+    /// of an `ArenaBox` because destruction is a no-op for `Copy` types, and deallocation is a
+    /// no-op for arenas.
+    pub fn alloc_ref<'ar, T: Copy>(&'ar self, value: T) -> Result<&'ar mut T, AllocError> {
         Ok(Box::leak(self.alloc_box(value)?))
     }
     pub fn alloc_bytes<'ar>(&'ar self, count: usize) -> Result<&'ar mut [u8], AllocError> {

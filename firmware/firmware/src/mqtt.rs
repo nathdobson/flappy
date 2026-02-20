@@ -1,5 +1,5 @@
 use crate::error::Error;
-use arena::ArenaStorage;
+use arena::Arena;
 use core::cell::Cell;
 use core::fmt;
 use core::fmt::{Display, Formatter, write};
@@ -409,12 +409,11 @@ impl MqttModule {
         match select5(
             async {
                 let mut arena_slice = [0u8; 1024];
-                let mut arena = ArenaStorage::new(&mut arena_slice);
                 loop {
-                    let (ack, packet) = receiver
-                        .receive(arena.start())
-                        .await
-                        .map_err(convert_mqtt_error)?;
+                    let mut arena =
+                        Arena::new(&mut arena_slice).map_err(|e| MqttServiceError::AllocError)?;
+                    let (ack, packet) =
+                        receiver.receive(arena).await.map_err(convert_mqtt_error)?;
                     match packet {
                         Packet::Publish(publish) => {
                             self.handle_publish(&publish);

@@ -10,7 +10,6 @@ use crate::vm::VmProgram;
 use crate::{Spindle, SpindleError, SpindleOptions};
 use alloc::string::String;
 use alloc::vec::Vec;
-use arena::ArenaStorage;
 use core::alloc::AllocError;
 use core::fmt;
 use core::pin::Pin;

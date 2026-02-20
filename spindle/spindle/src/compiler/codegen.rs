@@ -268,11 +268,11 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
     ) -> Result<usize, CompileError<'src>> {
         let enter = self.add_block()?;
         let join = self.add_block()?;
-        self.break_points.push(LoopContext {
+        self.break_points.try_push(LoopContext {
             break_block: join,
             continue_block: enter,
             variables: self.variables.len(),
-        });
+        })?;
         self.terminate(init, VmTerm::Jump(enter))?;
         let exit = self.compile_stmts(stack, enter, &stmt.inner).await?;
         self.terminate(exit, VmTerm::Jump(enter))?;

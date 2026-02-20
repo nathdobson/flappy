@@ -1,7 +1,6 @@
 #![allow(unreachable_code)]
 #![allow(unused_imports)]
 
-use arena::ArenaStorage;
 use core::fmt::{Debug, Display, Formatter};
 use core::time::Duration;
 use embassy_futures::select::{Either4, select4};
@@ -23,7 +22,7 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::pki_types::ServerName;
 use tokio_rustls::{TlsConnector, rustls};
-
+use arena::Arena;
 const KEEPALIVE: u16 = 60;
 
 type MyError = Error<TokioErrorAdapter>;
@@ -76,9 +75,10 @@ async fn test() -> Result<(), MyError> {
             Result::<_, MyError>::Ok(())
         },
         async {
-            let mut arena = ArenaStorage::<1024>::new();
+            let mut arena = [0u8; 1024];
             loop {
-                let (token, packet) = receiver.receive(arena.start()).await?;
+                let arena = Arena::new(&mut arena)?;
+                let (token, packet) = receiver.receive(arena).await?;
                 println!("Received {:?}", packet);
                 sender.acknowledge(token)?;
             }

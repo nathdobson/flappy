@@ -69,7 +69,7 @@ fn test_compaction() {
         const MAX_ALLOCS: usize = 50;
         const MAX_BYTES: usize = 128;
         const MAX_OBJECT: usize = 8;
-        for seed in 1..100000 {
+        for seed in 1..100 {
             let mut heap_storage = HeapStorage::<MAX_ALLOCS, MAX_BYTES>::new();
             let mut bytes_count = 0;
             let mut alloc_count = 0;

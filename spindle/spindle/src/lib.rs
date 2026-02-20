@@ -44,7 +44,7 @@ use crate::interp::heap::{Heap, HeapStorage};
 use crate::interp::value::Value;
 use crate::native::{NativeFn, PrintFn};
 use crate::vm::VmProgram;
-use arena::{Arena, ArenaArrayStorage, ArenaStorage};
+use arena::Arena;
 use core::alloc::AllocError;
 use heapless::{Vec, VecView};
 
@@ -66,13 +66,13 @@ pub enum SpindleError<'src> {
 
 pub struct Spindle<
     const ARENA: usize,
-    const STACK_PAR: usize,
+    const STACK: usize,
     const STACK_VALUE: usize,
     const HEAP_COUNT: usize,
     const HEAP_BYTES: usize,
 > {
-    arena: ArenaArrayStorage<ARENA>,
-    stack: StackStorage<[u8; STACK_PAR]>,
+    arena: [u8; ARENA],
+    stack: StackStorage<[u8; STACK]>,
     value_stack: Vec<Value, STACK_VALUE>,
     heap: HeapStorage<HEAP_COUNT, HEAP_BYTES>,
 }
@@ -99,19 +99,19 @@ impl<
 {
     pub fn new() -> Self {
         Spindle {
-            arena: ArenaArrayStorage::new(),
+            arena: [0u8; ARENA],
             stack: new_stack(),
             value_stack: Vec::new(),
             heap: HeapStorage::new(),
         }
     }
-    pub fn start(&'_ mut self, options: SpindleOptions) -> SpindleMut<'_> {
-        SpindleMut {
-            arena: self.arena.start(),
+    pub fn start(&'_ mut self, options: SpindleOptions) -> Result<SpindleMut<'_>, AllocError> {
+        Ok(SpindleMut {
+            arena: Arena::new(&mut self.arena)?,
             stack: (&mut self.stack as &mut StackStorage).start(),
             value_stack: &mut self.value_stack,
             heap: self.heap.start(options.compaction_ratio),
-        }
+        })
     }
     async fn run<'src>(
         &mut self,
@@ -119,14 +119,14 @@ impl<
         code: &'src str,
         natives: &[&dyn NativeFn],
     ) -> Result<(), SpindleError<'src>> {
-        self.start(options).run(code, natives).await
+        self.start(options)?.run(code, natives).await
     }
     async fn parse<'vm, 'src: 'vm>(
         &'vm mut self,
         options: SpindleOptions,
         code: &'src str,
     ) -> Result<&'vm Program<'src, 'vm>, SpindleError<'src>> {
-        self.start(options).parse(code).await
+        self.start(options)?.parse(code).await
     }
 }
 

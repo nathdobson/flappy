@@ -83,6 +83,7 @@ async fn test_add() {
     let mut spindle = TestSpindle::new();
     let program = spindle
         .start(TEST_SPINDLE_OPTIONS.clone())
+        .unwrap()
         .parse(r#"1+2;"#)
         .await
         .unwrap();
@@ -94,6 +95,7 @@ async fn test_add_mul() {
     let mut spindle = TestSpindle::new();
     let program = spindle
         .start(TEST_SPINDLE_OPTIONS.clone())
+        .unwrap()
         .parse(r#"1+2*3;"#)
         .await
         .unwrap();
@@ -108,6 +110,7 @@ async fn test_mul_add() {
     let mut spindle = TestSpindle::new();
     let program = spindle
         .start(TEST_SPINDLE_OPTIONS.clone())
+        .unwrap()
         .parse(r#"1*2+3;"#)
         .await
         .unwrap();
@@ -122,6 +125,7 @@ async fn test_mul_add_less() {
     let mut spindle = TestSpindle::new();
     let program = spindle
         .start(TEST_SPINDLE_OPTIONS.clone())
+        .unwrap()
         .parse(r#"1*2+3<4;"#)
         .await
         .unwrap();
@@ -138,6 +142,7 @@ async fn test_less_and_less() {
     let mut spindle = TestSpindle::new();
     let program = spindle
         .start(TEST_SPINDLE_OPTIONS.clone())
+        .unwrap()
         .parse(r#"1<2 && 3<4;"#)
         .await
         .unwrap();

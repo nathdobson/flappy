@@ -131,4 +131,5 @@ pub enum MqttServiceError {
     DeadlineExceeded,
     NoCertificateListSha256,
     TopicTooLong,
+    AllocError,
 }

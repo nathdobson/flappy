@@ -1,18 +1,17 @@
+use arena::Arena;
 use crate::compiler::ast::{CallExpr, Expr, ExprList, ForStmt, Program, Stmt};
 use crate::compiler::lexer::Lexer;
 use crate::compiler::parser::Parser;
 use crate::compiler::stack::{StackStorage, new_stack};
 use crate::compiler::stack_executor::stack_executor;
 use crate::compiler::token::{IdentToken, NumberToken, Token};
-use arena::ArenaStorage;
 use itertools::Itertools;
 use std::assert_matches;
 
 async fn expect_program<'src>(code: &'src str, expect: impl for<'a> FnOnce(&'a Program<'src, 'a>)) {
     let capacity = 100000usize;
     let mut arena_slice = vec![0; capacity];
-    let mut arena = ArenaStorage::new(&mut arena_slice);
-    let arena = arena.start();
+    let mut arena = Arena::new(&mut arena_slice).unwrap();
     let mut stack = new_stack::<65536>();
     let stack: &mut StackStorage = &mut stack;
     let stack = stack.start();
