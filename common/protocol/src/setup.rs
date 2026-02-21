@@ -74,6 +74,8 @@ pub struct DisplaySettings {
     pub slow_steps_per_stage: Option<u16>,
     #[cfg_attr(feature = "serde", serde(default))]
     pub fast_ticks_per_step: Option<u8>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub rehome_after_stopping: bool
 }
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

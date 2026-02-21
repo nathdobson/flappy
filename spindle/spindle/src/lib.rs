@@ -82,6 +82,13 @@ pub struct SpindleOptions {
     pub compaction_ratio: f32,
 }
 
+impl Default for SpindleOptions {
+    fn default() -> Self {
+        SpindleOptions {
+            compaction_ratio: 1.0,
+        }
+    }
+}
 pub struct SpindleMut<'vm> {
     arena: &'vm Arena,
     stack: Stack<'vm>,
@@ -113,7 +120,7 @@ impl<
             heap: self.heap.start(options.compaction_ratio),
         })
     }
-    async fn run<'src>(
+    pub async fn run<'src>(
         &mut self,
         options: SpindleOptions,
         code: &'src str,
@@ -121,7 +128,7 @@ impl<
     ) -> Result<(), SpindleError<'src>> {
         self.start(options)?.run(code, natives).await
     }
-    async fn parse<'vm, 'src: 'vm>(
+    pub async fn parse<'vm, 'src: 'vm>(
         &'vm mut self,
         options: SpindleOptions,
         code: &'src str,

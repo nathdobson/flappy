@@ -12,7 +12,6 @@ use embedded_hal_async::delay::DelayNs;
 use heapless::{String, Vec};
 use log::error;
 use protocol::display::DISPLAY_REQUEST_CAPACITY;
-use spindle::Spindle;
 use spindle::compiler::ast::Program;
 use spindle::compiler::codegen::Codegen;
 use spindle::compiler::lexer::Lexer;
@@ -22,6 +21,7 @@ use spindle::interp::Interp;
 use spindle::interp::heap::{Heap, HeapStorage};
 use spindle::interp::value::Value;
 use spindle::native::{NativeError, NativeFn, PrintFn};
+use spindle::{Spindle, SpindleOptions};
 use static_cell::StaticCell;
 
 type MySpindle = Spindle<16384, 16384, 256, 256, 16384>;
@@ -63,15 +63,33 @@ impl SpindleModule {
 
 impl SpindleState {
     pub async fn run_program(
-        &self,
+        &mut self,
         src: &str,
         #[cfg(feature = "display")] display: &'static DisplayModule,
     ) {
-        todo!();
+        if let Err(e) = self
+            .spindle
+            .run(
+                SpindleOptions::default(),
+                src,
+                &[
+                    &SleepMsFn,
+                    &PrintFn,
+                    &DisplayFn {
+                        #[cfg(feature = "display")]
+                        display: display,
+                    },
+                ],
+            )
+            .await
+        {
+            error!("Error running program: {:?}", e);
+        }
     }
 }
 
 struct DisplayFn {
+    #[cfg(feature = "display")]
     display: &'static DisplayModule,
 }
 

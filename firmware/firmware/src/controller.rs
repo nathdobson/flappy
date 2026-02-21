@@ -21,6 +21,7 @@ enum SegmentMode {
     Disabled,
     Spinning,
     Decelerating,
+    Holding(usize),
 }
 #[derive(Debug)]
 pub struct SegmentController {
@@ -101,7 +102,7 @@ impl SegmentController {
 
 struct AccelerationCurve {
     micros_per_tick: u64,
-    ticks_per_step: Vec<u8, 256>,
+    ticks_per_step: Vec<u8, 1024>,
 }
 
 struct AccelerationStage {
@@ -135,7 +136,6 @@ impl AccelerationCurve {
         ticks_per_step_vec
             .push(fast_ticks_per_step)
             .map_err(|_| Error::CapacityError)?;
-        assert!(ticks_per_step_vec.len() > 1);
         Ok(AccelerationCurve {
             micros_per_tick,
             ticks_per_step: ticks_per_step_vec,
@@ -186,6 +186,10 @@ impl<'a> DisplayControllerGuard<'a> {
                 char.target = new_target;
                 char.mode = SegmentMode::Spinning;
                 char.accel_step = 0;
+                if self.settings.rehome_after_stopping {
+                    char.homed = false;
+                    char.position = 0;
+                }
             }
         }
     }
@@ -289,11 +293,11 @@ impl<'a> DisplayControllerGuard<'a> {
                 }
                 done = false;
                 if char.ticks_until_step <= 1 {
-                    char.advance();
-                    char.ticks_until_step = curve.ticks_per_step[char.accel_step] as usize;
-                    match char.mode {
+                    match &mut char.mode {
                         SegmentMode::Disabled => unreachable!(),
                         SegmentMode::Spinning => {
+                            char.advance();
+                            char.ticks_until_step = curve.ticks_per_step[char.accel_step] as usize;
                             if char.accel_step < curve.ticks_per_step.len() - 1 {
                                 char.accel_step += 1;
                             }
@@ -301,17 +305,26 @@ impl<'a> DisplayControllerGuard<'a> {
                                 let distance = (char.target as usize + STEPS_PER_REV
                                     - char.position as usize)
                                     % STEPS_PER_REV;
-                                if distance == char.accel_step {
+                                if char.accel_step <= distance && distance <= char.accel_step + 1 {
                                     char.mode = SegmentMode::Decelerating;
                                 }
                             }
                         }
                         SegmentMode::Decelerating => {
+                            char.advance();
+                            char.ticks_until_step = curve.ticks_per_step[char.accel_step] as usize;
                             if char.accel_step > 0 {
                                 char.accel_step -= 1;
                             }
                             if char.position as usize % STEPS_PER_REV == char.target as usize {
+                                char.mode = SegmentMode::Holding(10);
+                            }
+                        }
+                        SegmentMode::Holding(countdown) => {
+                            if *countdown == 0 {
                                 char.mode = SegmentMode::Disabled;
+                            } else {
+                                *countdown -= 1;
                             }
                         }
                     }
