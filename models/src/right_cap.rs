@@ -1,7 +1,6 @@
 use crate::tabs::Tabs;
 use core::f64;
-use models::encode_sdf::encode_model;
-use patina_bambu::BambuBuilder;
+use models::encode_sdf::EncodeBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo2::polygon2::Polygon2;
@@ -52,19 +51,17 @@ impl LeftCap {
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
-        encode_model(
+        let mut builder = EncodeBuilder::new(
             "right-cap",
             self.build_sdf(),
-            BambuBuilder::new(),
-            &[],
-            Mat4::translate(Vec3::axis_z() * self.aabb.max().z())
-                * Mat4::rotate(Vec3::axis_x(), f64::consts::PI),
             &Aabb::new(
                 self.aabb.min() - Vec3::splat(0.1),
                 self.aabb.max() + Vec3::splat(0.1) + Vec3::new(0.0, 0.0, self.tabs.size),
             ),
-        )
-        .await?;
+        );
+        builder.transform = Mat4::translate(Vec3::axis_z() * self.aabb.max().z())
+            * Mat4::rotate(Vec3::axis_x(), f64::consts::PI);
+        builder.build().await?;
         Ok(())
     }
 }

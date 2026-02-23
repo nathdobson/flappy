@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use models::encode_sdf::encode_model;
+use models::encode_sdf::EncodeBuilder;
 use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
@@ -14,12 +14,12 @@ use patina_sdf::marching_mesh::MarchingMesh;
 use patina_sdf::sdf::truncated_cone::TruncatedCone;
 use patina_sdf::sdf::{AsSdf, Sdf3};
 use patina_threads::{THREAD_M2, ThreadMetrics};
+use patina_vec::mat4::Mat4;
 use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
 use std::f64;
 use std::path::Path;
 use std::time::Instant;
-use patina_vec::mat4::Mat4;
 
 pub struct DrumBuilder {
     eps: f64,
@@ -234,12 +234,9 @@ impl DrumBuilder {
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
-        encode_model(
+        let builder = EncodeBuilder::new(
             "inner",
             self.build_sdf(),
-            BambuBuilder::new(),
-            &[],
-            Mat4::id(),
             &Aabb::new(
                 Vec3::new(
                     -self.flange_radius - self.eps,
@@ -252,8 +249,8 @@ impl DrumBuilder {
                     self.post_height + self.eps,
                 ),
             ),
-        )
-        .await?;
+        );
+        builder.build().await?;
         Ok(())
     }
 }

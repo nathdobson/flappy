@@ -5,7 +5,7 @@
 
 use crate::tabs::Tabs;
 use anyhow::Context;
-use models::encode_sdf::encode_model;
+use models::encode_sdf::EncodeBuilder;
 use patina_3mf::brim_points::BrimPoint;
 use patina_3mf::project_settings::brim_type::BrimType;
 use patina_bambu::BambuBuilder;
@@ -670,7 +670,9 @@ impl HousingBuilder {
                 });
             }
         }
-        encode_model("housing", sdf, builder, &brim_points, Mat4::id(), &aabb).await?;
+        let mut builder = EncodeBuilder::new("housing", sdf, &aabb);
+        builder.brim_points = brim_points;
+        builder.build().await?;
         Ok(())
     }
 }

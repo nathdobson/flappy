@@ -88,85 +88,99 @@ pub async fn build_model(model: &SdfModel, marching: MarchingMesh) -> anyhow::Re
     Ok(model)
 }
 
-pub async fn encode_model(
-    name: &str,
-    model: SdfModel,
-    bambu: BambuBuilder,
-    brim_points: &[BrimPoint],
-    transform: Mat4,
-    aabb: &Aabb3,
-) -> anyhow::Result<()> {
-    let draft;
-    let full;
-    {
+pub struct EncodeBuilder {
+    pub name: String,
+    pub model: SdfModel,
+    pub bambu: BambuBuilder,
+    pub brim_points: Vec<BrimPoint>,
+    pub transform: Mat4,
+    pub aabb: Aabb3,
+}
+
+impl EncodeBuilder {
+    pub fn new(name: &str, model: SdfModel, aabb: &Aabb3) -> Self {
+        EncodeBuilder {
+            name: name.to_string(),
+            model,
+            bambu: BambuBuilder::new(),
+            brim_points: vec![],
+            transform: Mat4::id(),
+            aabb: *aabb,
+        }
+    }
+    pub async fn build(self) -> anyhow::Result<()> {
+        let draft;
+        let full;
+        {
+            let start = Instant::now();
+            draft = build_model(&self.model, {
+                let mut marching = MarchingMesh::new(&self.aabb);
+                marching
+                    .min_render_depth(6)
+                    .max_render_depth(7)
+                    .subdiv_max_dot(0.9);
+                marching
+            })
+            .await?;
+            encode_files(
+                start,
+                "draft",
+                &self.name,
+                &draft,
+                self.bambu.clone(),
+                &self.brim_points,
+                self.transform,
+                &self.aabb,
+            )
+            .await?;
+        }
+        {
+            let start = Instant::now();
+            full = build_model(&self.model, {
+                let mut marching = MarchingMesh::new(&self.aabb);
+                marching
+                    .min_render_depth(7)
+                    .max_render_depth(10)
+                    .subdiv_max_dot(0.999);
+                marching
+            })
+            .await?;
+            encode_files(
+                start,
+                "full",
+                &self.name,
+                &full,
+                self.bambu.clone(),
+                &self.brim_points,
+                self.transform,
+                &self.aabb,
+            )
+            .await?;
+        }
         let start = Instant::now();
-        draft = build_model(&model, {
-            let mut marching = MarchingMesh::new(aabb);
-            marching
-                .min_render_depth(6)
-                .max_render_depth(7)
-                .subdiv_max_dot(0.9);
-            marching
+        let simplified = spawn_blocking(move || {
+            let mut hem = HalfEdgeMesh::new(&full.mesh);
+            let mut decimate = Decimate::new(&mut hem);
+            decimate.max_degree(13);
+            decimate.min_score(0.9999);
+            decimate.run_arbitrary();
+            hem.as_mesh()
         })
         .await?;
         encode_files(
             start,
-            "draft",
-            name,
-            &draft,
-            bambu.clone(),
-            brim_points,
-            transform,
-            aabb,
+            "simplified",
+            &self.name,
+            &MeshModel {
+                mesh: simplified,
+                metadata: self.model.metadata.clone(),
+            },
+            self.bambu.clone(),
+            &self.brim_points,
+            self.transform,
+            &self.aabb,
         )
         .await?;
+        Ok(())
     }
-    {
-        let start = Instant::now();
-        full = build_model(&model, {
-            let mut marching = MarchingMesh::new(aabb);
-            marching
-                .min_render_depth(7)
-                .max_render_depth(10)
-                .subdiv_max_dot(0.999);
-            marching
-        })
-        .await?;
-        encode_files(
-            start,
-            "full",
-            name,
-            &full,
-            bambu.clone(),
-            brim_points,
-            transform,
-            aabb,
-        )
-        .await?;
-    }
-    let start = Instant::now();
-    let simplified = spawn_blocking(move || {
-        let mut hem = HalfEdgeMesh::new(&full.mesh);
-        let mut decimate = Decimate::new(&mut hem);
-        decimate.max_degree(13);
-        decimate.min_score(0.9999);
-        decimate.run_arbitrary();
-        hem.as_mesh()
-    })
-    .await?;
-    encode_files(
-        start,
-        "simplified",
-        name,
-        &MeshModel {
-            mesh: simplified,
-            metadata: model.metadata.clone(),
-        },
-        bambu.clone(),
-        brim_points,
-        transform,
-        aabb,
-    )
-    .await?;
-    Ok(())
 }

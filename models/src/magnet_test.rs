@@ -1,10 +1,8 @@
-use models::encode_sdf::encode_model;
-use patina_bambu::BambuBuilder;
+use models::encode_sdf::EncodeBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo3::cylinder::Cylinder;
 use patina_sdf::sdf::{AsSdf, Sdf3};
-use patina_vec::mat4::Mat4;
 use patina_vec::vec3::Vec3;
 
 struct MagnetTestBuilder {
@@ -47,18 +45,15 @@ impl MagnetTestBuilder {
         result
     }
     pub async fn build(&self) -> anyhow::Result<()> {
-        encode_model(
+        let builder = EncodeBuilder::new(
             "magnet_test",
             self.build_sdf(),
-            BambuBuilder::new(),
-            &[],
-            Mat4::id(),
             &Aabb::new(
                 Vec3::new(-self.outer_radius, -self.outer_radius, 0.0),
                 Vec3::new(self.outer_radius, self.outer_radius, self.height),
             ),
-        )
-        .await?;
+        );
+        builder.build().await?;
         Ok(())
     }
 }

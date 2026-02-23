@@ -1,13 +1,11 @@
 use crate::tabs::Tabs;
-use models::encode_sdf::encode_model;
-use patina_bambu::BambuBuilder;
+use models::encode_sdf::EncodeBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo3::aabb3::Aabb3;
 use patina_geo::geo3::cylinder::Cylinder;
 use patina_sdf::sdf::AsSdf;
 use patina_threads::{THREAD_M2, ThreadMetrics};
-use patina_vec::mat4::Mat4;
 use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
 
@@ -57,18 +55,15 @@ impl LeftCap {
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
-        encode_model(
+        let builder = EncodeBuilder::new(
             "left-cap",
             self.build_sdf(),
-            BambuBuilder::new(),
-            &[],
-            Mat4::id(),
             &Aabb::new(
                 self.aabb.min() - Vec3::splat(0.1),
                 self.aabb.max() + Vec3::splat(0.1) + Vec3::new(0.0, 0.0, self.tabs.size),
             ),
-        )
-        .await?;
+        );
+        builder.build().await?;
         Ok(())
     }
 }
