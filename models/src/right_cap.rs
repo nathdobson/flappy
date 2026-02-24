@@ -3,11 +3,9 @@ use core::f64;
 use models::encode_sdf::EncodeBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
-use patina_geo::geo2::polygon2::Polygon2;
 use patina_geo::geo3::aabb3::Aabb3;
 use patina_sdf::sdf::AsSdf;
 use patina_vec::mat4::Mat4;
-use patina_vec::vec2::Vec2;
 use patina_vec::vec3::Vec3;
 mod tabs;
 
@@ -17,8 +15,6 @@ struct LeftCap {
     top: f64,
     front_back_thickness: f64,
     top_bottom_thickness: f64,
-    notch: f64,
-    notch_size: f64,
 }
 
 impl LeftCap {
@@ -39,15 +35,7 @@ impl LeftCap {
             .as_sdf(),
         );
         self.tabs.tabs(&mut sdf, true, None);
-        sdf.subtract_sdf(
-            &Polygon2::new(vec![
-                Vec2::new(self.aabb.min().x(), self.notch - self.notch_size),
-                Vec2::new(self.aabb.min().x() + self.notch_size, self.notch),
-                Vec2::new(self.aabb.min().x(), self.notch + self.notch_size),
-            ])
-            .as_sdf()
-            .extrude_y(self.aabb.min().y()..self.aabb.max().y()),
-        );
+
         sdf
     }
     pub async fn build(&self) -> anyhow::Result<()> {
@@ -78,8 +66,6 @@ async fn main() -> anyhow::Result<()> {
         top: 2.0,
         front_back_thickness: 2.0,
         top_bottom_thickness: 15.0,
-        notch: 4.0,
-        notch_size: 0.5,
     }
     .build()
     .await?;

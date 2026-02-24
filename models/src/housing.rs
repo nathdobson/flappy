@@ -658,8 +658,8 @@ impl HousingBuilder {
             self.aabb.max()
                 + Vec3::new(0.1 + self.board_mounts.standoff, 0.1, self.tabs.size + 0.1),
         );
-        let mut builder = BambuBuilder::new();
-        builder.brim_type(Some(BrimType::Painted));
+        let mut bambu = BambuBuilder::new();
+        bambu.brim_type(Some(BrimType::Painted));
         let mut brim_points = vec![];
         let radius = 4.0f64;
         for x in [self.aabb.min().x(), self.aabb.max().x()] {
@@ -672,6 +672,7 @@ impl HousingBuilder {
         }
         let mut builder = EncodeBuilder::new("housing", sdf, &aabb);
         builder.brim_points = brim_points;
+        builder.bambu = bambu;
         builder.build().await?;
         Ok(())
     }

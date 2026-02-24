@@ -16,6 +16,8 @@ pub struct Tabs {
     pub through_hole_excess_radius: f64,
     pub toe_width: f64,
     pub aabb: Aabb<2>,
+    pub notch: f64,
+    pub notch_size: f64,
 }
 
 impl Tabs {
@@ -25,10 +27,12 @@ impl Tabs {
             thickness: 5.0,
             wall_size: 6.0,
             tab_fitment: 0.2,
-            housing_fitment: 0.35,
+            housing_fitment: 0.25,
             through_hole_excess_radius: 0.25,
             toe_width: 2.001,
             aabb: Aabb::new(Vec2::new(-35.0, -66.0), Vec2::new(54.0, 62.0)),
+            notch: 4.0,
+            notch_size: 0.5,
         }
     }
     pub fn tabs(&self, sdf: &mut SdfModel, slot: bool, tab_z: Option<f64>) {
@@ -127,6 +131,15 @@ impl Tabs {
                 ) + axis * self.thickness,
                 axis,
                 &THREAD_M3,
+            );
+            sdf.subtract_sdf(
+                &Polygon2::new(vec![
+                    Vec2::new(self.aabb.min().x(), self.notch - self.notch_size),
+                    Vec2::new(self.aabb.min().x() + self.notch_size, self.notch),
+                    Vec2::new(self.aabb.min().x(), self.notch + self.notch_size),
+                ])
+                .as_sdf()
+                .extrude_y(self.aabb.min().y()..self.aabb.max().y()),
             );
         }
     }

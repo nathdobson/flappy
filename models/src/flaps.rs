@@ -199,11 +199,11 @@ fn create_filament(material: &MaterialSelector, printer: Printer) -> BambuFilame
             filament.filament_flow_ratio(Some(1.01));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PlaBasic) => {
-            filament.filament_flow_ratio(Some(1.02));
+            filament.filament_flow_ratio(Some(1.00));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PetgHf) => {
             filament.filament_flow_ratio(Some(1.03));
-            filament.filament_prime_volume(Some(90.0));
+            filament.filament_prime_volume(Some(120.0));
         }
         _ => {}
     }
