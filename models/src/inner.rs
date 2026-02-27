@@ -44,6 +44,7 @@ pub struct DrumBuilder {
     axle_flat_width: f64,
     letter_count: usize,
     flap_hole_radius: f64,
+    flap_hole_y: f64,
     flap_pos_radius: f64,
     magnet_distance: f64,
     magnet_depth: f64,
@@ -192,7 +193,7 @@ impl DrumBuilder {
                     * self.flap_pos_radius;
             sdf.subtract_sdf(
                 &Cylinder::new(
-                    Vec3::new(pos.x(), pos.y(), 0.0),
+                    Vec3::new(pos.x(), pos.y(), self.flap_hole_y),
                     Vec3::axis_z() * self.flange_height,
                     self.flap_hole_radius,
                 )
@@ -280,6 +281,7 @@ async fn main() -> anyhow::Result<()> {
         axle_flat_width: 3.3,
         letter_count: 45,
         flap_hole_radius: 2.0 / 2.0,
+        flap_hole_y: 0.4,
         flap_pos_radius: 64.0 / 2.0,
         magnet_distance: 18.0,
         magnet_depth: 2.2,

@@ -23,6 +23,7 @@ use patina_3mf::model::resources::{
 };
 use patina_3mf::model::{Model, ModelMetadata, ModelUnit};
 use patina_3mf::model_settings::{Assemble, AssembleItem, ModelSettings};
+use patina_3mf::project_settings::brim_type::BrimType;
 use patina_3mf::project_settings::color::Color;
 use patina_3mf::project_settings::support_interface_pattern::SupportInterfacePattern;
 use patina_3mf::project_settings::support_style::SupportStyle;
@@ -63,7 +64,6 @@ use std::{env, iter};
 use tokio::fs;
 use zip::write::{FileOptions, SimpleFileOptions};
 use zip::{ZipArchive, ZipWriter};
-use patina_3mf::project_settings::brim_type::BrimType;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -112,71 +112,80 @@ async fn build_output() -> anyhow::Result<()> {
     tokio::fs::create_dir_all(working_dir.join("flaps/previews")).await?;
     tokio::fs::create_dir_all(working_dir.join("flaps/supports")).await?;
 
-    let mut bambu = BambuBuilder::new();
-    let printer = Printer::A1Mini;
-    let nozzle = Nozzle::Nozzle0_4;
-    let mut machine = PrinterSettingsId::new(printer.clone());
-    machine.nozzle = Some(nozzle.clone());
-    let process = PrintSettingsId::new(0.2, PrintQuality::Standard, printer.clone(), nozzle);
+    let plates = StackBuilder {
+        working_dir: working_dir.clone(),
+        width: 43.0,
+        length: 35.0,
+        thickness: 1.0,
+        support_thickness: 0.4,
+        incut: 2.0,
+        extension: 1.2,
+        axle_diameter: 1.2,
+        drum_diameter: 18.0,
+        letter_thickness: 0.4,
+        flap_separation: 3.01,
+        wall_separation: 0.01,
+        letter_scale: 78.0,
+        wedge_width: 5.0,
+        wedge_height: 0.5,
+        flap_grid_width: 3,
+        flap_grid_height: 3,
+        max_concurrent_flaps: 9,
+        horizontal_gap: 2.0,
+        replicas: 1,
+        config: config.clone(),
+        fonts,
+    }
+    .build()
+    .await;
+    for (range, plate) in plates {
+        let mut bambu = BambuBuilder::new();
+        let printer = Printer::A1Mini;
+        let nozzle = Nozzle::Nozzle0_4;
+        let mut machine = PrinterSettingsId::new(printer.clone());
+        machine.nozzle = Some(nozzle.clone());
+        let process = PrintSettingsId::new(0.2, PrintQuality::Standard, printer.clone(), nozzle);
 
-    bambu.printer_settings_id(Some(machine.clone()));
-    bambu.print_settings_id(Some(process.clone()));
-    bambu.prime_tower_positions(Some(vec![Vec2::new(65.0, 18.0)]));
-    bambu.support({
-        let mut support = BambuSupport::new();
-        support.independent_support_layer_height(0);
-        support.support_bottom_z_distance(0);
-        support.support_filament(3);
-        support.support_interface_filament(3);
-        support.support_interface_pattern(SupportInterfacePattern::Concentric);
-        support.support_interface_spacing(0);
-        support.support_style(SupportStyle::Snug);
-        support.support_top_z_distance(0);
-        support.support_type(SupportType::NormalAuto);
-        support.support_expansion(-0.25);
-        support
-    });
-    bambu.brim_type(Some(BrimType::OuterBrimOnly));
-    bambu.prime_tower_rib_wall(Some(false));
-    bambu.prime_tower_width(Some(50.0));
-    bambu.add_filament(create_filament(&config.foreground, printer.clone()));
-    bambu.add_filament(create_filament(&config.background, printer.clone()));
-    let mut support = create_filament(&config.support, printer.clone());
-    support.support(Some(true));
-    bambu.add_filament(support);
-    bambu.add_plate({
-        let mut plate = BambuPlate::new();
-        let mut object = BambuObject::new();
-        object.name(Some("stack".to_string()));
-        StackBuilder {
-            working_dir: working_dir.clone(),
-            width: 43.0,
-            length: 35.0,
-            thickness: 1.0,
-            support_thickness: 0.4,
-            incut: 2.0,
-            extension: 1.2,
-            axle_diameter: 1.2,
-            drum_diameter: 18.0,
-            letter_thickness: 0.4,
-            flap_separation: 3.01,
-            wall_separation: 0.01,
-            letter_scale: 78.0,
-            wedge_width: 5.0,
-            wedge_height: 0.5,
-            flap_grid_width: 3,
-            flap_grid_height: 3,
-            max_concurrent_flaps: 9,
-            horizontal_gap: 2.0,
-            replicas: 1,
-            config,
-            fonts,
-        }
-        .build()
-        .await
-    });
-    tokio::fs::write(&working_dir.join("flaps.3mf"), bambu.build()?).await?;
-
+        bambu.printer_settings_id(Some(machine.clone()));
+        bambu.print_settings_id(Some(process.clone()));
+        bambu.prime_tower_positions(Some(vec![Vec2::new(65.0, 18.0)]));
+        bambu.support({
+            let mut support = BambuSupport::new();
+            support.independent_support_layer_height(0);
+            support.support_bottom_z_distance(0);
+            support.support_filament(3);
+            support.support_interface_filament(3);
+            support.support_interface_pattern(SupportInterfacePattern::Concentric);
+            support.support_interface_spacing(0);
+            support.support_style(SupportStyle::Snug);
+            support.support_top_z_distance(0);
+            support.support_type(SupportType::NormalAuto);
+            support.support_expansion(-0.25);
+            support
+        });
+        bambu.brim_type(Some(BrimType::OuterBrimOnly));
+        bambu.prime_tower_rib_wall(Some(false));
+        bambu.prime_tower_width(Some(70.0));
+        bambu.add_filament(create_filament(&config.foreground, printer.clone()));
+        bambu.add_filament(create_filament(&config.background, printer.clone()));
+        let mut support = create_filament(&config.support, printer.clone());
+        support.support(Some(true));
+        bambu.add_filament(support);
+        bambu.add_plate({
+            // let mut plate = BambuPlate::new();
+            // let mut object = BambuObject::new();
+            // object.name(Some("stack".to_string()));
+            plate
+        });
+        tokio::fs::write(
+            &working_dir.join(format!(
+                "flaps-layer{}-through-layer{}.3mf",
+                range.start, range.end
+            )),
+            bambu.build()?,
+        )
+        .await?;
+    }
     Ok(())
 }
 
@@ -196,14 +205,14 @@ fn create_filament(material: &MaterialSelector, printer: Printer) -> BambuFilame
             filament.filament_flow_ratio(Some(1.00));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PlaMatte) => {
-            filament.filament_flow_ratio(Some(1.01));
+            filament.filament_flow_ratio(Some(1.00));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PlaBasic) => {
             filament.filament_flow_ratio(Some(1.00));
         }
         (FilamentBrand::Bambu, FilamentMaterial::PetgHf) => {
             filament.filament_flow_ratio(Some(1.03));
-            filament.filament_prime_volume(Some(120.0));
+            filament.filament_prime_volume(Some(200.0));
         }
         _ => {}
     }

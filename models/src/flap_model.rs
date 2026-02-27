@@ -16,20 +16,21 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::f64;
 use std::iter::repeat_n;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct MaterialSelector {
     pub color: Color,
     pub brand: FilamentBrand,
     pub material: FilamentMaterial,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct Config {
     pub glyphs: Vec<String>,
     pub glyph_config: GlyphConfig,
@@ -40,7 +41,7 @@ pub struct Config {
     pub support: MaterialSelector,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 pub struct GlyphConfig {
     pub font: PathBuf,
     #[serde(default)]
@@ -378,7 +379,7 @@ impl StackBuilder {
             self.support_part(index, &support, transform_support).await,
         ]
     }
-    pub async fn build(&self) -> BambuPlate {
+    pub async fn build(&self) -> HashMap<Range<usize>, BambuPlate> {
         let blank = self.blank_poly();
         let support = self.support_poly();
         let mut letters = vec![];
@@ -388,7 +389,6 @@ impl StackBuilder {
             self.render_svg(index, &blank, &split).await;
             letters.push(split);
         }
-        let mut plate = BambuPlate::new();
         let stacks: Vec<Vec<usize>> = (0..self.config.glyphs.len())
             .chunks(self.config.glyphs.len() / self.max_concurrent_flaps)
             .into_iter()
@@ -398,38 +398,45 @@ impl StackBuilder {
                     .collect()
             })
             .collect();
-        for (x_index, row) in stacks
-            .iter()
-            .chunks(self.flap_grid_width)
-            .into_iter()
-            .enumerate()
-        {
-            for (y_index, stack) in row.enumerate() {
-                let mut object = BambuObject::new();
-                for (z_index, &index) in stack.iter().enumerate() {
-                    println!("Building part {}", index);
-                    let angle = 0.0;
-                    for part in self
-                        .flap_parts(
-                            x_index,
-                            y_index,
-                            z_index,
-                            index,
-                            angle,
-                            &blank,
-                            &support,
-                            &letters[index][1],
-                            &letters[(index + 1) % letters.len()][0],
-                        )
-                        .await
-                    {
-                        object.add_part(part);
+        let mut plates = HashMap::new();
+        for begin in 0..stacks[0].len() {
+            for end in begin + 1..stacks[0].len() + 1 {
+                let mut plate = BambuPlate::new();
+                for (x_index, row) in stacks
+                    .iter()
+                    .chunks(self.flap_grid_width)
+                    .into_iter()
+                    .enumerate()
+                {
+                    for (y_index, stack) in row.enumerate() {
+                        let mut object = BambuObject::new();
+                        for (z_index, &index) in stack[begin..end].iter().enumerate() {
+                            println!("Building part {}", index);
+                            let angle = 0.0;
+                            for part in self
+                                .flap_parts(
+                                    x_index,
+                                    y_index,
+                                    z_index,
+                                    index,
+                                    angle,
+                                    &blank,
+                                    &support,
+                                    &letters[index][1],
+                                    &letters[(index + 1) % letters.len()][0],
+                                )
+                                .await
+                            {
+                                object.add_part(part);
+                            }
+                        }
+                        plate.add_object(object);
                     }
                 }
-                plate.add_object(object);
+                plates.insert(begin..end, plate);
             }
         }
-        plate
+        plates
     }
 }
 
