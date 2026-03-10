@@ -81,6 +81,12 @@ pub struct StackBuilder {
     pub fonts: HashMap<PathBuf, Font<'static>>,
 }
 
+pub struct FlapParts {
+    body_part: BambuPart,
+    letter_part: BambuPart,
+    support_part: BambuPart,
+}
+
 impl StackBuilder {
     fn blank_profile(&self) -> Vec<Vec2> {
         vec![
@@ -234,12 +240,7 @@ impl StackBuilder {
         .await
         .unwrap();
     }
-    async fn support_part(
-        &self,
-        index: usize,
-        support: &EdgeMesh2,
-        transform: [f64; 12],
-    ) -> BambuPart {
+    async fn support_part(&self, index: usize, support: &EdgeMesh2) -> BambuPart {
         let mut ext = ExtrusionBuilder::new();
         let p1 = ext.add_plane(0.0, true);
         let p2 = ext.add_plane(self.support_thickness, false);
@@ -259,7 +260,6 @@ impl StackBuilder {
         let mut body = BambuPart::new(mesh);
         body.material(Some(3));
         body.name(Some(format!("part({})", index)));
-        body.transform(Some(transform));
         body.typ(BambuPartType::SupportBlocker);
         body
     }
@@ -269,7 +269,6 @@ impl StackBuilder {
         blank: &EdgeMesh2,
         letter1: &EdgeMesh2,
         letter2: &EdgeMesh2,
-        transform: [f64; 12],
     ) -> BambuPart {
         let start = Instant::now();
         let mut ext = ExtrusionBuilder::new();
@@ -296,7 +295,6 @@ impl StackBuilder {
         let mut body = BambuPart::new(mesh);
         body.material(Some(2));
         body.name(Some(format!("part({})", index)));
-        body.transform(Some(transform));
         body
     }
     async fn letter_part(
@@ -305,7 +303,6 @@ impl StackBuilder {
         blank: &EdgeMesh2,
         letter1: &EdgeMesh2,
         letter2: &EdgeMesh2,
-        transform: [f64; 12],
     ) -> BambuPart {
         let start = Instant::now();
         let mut ext = ExtrusionBuilder::new();
@@ -331,34 +328,42 @@ impl StackBuilder {
         let mut body = BambuPart::new(mesh);
         body.material(Some(1));
         body.name(Some(format!("part({})", index)));
-        body.transform(Some(transform));
         body
     }
     pub async fn flap_parts(
         &self,
-        x_index: usize,
-        y_index: usize,
-        z_index: usize,
         index: usize,
-        angle: f64,
         blank: &EdgeMesh2,
         support: &EdgeMesh2,
         letter1: &EdgeMesh2,
         letter2: &EdgeMesh2,
+    ) -> FlapParts {
+        FlapParts {
+            body_part: self.body_part(index, &blank, &letter1, &letter2).await,
+            letter_part: self.letter_part(index, &blank, &letter1, &letter2).await,
+            support_part: self.support_part(index, &support).await,
+        }
+    }
+    fn flap_parts_at_position(
+        &self,
+        flap: &FlapParts,
+        x_index: usize,
+        y_index: usize,
+        z_index: usize,
+        w: usize,
+        h: usize,
     ) -> Vec<BambuPart> {
-        let x = 90.0
-            + (x_index as f64 + 0.5 - (self.flap_grid_width as f64) / 2.0)
-                * (self.width + self.horizontal_gap);
+        let mut result = vec![];
+        let x =
+            90.0 + (x_index as f64 + 0.5 - (w as f64) / 2.0) * (self.width + self.horizontal_gap);
         let y = 90.0
             + 21.0
-            + (y_index as f64 + 0.5 - (self.flap_grid_height as f64) / 2.0)
-                * (self.length + self.horizontal_gap);
+            + (y_index as f64 + 0.5 - (h as f64) / 2.0) * (self.length + self.horizontal_gap);
         let transform_flap = (Mat4::translate(Vec3::new(
             x,
             y,
             (z_index as f64) * (self.thickness + self.support_thickness),
-        )) * Mat4::rotate(Vec3::axis_z(), angle)
-            * Mat4::translate(Vec3::new(0.0, -self.length / 2.0, 0.0)))
+        )) * Mat4::translate(Vec3::new(0.0, -self.length / 2.0, 0.0)))
         .as_affine()
         .unwrap();
         let transform_support = (Mat4::translate(Vec3::new(
@@ -367,19 +372,21 @@ impl StackBuilder {
             (z_index as f64) * (self.thickness + self.support_thickness)
                 + self.thickness
                 + self.support_thickness / 2.0,
-        )) * Mat4::rotate(Vec3::axis_z(), angle)
-            * Mat4::translate(Vec3::new(0.0, -self.length / 2.0, 0.0)))
+        )) * Mat4::translate(Vec3::new(0.0, -self.length / 2.0, 0.0)))
         .as_affine()
         .unwrap();
-        vec![
-            self.body_part(index, &blank, &letter1, &letter2, transform_flap)
-                .await,
-            self.letter_part(index, &blank, &letter1, &letter2, transform_flap)
-                .await,
-            self.support_part(index, &support, transform_support).await,
-        ]
+        let mut body_part = flap.body_part.clone();
+        body_part.transform(Some(transform_flap));
+        result.push(body_part);
+        let mut letter_part = flap.letter_part.clone();
+        letter_part.transform(Some(transform_flap));
+        result.push(letter_part);
+        let mut support_part = flap.support_part.clone();
+        support_part.transform(Some(transform_support));
+        result.push(support_part);
+        result
     }
-    pub async fn build(&self) -> HashMap<Range<usize>, BambuPlate> {
+    pub async fn build(&self) -> HashMap<PathBuf, BambuPlate> {
         let blank = self.blank_poly();
         let support = self.support_poly();
         let mut letters = vec![];
@@ -388,6 +395,20 @@ impl StackBuilder {
             let split = self.letter_split(self.letter_poly(index));
             self.render_svg(index, &blank, &split).await;
             letters.push(split);
+        }
+        let mut parts = vec![];
+        for index in 0..self.config.glyphs.len() {
+            println!("Building part {}", index);
+            parts.push(
+                self.flap_parts(
+                    index,
+                    &blank,
+                    &support,
+                    &letters[index][1],
+                    &letters[(index + 1) % letters.len()][0],
+                )
+                .await,
+            );
         }
         let stacks: Vec<Vec<usize>> = (0..self.config.glyphs.len())
             .chunks(self.config.glyphs.len() / self.max_concurrent_flaps)
@@ -399,6 +420,19 @@ impl StackBuilder {
             })
             .collect();
         let mut plates = HashMap::new();
+        for (index, flap) in parts.iter().enumerate() {
+            let mut  plate = BambuPlate::new();
+            let mut object = BambuObject::new();
+            for part in self.flap_parts_at_position(flap, 0, 0, 0, 1, 1) {
+                object.add_part(part);
+            }
+            plate.add_object(object);
+            plates.insert(
+                self.working_dir
+                    .join(format!("flaps/singles/flap_{}.3mf", index)),
+                plate,
+            );
+        }
         for begin in 0..stacks[0].len() {
             for end in begin + 1..stacks[0].len() + 1 {
                 let mut plate = BambuPlate::new();
@@ -411,29 +445,30 @@ impl StackBuilder {
                     for (y_index, stack) in row.enumerate() {
                         let mut object = BambuObject::new();
                         for (z_index, &index) in stack[begin..end].iter().enumerate() {
-                            println!("Building part {}", index);
-                            let angle = 0.0;
-                            for part in self
-                                .flap_parts(
-                                    x_index,
-                                    y_index,
-                                    z_index,
-                                    index,
-                                    angle,
-                                    &blank,
-                                    &support,
-                                    &letters[index][1],
-                                    &letters[(index + 1) % letters.len()][0],
-                                )
-                                .await
-                            {
+                            for part in self.flap_parts_at_position(
+                                &parts[index],
+                                x_index,
+                                y_index,
+                                z_index,
+                                self.flap_grid_width,
+                                self.flap_grid_height,
+                            ) {
                                 object.add_part(part);
                             }
                         }
                         plate.add_object(object);
                     }
                 }
-                plates.insert(begin..end, plate);
+                let output_path;
+                if begin == 0 && end == stacks[0].len() {
+                    output_path = self.working_dir.join("flaps.3mf".to_string());
+                } else {
+                    output_path = self.working_dir.join(format!(
+                        "flaps/layers/flaps-layer{}-through-layer{}.3mf",
+                        begin, end
+                    ));
+                }
+                plates.insert(output_path, plate);
             }
         }
         plates

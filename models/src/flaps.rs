@@ -111,7 +111,8 @@ async fn build_output() -> anyhow::Result<()> {
     tokio::fs::create_dir_all(working_dir.join("flaps/letters")).await?;
     tokio::fs::create_dir_all(working_dir.join("flaps/previews")).await?;
     tokio::fs::create_dir_all(working_dir.join("flaps/supports")).await?;
-
+    tokio::fs::create_dir_all(working_dir.join("flaps/layers")).await?;
+    tokio::fs::create_dir_all(working_dir.join("flaps/singles")).await?;
     let plates = StackBuilder {
         working_dir: working_dir.clone(),
         width: 43.0,
@@ -138,7 +139,7 @@ async fn build_output() -> anyhow::Result<()> {
     }
     .build()
     .await;
-    for (range, plate) in plates {
+    for (output_path, plate) in plates {
         let mut bambu = BambuBuilder::new();
         let printer = Printer::A1Mini;
         let nozzle = Nozzle::Nozzle0_4;
@@ -171,20 +172,8 @@ async fn build_output() -> anyhow::Result<()> {
         let mut support = create_filament(&config.support, printer.clone());
         support.support(Some(true));
         bambu.add_filament(support);
-        bambu.add_plate({
-            // let mut plate = BambuPlate::new();
-            // let mut object = BambuObject::new();
-            // object.name(Some("stack".to_string()));
-            plate
-        });
-        tokio::fs::write(
-            &working_dir.join(format!(
-                "flaps-layer{}-through-layer{}.3mf",
-                range.start, range.end
-            )),
-            bambu.build()?,
-        )
-        .await?;
+        bambu.add_plate(plate);
+        tokio::fs::write(&output_path, bambu.build()?).await?;
     }
     Ok(())
 }
