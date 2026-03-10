@@ -18,6 +18,7 @@ struct LeftCap {
     aabb: Aabb3,
     mount_dimensions: Vec2,
     mount_threads: &'static ThreadMetrics,
+    offset: Vec2,
 }
 
 impl LeftCap {
@@ -31,7 +32,7 @@ impl LeftCap {
             )
             .as_sdf(),
         );
-        let center = self.tabs.aabb.center();
+        let center = self.tabs.aabb.center() + self.offset;
         for x in [-0.5, 0.5] {
             for y in [-0.5, 0.5] {
                 let pos = center
@@ -81,6 +82,7 @@ async fn main() -> anyhow::Result<()> {
         ),
         mount_dimensions: Vec2::new(44.525, 82.690),
         mount_threads: &THREAD_M2,
+        offset: Vec2::new(18.5, 0.0),
     }
     .build()
     .await?;

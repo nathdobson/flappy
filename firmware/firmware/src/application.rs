@@ -16,8 +16,9 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
-use embassy_time::Duration;
 use embassy_time::Timer;
+use embassy_time::{Delay, Duration};
+use embedded_hal_async::delay::DelayNs;
 use heapless::{CapacityError, String, Vec, format};
 use log::{error, info};
 use protocol::display::MAX_GLYPH_BYTES;
@@ -353,6 +354,11 @@ impl Application {
             Command::Test(typ) => match typ {
                 TestType::Spin => {
                     self.display_request.signal(DisplayRequest::Test);
+                }
+                TestType::Enable => {
+                    self.driver.set_enabled(true);
+                    Delay.delay_ms(100_000).await;
+                    self.driver.set_enabled(false);
                 }
                 TestType::Read => {
                     #[cfg(feature = "display")]

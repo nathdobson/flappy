@@ -29,7 +29,7 @@ pub struct DriverPeripherals {
     pub PIN_3: Peri<'static, PIN_3>,
     /// LOAD
     pub PIN_4: Peri<'static, PIN_4>,
-    /// RESET
+    /// RESET or FAULT
     pub PIN_5: Peri<'static, PIN_5>,
     /// GND
     pub GND2: (),
@@ -43,7 +43,6 @@ struct DriverInner {
     load: Output<'static>,
     latch: Output<'static>,
     enable: Output<'static>,
-    reset: Output<'static>,
 }
 pub struct DriverModule {
     inner: RefCell<DriverInner>,
@@ -106,7 +105,6 @@ impl DriverModule {
         let mut load = Output::new(peri.PIN_4, Level::High);
         let mut latch = Output::new(peri.PIN_1, Level::High);
         let mut enable = Output::new(peri.PIN_6, Level::High);
-        let mut reset = Output::new(peri.PIN_5, Level::Low);
 
         let module = make_static!(
             DriverModule,
@@ -116,7 +114,6 @@ impl DriverModule {
                     load,
                     latch,
                     enable,
-                    reset,
                 }),
             }
         );

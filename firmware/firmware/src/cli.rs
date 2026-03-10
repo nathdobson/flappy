@@ -30,6 +30,7 @@ pub enum MqttField {
 pub enum TestType {
     Spin,
     Read,
+    Enable,
 }
 
 #[derive(Debug)]
@@ -167,6 +168,7 @@ impl<'a> Command<'a> {
         let typ = match typ {
             "spin" => TestType::Spin,
             "read" => TestType::Read,
+            "enable" => TestType::Enable,
             _ => return Err(CommandError::from("unknown test type")),
         };
         Ok(Command::Test(typ))
