@@ -10,7 +10,8 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::{DynReceiver, Watch};
-use embassy_time::{Duration, Timer};
+use embassy_time::{Delay, Duration, Timer};
+use embedded_hal_async::delay::DelayNs;
 use log::{error, info, warn};
 use protocol::setup::{WifiSettings, WifiStatus};
 use rand_core::RngCore;
@@ -108,6 +109,7 @@ impl WifiModule {
                 .await
             {
                 warn!("{MODULE} Failed to join WiFi network ({:?})", err);
+                Delay.delay_ms(1000).await;
                 continue;
             }
             self.status.sender().send(WifiStatus::Connected);
