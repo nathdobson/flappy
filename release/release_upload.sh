@@ -23,6 +23,7 @@ cp setup-client/target/x86_64-pc-windows-gnu/release/setup-client.exe release/ar
 
 cp setup-client/target/aarch64-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-aarch64-unknown-linux-gnu
 cp setup-client/target/i686-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-i686-unknown-linux-gnu
+cp setup-client/target/armv7-unknown-linux-gnueabihf/release/setup-client release/artifacts/setup-client-armv7-unknown-linux-gnueabihf
 #cp setup-client/target/x86_64-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-x86_64-unknown-linux-gnu
 
 #cp setup-client/target/aarch64-unknown-linux-musl/release/setup-client release/setup-client-aarch64-unknown-linux-musl
