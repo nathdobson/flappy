@@ -3,21 +3,19 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 #![feature(try_blocks)]
+#[cfg(feature = "ble")]
 mod ble;
 mod error;
+#[cfg(feature = "usb")]
 mod usb;
 
-use crate::ble::{BleAddress, BleConnection};
 use crate::error::Error;
-use crate::usb::{UsbAddress, UsbConnection};
 // use btleplug::api::Peripheral;
 use clap::{Parser, ValueEnum};
 use crypto_fetch::fetch_certificate_list_sha256;
 use futures_util::stream::StreamExt;
 use itertools::Itertools;
 use jsonformat::Indentation;
-use nusb::list_devices;
-use nusb::transfer::{Bulk, Direction, Out};
 use protocol::setup::{AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
 use protocol::setup::{SetupRequest, SetupResponse};
 use std::path::PathBuf;
@@ -36,7 +34,7 @@ struct Args {
     subcommand: Subcommand,
 }
 
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum, Copy)]
 enum Transport {
     Usb,
     Ble,
@@ -80,15 +78,25 @@ struct InfoCommand {
 }
 
 enum Connection {
-    Usb(UsbConnection),
-    Ble(BleConnection),
+    #[cfg(feature = "usb")]
+    Usb(crate::usb::UsbConnection),
+    #[cfg(feature = "ble")]
+    Ble(crate::ble::BleConnection),
 }
 
 impl Transport {
     async fn connect(&self, address: &str) -> Result<Connection, Error> {
         match self {
-            Transport::Usb => Ok(Connection::Usb(UsbConnection::new(address).await?)),
-            Transport::Ble => Ok(Connection::Ble(BleConnection::new(address).await?)),
+            #[cfg(feature = "usb")]
+            Transport::Usb => Ok(Connection::Usb(
+                crate::usb::UsbConnection::new(address).await?,
+            )),
+            #[cfg(feature = "ble")]
+            Transport::Ble => Ok(Connection::Ble(
+                crate::ble::BleConnection::new(address).await?,
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(Error::FeatureNotEnabled(*self)),
         }
     }
 }
@@ -96,14 +104,22 @@ impl Transport {
 impl Connection {
     pub async fn invoke(&mut self, request: &SetupRequest) -> Result<SetupResponse, Error> {
         match self {
+            #[cfg(feature = "usb")]
             Connection::Usb(conn) => conn.invoke(request).await,
+            #[cfg(feature = "ble")]
             Connection::Ble(conn) => conn.invoke(request).await,
+            #[allow(unreachable_patterns)]
+            _ => unreachable!(),
         }
     }
     pub async fn receive(&mut self) -> Result<AppStatus, Error> {
         match self {
+            #[cfg(feature = "usb")]
             Connection::Usb(conn) => conn.receive().await,
+            #[cfg(feature = "ble")]
             Connection::Ble(conn) => conn.receive().await,
+            #[allow(unreachable_patterns)]
+            _ => unreachable!(),
         }
     }
 }
@@ -113,15 +129,17 @@ async fn main() -> Result<(), Error> {
     let args = Args::parse();
     match &args.subcommand {
         Subcommand::List => match args.transport {
+            #[cfg(feature = "usb")]
             Transport::Usb => {
-                for display in UsbAddress::list().await? {
+                for display in crate::usb::UsbAddress::list().await? {
                     if let Some(serial) = display.serial_number() {
                         println!("{}", serial);
                     }
                 }
             }
+            #[cfg(feature = "ble")]
             Transport::Ble => {
-                let mut list = BleAddress::list().await?;
+                let mut list = crate::ble::BleAddress::list().await?;
                 while let Some(next) = list.next().await {
                     let next = next?;
                     match next.try_to_string() {
@@ -130,6 +148,8 @@ async fn main() -> Result<(), Error> {
                     }
                 }
             }
+            #[allow(unreachable_patterns)]
+            _ => return Err(Error::FeatureNotEnabled(args.transport)),
         },
         Subcommand::Read(read) => {
             let mut conn = args.transport.connect(&read.address).await?;

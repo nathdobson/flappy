@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 protocol = {path = "../../common/protocol",features = ["serde"]}
-nusb = {version="0.2.1",features = ["tokio"]}
+nusb = {version="0.2.1",features = ["tokio"],optional = true}
 tokio = { version = "1.48.0", features = ["rt", "rt-multi-thread", "macros", "io-util", "fs", "io-std","time"] }
 clap = { version = "4.5.53", features = ["derive"] }
 itertools = "0.14.0"
@@ -14,10 +14,15 @@ serde-json-core = {path="../../submodules/serde-json-core"}
 jsonformat="2.1.0"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
-btleplug = {version="0.11.8",features = ["serde"]}
+btleplug = {version="0.11.8",features = ["serde"], optional = true}
 uuid = "1.19.0"
 serde-string = {path="../../common/serde-string"}
 crypto-fetch = {path="../../common/crypto-fetch"}
 
 [target.'cfg(darwin)'.dependencies]
 objc2={version="0.6.1",features=["disable-encoding-assertions"]}
+
+[features]
+usb = ["dep:nusb"]
+ble = ["dep:btleplug"]
+default = ["ble","usb"]

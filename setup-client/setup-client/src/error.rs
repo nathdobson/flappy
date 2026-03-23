@@ -1,12 +1,14 @@
+use crate::Transport;
 use itertools::ExactlyOneError;
-use nusb::ActiveConfigurationError;
 use serde_json_core::heapless::CapacityError;
 use serde_string::{StringDeserializerError, StringSerializerError};
 
 #[derive(Debug)]
 pub enum Error {
+    #[cfg(feature = "usb")]
     UsbError(nusb::Error),
-    ActiveConfigurationError(ActiveConfigurationError),
+    #[cfg(feature = "usb")]
+    ActiveConfigurationError(nusb::ActiveConfigurationError),
     IoError(std::io::Error),
     MissingEndpoint,
     MissingInterface,
@@ -14,7 +16,7 @@ pub enum Error {
     DuplicateSerialNumber,
     JsonSerError(serde_json_core::ser::Error),
     JsonDeError(serde_json_core::de::Error),
-    // BleError(bluest::Error),
+    #[cfg(feature = "ble")]
     BtleError(btleplug::Error),
     BleAdapterNotFound,
     MissingService,
@@ -25,16 +27,19 @@ pub enum Error {
     StringSerError(StringSerializerError),
     StringDeError(StringDeserializerError),
     CryptoFetchError(crypto_fetch::Error),
+    FeatureNotEnabled(Transport),
 }
 
+#[cfg(feature = "usb")]
 impl From<nusb::Error> for Error {
     fn from(value: nusb::Error) -> Self {
         Error::UsbError(value)
     }
 }
 
-impl From<ActiveConfigurationError> for Error {
-    fn from(value: ActiveConfigurationError) -> Self {
+#[cfg(feature = "usb")]
+impl From<nusb::ActiveConfigurationError> for Error {
+    fn from(value: nusb::ActiveConfigurationError) -> Self {
         Error::ActiveConfigurationError(value)
     }
 }
@@ -57,6 +62,7 @@ impl From<serde_json_core::de::Error> for Error {
     }
 }
 
+#[cfg(feature = "ble")]
 impl From<btleplug::Error> for Error {
     fn from(value: btleplug::Error) -> Self {
         Error::BtleError(value)
@@ -87,7 +93,7 @@ impl From<StringDeserializerError> for Error {
     }
 }
 
-impl From<crypto_fetch::Error> for Error{
+impl From<crypto_fetch::Error> for Error {
     fn from(value: crypto_fetch::Error) -> Self {
         Error::CryptoFetchError(value)
     }
