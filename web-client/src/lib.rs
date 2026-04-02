@@ -13,23 +13,29 @@
 
 mod display;
 mod error;
+mod event_listener;
 mod mqtt_connector;
 mod mqtt_form;
 mod query_params;
+pub mod root;
 mod send_form;
 mod status;
+mod tabs;
 mod utils;
 
 use crate::display::{Display, DisplayState};
 use crate::error::Error;
+use crate::error::Error::NoneError;
 use crate::mqtt_connector::run_mqtt;
 use crate::mqtt_form::MqttForm;
-use crate::query_params::FlappyQueryParams;
+use crate::query_params::{QueryParams, QueryParamsCell};
+use crate::root::Root;
 use crate::send_form::SendForm;
 use crate::status::{Status, StatusPriority};
+use crate::tabs::{TabContainer, TabContent};
 use crate::utils::{
-    create_element, sleep, spawn_local_joinable, try_create_div, try_document,
-    try_get_element_by_id,
+    create_element, sleep, spawn_local_joinable, try_create_div, try_create_text_node,
+    try_document, try_get_element_by_id,
 };
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
 use futures_util::AsyncWriteExt;
@@ -67,101 +73,63 @@ async fn start() {
     }
 }
 
-pub struct Root {
-    send_form: SendForm,
-    status: Rc<Status>,
+struct TestTab {
+    title: &'static str,
+    id: &'static str,
+    node: HtmlDivElement,
 }
 
-enum DisplayResponseContainer {
-    DisplayResponse(DisplayResponse),
-    DeviceInfo(DeviceInfo),
-}
-
-impl Root {
-    pub async fn new(status: Rc<Status>) -> Result<!, Error> {
-        let params = FlappyQueryParams::new()?;
-        let mut display = Display::new()?;
-        let mut send_form = SendForm::new(params.spindle)?;
-        let (request_send, request_recv) = channel::<DisplayRequest>(10);
-        let (response_send, mut response_recv) = channel::<DisplayResponseContainer>(10);
-        send_form.set_on_submit(|value| {
-            let mut value: String = value.to_owned();
-            value.truncate(DISPLAY_REQUEST_CAPACITY);
-            match heapless::String::from_str(&value) {
-                Err(e) => {
-                    error!("{:?}", e);
-                }
-                Ok(value) => match request_send.try_send(DisplayRequest::Run(value)) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        error!("{:?}", e);
-                    }
-                },
-            }
-        });
-        send_form.set_on_submit_src(|value| {
-            let mut value: String = value.to_owned();
-            if value.len() > DISPLAY_REQUEST_CAPACITY {
-                error!("code too long");
-                return;
-            }
-            match heapless::String::from_str(&value) {
-                Err(e) => {
-                    error!("{:?}", e);
-                }
-                Ok(value) => match request_send.try_send(DisplayRequest::RunSpindle(value)) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        error!("{:?}", e);
-                    }
-                },
-            }
-        });
-
-        let mqtt_form = MqttForm::new(&params)?;
-        let this = Rc::new(Root {
-            send_form,
-            status: status.clone(),
-        });
-
-        try_join! {
-            spawn_local_joinable(this.clone().run_display(status.clone(),display,response_recv)).try_join(),
-            spawn_local_joinable(run_mqtt(params,status.clone(),request_recv, response_send)).try_join(),
-        }?;
-        todo!();
+impl TabContent for TestTab {
+    fn title(&self) -> &str {
+        self.title
     }
-    async fn run_display(
-        self: Rc<Self>,
-        status: Rc<Status>,
-        mut display: Display,
-        mut response_recv: Receiver<DisplayResponseContainer>,
-    ) -> Result<!, Error> {
-        let mut state = DisplayState::Stopped(
-            iter::repeat_n(heapless::String::from_str(" ").unwrap(), MAX_GLYPHS).collect(),
-        );
-        loop {
-            match select(response_recv.recv(), display.handle_state(state.clone())).await {
-                Either::First(None) => return Err(Error::UnexpectedEof),
-                Either::First(Some(new)) => match new {
-                    DisplayResponseContainer::DisplayResponse(response) => match response {
-                        DisplayResponse::Start(_) => state = DisplayState::Running,
-                        DisplayResponse::Stop(text) => state = DisplayState::Stopped(text),
-                    },
-                    DisplayResponseContainer::DeviceInfo(info) => {
-                        status.set(StatusPriority::Info, "Connected!".to_string());
-                        display.build(&info).unwrap_or_else(|e| error!("{:?}", e))
-                    }
-                },
-                Either::Second(e) => return e,
-            }
-        }
+
+    fn id(&self) -> &str {
+        self.id
+    }
+
+    fn handle_visible(&self, visible: bool) {}
+
+    fn node(&self) -> &HtmlDivElement {
+        &self.node
     }
 }
 
 async fn main() -> Result<(), Error> {
-    let status = Status::new()?;
-    let Err(e) = Root::new(status.clone()).await;
-    status.set(StatusPriority::Error, format!("{}", e));
+    let query_params = Rc::new(QueryParamsCell::new()?);
+    let tab1 = Rc::new(TestTab {
+        title: "Tab1",
+        id: "tab1",
+        node: {
+            let div = try_create_div()?;
+            div.append_child(&(try_create_text_node("tab1")?.into()))?;
+            div
+        },
+    });
+    let tab2 = Rc::new(TestTab {
+        title: "Tab2",
+        id: "tab2",
+        node: {
+            let div = try_create_div()?;
+            div.append_child(&(try_create_text_node("tab2")?.into()))?;
+            div
+        },
+    });
+    let tabs = TabContainer::new(
+        vec![
+            //
+            tab1, tab2,
+        ],
+        query_params,
+    )?;
+    try_document()?
+        .body()
+        .ok_or(NoneError)?
+        .append_child(tabs.node())?;
+    pending::<!>().await;
+    // let status = Status::new()?;
+    // let Err(e) = Root::new(status.clone()).await;
+    // status.set(StatusPriority::Error, format!("{}", e));
     Ok(())
 }
 

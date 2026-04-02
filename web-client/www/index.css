@@ -100,3 +100,28 @@
 .content-form-hidden{
     display: none
 }
+
+.tab-header {
+    border: 1px solid;
+    overflow: hidden;
+}
+
+.tab-button{
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 4px 10px;
+    transition: 0.3s;
+}
+
+.tab-button-inactive:hover {
+    background-color: #bbb;
+}
+
+.tab-button-inactive:not(:hover) {
+    background-color: #fff;
+}
+
+.tab-button-active {
+    background-color: #999;
+}

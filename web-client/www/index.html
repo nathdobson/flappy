@@ -8,29 +8,6 @@
 <body>
 <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
 <script src="./bootstrap.js"></script>
-<div class="container">
-    <div id="status" class="status"></div>
-    <div id="display" class="display"></div>
-    <form class="content-form" id="form">
-        <input class="content-input" id="content" type="text" placeholder="e.g. HelloWorld" autofocus>
-        <input class="content-submit" id="submit" type="submit" value="Send To Display" disabled="disabled"/>
-    </form>
-    <form class="content-form-hidden" id="form-src">
-        <textarea class="content-input-src" id="content-src" cols="40" rows="10"></textarea>
-        <input class="content-submit" id="submit-src" type="submit" value="Run On Display" disabled="disabled"/>
-    </form>
-    <form class="settings-form" id="settings" method="get">
-        <label class="label" for="ws_url">MQTT WebSocket URL</label>
-        <input class="input" id="ws_url" name="ws_url" type="text" placeholder="e.g. wss://my_mqq_host.com:8084/mqtt">
-        <label class="label" for="username">MQTT Username</label>
-        <input class="input" id="username" name="username" type="text" placeholder="e.g. MyUserName">
-        <label class="label" for="password">MQTT Password</label>
-        <input class="input" id="password" name="password" type="text" placeholder="e.g. CorrectHorseBatteryStaple">
-        <label class="label" for="topic">MQTT Topic</label>
-        <input class="input" id="topic" name="topic" type="text" placeholder="e.g. display/name-of-my-display">
-        <div></div>
-        <input class="input" id="settings-submit" type="submit" value="Update Settings" disabled="disabled"/>
-    </form>
-</div>
+
 </body>
 </html>

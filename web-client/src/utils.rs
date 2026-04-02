@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{Document, HtmlDivElement, HtmlElement, HtmlFormElement, Window};
+use web_sys::{Document, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, Text, Window};
 
 pub fn try_window() -> Result<Window, Error> {
     web_sys::window().ok_or(Error::NoneError)
@@ -37,6 +37,10 @@ pub fn try_create_div() -> Result<HtmlDivElement, Error> {
         .ok_or(Error::TypeError)?)
 }
 
+pub fn try_create_text_node(text: &str) -> Result<Text, Error> {
+    Ok(try_document()?.create_text_node(text))
+}
+
 pub fn create_element<const TAG: &'static str>(
 ) -> Result<<Tag<TAG> as HasElementType>::ElementType, Error>
 where
@@ -57,6 +61,10 @@ pub trait HasElementType {
 
 impl HasElementType for Tag<"div"> {
     type ElementType = HtmlDivElement;
+}
+
+impl HasElementType for Tag<"button"> {
+    type ElementType = HtmlButtonElement;
 }
 
 pub async fn sleep(millis: i32) {

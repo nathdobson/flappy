@@ -3,6 +3,7 @@
 #![allow(unreachable_code)]
 #![allow(unused_variables)]
 
+use arena::Arena;
 use clap::Parser;
 use clap::builder::TypedValueParser;
 use embassy_futures::select::select4;
@@ -26,7 +27,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
-use arena::Arena;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -115,9 +115,9 @@ async fn main() -> anyhow::Result<()> {
         },
         async {
             let mut tmp = [0u8; 1024];
-            let mut arena=[0u8;1024];
+            let mut arena = [0u8; 1024];
             loop {
-                let mut arena = Arena::new(&mut arena)?;
+                let arena = Arena::new(&mut arena)?;
                 let (token, packet): (_, Packet) = receiver.receive(arena).await?;
                 match packet {
                     Packet::Publish(packet) => {

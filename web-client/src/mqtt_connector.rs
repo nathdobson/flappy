@@ -1,8 +1,8 @@
 use crate::error::Error;
-use crate::query_params::FlappyQueryParams;
+use crate::query_params::{QueryParams, QueryParamsCell};
+use crate::root::DisplayResponseContainer;
 use crate::status::{Status, StatusPriority};
 use crate::utils::{sleep, try_window};
-use crate::DisplayResponseContainer;
 use arena::Arena;
 use embassy_futures::select::{select, select5, Either, Either5};
 use io_adapters::split::split_io;
@@ -49,14 +49,14 @@ impl<T> PeekReceiver<T> {
 }
 
 pub async fn run_mqtt(
-    params: FlappyQueryParams,
+    params: Rc<QueryParamsCell>,
     status: Rc<Status>,
     requests: Receiver<DisplayRequest>,
     mut responses: Sender<DisplayResponseContainer>,
 ) -> Result<!, Error> {
     let mut requests = PeekReceiver::new(requests);
     loop {
-        let e = run_mqtt_once(&params, status.clone(), &mut requests, &mut responses)
+        let e = run_mqtt_once(params.clone(), status.clone(), &mut requests, &mut responses)
             .await
             .into_err();
         error!("MQTT Connection failure: {}", e);
@@ -65,22 +65,22 @@ pub async fn run_mqtt(
     }
 }
 pub async fn run_mqtt_once(
-    params: &FlappyQueryParams,
+    params: Rc<QueryParamsCell>,
     status: Rc<Status>,
     mut requests: &mut PeekReceiver<DisplayRequest>,
     responses: &mut Sender<DisplayResponseContainer>,
 ) -> Result<!, Error> {
     status.set(
         StatusPriority::Info,
-        format!("Connecting to WebSocket {}", params.ws_url),
+        format!("Connecting to WebSocket {}", params.borrow().ws_url),
     );
-    let (meta, stream) = WsMeta::connect(&params.ws_url, Some(vec!["mqtt"])).await?;
+    let (meta, stream) = WsMeta::connect(&params.borrow().ws_url, Some(vec!["mqtt"])).await?;
     let (read, write) = split_io(stream.into_io());
     let sender = MqttSender::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
     let mut receiver = MqttReceiver::new(TokioStreamAdapter(read));
-    let req_topic = format!("{}/request", params.topic);
-    let resp_topic = format!("{}/response", params.topic);
-    let info_topic = format!("{}/info", params.topic);
+    let req_topic = format!("{}/request", params.borrow().topic);
+    let resp_topic = format!("{}/response", params.borrow().topic);
+    let info_topic = format!("{}/info", params.borrow().topic);
     match select5(
         async {
             let mut arena_slice = [0u8; 1024];
@@ -145,14 +145,16 @@ pub async fn run_mqtt_once(
                 StatusPriority::Info,
                 format!(
                     "Connecting to MQTT with client_id `{}`, username `{}`, and password `{}`",
-                    client_id, params.username, params.password
+                    client_id,
+                    params.borrow().username,
+                    params.borrow().password
                 ),
             );
             sender
                 .connect(&ConnectRequest {
                     client_id: &client_id,
-                    username: Some(&params.username),
-                    password: Some(&params.password),
+                    username: Some(&params.borrow().username),
+                    password: Some(&params.borrow().password),
                     keepalive: KEEPALIVE,
                 })
                 .await?;
