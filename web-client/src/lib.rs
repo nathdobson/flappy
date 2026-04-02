@@ -34,7 +34,7 @@ use crate::send_form::SendForm;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::{TabContainer, TabContent};
 use crate::utils::{
-    create_element, sleep, spawn_local_joinable, try_create_div, try_create_text_node,
+    create_element, sleep, spawn_local_joinable,  try_create_text_node,
     try_document, try_get_element_by_id,
 };
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
@@ -101,7 +101,7 @@ async fn main() -> Result<(), Error> {
         title: "Tab1",
         id: "tab1",
         node: {
-            let div = try_create_div()?;
+            let div = create_element::<"div">()?;
             div.append_child(&(try_create_text_node("tab1")?.into()))?;
             div
         },
@@ -110,7 +110,7 @@ async fn main() -> Result<(), Error> {
         title: "Tab2",
         id: "tab2",
         node: {
-            let div = try_create_div()?;
+            let div = create_element::<"div">()?;
             div.append_child(&(try_create_text_node("tab2")?.into()))?;
             div
         },

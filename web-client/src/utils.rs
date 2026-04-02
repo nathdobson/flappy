@@ -8,7 +8,7 @@ use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{Document, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, Text, Window};
+use web_sys::{Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlLiElement, HtmlUListElement, Text, Window};
 
 pub fn try_window() -> Result<Window, Error> {
     web_sys::window().ok_or(Error::NoneError)
@@ -28,14 +28,14 @@ pub fn try_get_element_by_id<T: JsCast>(id: &str) -> Result<T, Error> {
         .ok()
         .ok_or(Error::TypeError)?)
 }
-
-pub fn try_create_div() -> Result<HtmlDivElement, Error> {
-    Ok(try_document()?
-        .create_element("div")?
-        .dyn_into()
-        .ok()
-        .ok_or(Error::TypeError)?)
-}
+//
+// pub fn try_create_div() -> Result<HtmlDivElement, Error> {
+//     Ok(try_document()?
+//         .create_element("div")?
+//         .dyn_into()
+//         .ok()
+//         .ok_or(Error::TypeError)?)
+// }
 
 pub fn try_create_text_node(text: &str) -> Result<Text, Error> {
     Ok(try_document()?.create_text_node(text))
@@ -65,6 +65,22 @@ impl HasElementType for Tag<"div"> {
 
 impl HasElementType for Tag<"button"> {
     type ElementType = HtmlButtonElement;
+}
+
+impl HasElementType for Tag<"a"> {
+    type ElementType = HtmlAnchorElement;
+}
+
+impl HasElementType for Tag<"li"> {
+    type ElementType = HtmlLiElement;
+}
+
+impl HasElementType for Tag<"ul"> {
+    type ElementType = HtmlUListElement;
+}
+
+impl HasElementType for Tag<"nav"> {
+    type ElementType = HtmlElement;
 }
 
 pub async fn sleep(millis: i32) {

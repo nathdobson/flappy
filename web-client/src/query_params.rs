@@ -7,9 +7,13 @@ use std::cell::{Ref, RefCell, RefMut};
 pub struct QueryParams {
     #[serde(default)]
     pub tab: String,
+    #[serde(default)]
     pub ws_url: String,
+    #[serde(default)]
     pub username: String,
+    #[serde(default)]
     pub password: String,
+    #[serde(default)]
     pub topic: String,
     #[serde(default)]
     pub spindle: bool,
