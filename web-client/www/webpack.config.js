@@ -15,7 +15,8 @@ module.exports = {
   plugins: [
     new CopyWebpackPlugin([
         'index.html',
-        'index.css'
+        'index.css',
+        'favicon.png',
     ])
   ],
 };
