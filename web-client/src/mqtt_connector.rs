@@ -56,12 +56,17 @@ pub async fn run_mqtt(
 ) -> Result<!, Error> {
     let mut requests = PeekReceiver::new(requests);
     loop {
-        let e = run_mqtt_once(params.clone(), status.clone(), &mut requests, &mut responses)
-            .await
-            .into_err();
+        let e = run_mqtt_once(
+            params.clone(),
+            status.clone(),
+            &mut requests,
+            &mut responses,
+        )
+        .await
+        .into_err();
         error!("MQTT Connection failure: {}", e);
         status.set(StatusPriority::Error, format!("{}", e));
-        requests.peek_recv().await;
+        requests.peek_recv().await.ok_or(Error::ChannelClosed)?;
     }
 }
 pub async fn run_mqtt_once(
@@ -181,7 +186,7 @@ pub async fn run_mqtt_once(
                     .await?;
                 status.set(StatusPriority::Info, format!("Published `{:?}`", next));
             }
-            Ok::<!, Error>(unreachable!())
+            Err(Error::ChannelClosed)
         },
     )
     .await

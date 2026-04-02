@@ -10,7 +10,6 @@ use wasm_bindgen::JsValue;
 #[derive(Debug)]
 pub enum Error {
     JsError(JsValue),
-    NoneError,
     UrlError(url::ParseError),
     QueryStringError(serde_qs::Error),
     WsError(ws_stream_wasm::WsErr),
@@ -26,6 +25,8 @@ pub enum Error {
     UnexpectedEof,
     RecvError,
     Panic(Box<dyn Any + Send>),
+    ChannelClosed,
+    CannotFindElement,
 }
 
 impl From<JsValue> for Error {
@@ -110,7 +111,6 @@ impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::JsError(e) => write!(f, "{:?}", e),
-            Error::NoneError => write!(f, "option was none"),
             Error::UrlError(x) => write!(f, "{}", x),
             Error::QueryStringError(x) => write!(f, "{}", x),
             Error::WsError(x) => write!(f, "{}", x),
@@ -135,6 +135,8 @@ impl Display for Error {
                     write!(f, "panic")
                 }
             }
+            Error::ChannelClosed => write!(f, "channel closed"),
+            Error::CannotFindElement => write!(f, "cannot find element"),
         }
     }
 }

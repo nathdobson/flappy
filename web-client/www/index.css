@@ -70,7 +70,7 @@
     margin:1vw;
 }
 
-.settings-form{
+.mqtt-form {
     display:grid;
     grid-template-columns: max-content 1fr;
     grid-gap:5px;
@@ -81,17 +81,17 @@
     align-items: center;
 }
 
-.label {
+.mqtt-form label {
     text-align:right;
 }
 
-.label:after {
+.mqtt-form label:after {
     content: ":";
 }
 
-.content-form, .input, .label, .content-input, .content-submit, .status{
-    font-size: 3vw;
-}
+/*.content-form, .input, .label, .content-input, .content-submit, .status{*/
+/*    font-size: 3vw;*/
+/*}*/
 
 .status{
     height:10vw

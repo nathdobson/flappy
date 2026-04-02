@@ -11,9 +11,11 @@
 #![allow(incomplete_features)]
 #![allow(unused_mut)]
 
+mod connect_tab;
 mod display;
 mod error;
 mod event_listener;
+mod home_tab;
 mod mqtt_connector;
 mod mqtt_form;
 mod query_params;
@@ -23,9 +25,10 @@ mod status;
 mod tabs;
 mod utils;
 
+use crate::connect_tab::ConnectTab;
 use crate::display::{Display, DisplayState};
 use crate::error::Error;
-use crate::error::Error::NoneError;
+use crate::home_tab::HomeTab;
 use crate::mqtt_connector::run_mqtt;
 use crate::mqtt_form::MqttForm;
 use crate::query_params::{QueryParams, QueryParamsCell};
@@ -34,8 +37,7 @@ use crate::send_form::SendForm;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::{TabContainer, TabContent};
 use crate::utils::{
-    create_element, sleep, spawn_local_joinable,  try_create_text_node,
-    try_document, try_get_element_by_id,
+    create_element, create_text_node, document, get_element_by_id, sleep, spawn_local_joinable,
 };
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
 use futures_util::AsyncWriteExt;
@@ -61,7 +63,9 @@ use tokio::try_join;
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{window, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, Window};
+use web_sys::{
+    window, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, Node, Window,
+};
 use ws_stream_wasm::WsMeta;
 
 #[wasm_bindgen(start)]
@@ -72,59 +76,14 @@ async fn start() {
         error!("uncaught error: {:?}", e);
     }
 }
-
-struct TestTab {
-    title: &'static str,
-    id: &'static str,
-    node: HtmlDivElement,
-}
-
-impl TabContent for TestTab {
-    fn title(&self) -> &str {
-        self.title
-    }
-
-    fn id(&self) -> &str {
-        self.id
-    }
-
-    fn handle_visible(&self, visible: bool) {}
-
-    fn node(&self) -> &HtmlDivElement {
-        &self.node
-    }
-}
-
 async fn main() -> Result<(), Error> {
     let query_params = Rc::new(QueryParamsCell::new()?);
-    let tab1 = Rc::new(TestTab {
-        title: "Tab1",
-        id: "tab1",
-        node: {
-            let div = create_element::<"div">()?;
-            div.append_child(&(try_create_text_node("tab1")?.into()))?;
-            div
-        },
-    });
-    let tab2 = Rc::new(TestTab {
-        title: "Tab2",
-        id: "tab2",
-        node: {
-            let div = create_element::<"div">()?;
-            div.append_child(&(try_create_text_node("tab2")?.into()))?;
-            div
-        },
-    });
-    let tabs = TabContainer::new(
-        vec![
-            //
-            tab1, tab2,
-        ],
-        query_params,
-    )?;
-    try_document()?
+    let home = Rc::new(HomeTab::new()?);
+    let connect = Rc::new(ConnectTab::new(query_params.clone())?);
+    let tabs = TabContainer::new(vec![home, connect], query_params)?;
+    document()?
         .body()
-        .ok_or(NoneError)?
+        .ok_or(Error::CannotFindElement)?
         .append_child(tabs.node())?;
     pending::<!>().await;
     // let status = Status::new()?;

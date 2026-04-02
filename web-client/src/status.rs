@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::utils::try_get_element_by_id;
+use crate::utils::{create_element, get_element_by_id};
 use log::info;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -18,11 +18,14 @@ pub struct Status {
 
 impl Status {
     pub fn new() -> Result<Rc<Status>, Error> {
-        let element = try_get_element_by_id("status")?;
+        let element = create_element::<"div">()?;
         Ok(Rc::new(Self {
             element,
             priority: RefCell::new(StatusPriority::Info),
         }))
+    }
+    pub fn node(&self) -> &HtmlElement {
+        &self.element
     }
     pub fn set(&self, priority: StatusPriority, value: String) {
         info!("Status[{:?}] = {}", priority, value);

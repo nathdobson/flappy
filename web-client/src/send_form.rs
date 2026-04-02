@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::utils::try_get_element_by_id;
+use crate::utils::get_element_by_id;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlFormElement, HtmlInputElement, HtmlTextAreaElement};
@@ -15,13 +15,13 @@ pub struct SendForm {
 
 impl SendForm {
     pub fn new(enable_spindle: bool) -> Result<Self, Error> {
-        let form: HtmlFormElement = try_get_element_by_id("form")?;
-        let input: HtmlInputElement = try_get_element_by_id("content")?;
-        let submit: HtmlInputElement = try_get_element_by_id("submit")?;
+        let form: HtmlFormElement = get_element_by_id("form")?;
+        let input: HtmlInputElement = get_element_by_id("content")?;
+        let submit: HtmlInputElement = get_element_by_id("submit")?;
 
-        let form_src: HtmlFormElement = try_get_element_by_id("form-src")?;
-        let input_src: HtmlTextAreaElement = try_get_element_by_id("content-src")?;
-        let submit_src: HtmlInputElement = try_get_element_by_id("submit-src")?;
+        let form_src: HtmlFormElement = get_element_by_id("form-src")?;
+        let input_src: HtmlTextAreaElement = get_element_by_id("content-src")?;
+        let submit_src: HtmlInputElement = get_element_by_id("submit-src")?;
         if enable_spindle{
             form_src.set_class_name("content-form");
         }

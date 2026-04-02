@@ -1,3 +1,4 @@
+use log::info;
 use crate::error::Error;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
@@ -41,6 +42,7 @@ impl EventType {
 
 impl<'a> Drop for EventListener<'a> {
     fn drop(&mut self) {
+        info!("Removing event listener");
         let _ = self.target.remove_event_listener_with_callback(
             self.typ.name(),
             self.closure.as_ref().unchecked_ref(),

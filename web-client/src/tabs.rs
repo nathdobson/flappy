@@ -1,12 +1,12 @@
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::query_params::{QueryParams, QueryParamsCell};
-use crate::utils::{create_element, try_document};
+use crate::utils::{create_element, document};
 use by_address::ByAddress;
 use log::info;
 use std::cell::{Cell, OnceCell};
 use std::rc::Rc;
-use web_sys::{Element, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlLiElement, Node};
+use web_sys::{Element, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlLiElement, Node};
 
 struct Tab {
     content: Rc<dyn TabContent>,
@@ -24,8 +24,7 @@ pub struct TabContainer {
 pub trait TabContent: 'static {
     fn title(&self) -> &str;
     fn id(&self) -> &str;
-    fn handle_visible(&self, visible: bool);
-    fn node(&self) -> &HtmlDivElement;
+    fn node(&self) -> &HtmlElement;
 }
 
 impl TabContainer {
@@ -66,9 +65,13 @@ impl TabContainer {
                 .iter()
                 .position(|t| t.content.id() == container.query_params.borrow().tab)
                 .unwrap_or(0);
-            info!("index = {:?}", index);
             container.current.set(Some(index));
             container.tabs[index].anchor.set_class_name("active");
+            container.tabs[index]
+                .content
+                .node()
+                .style()
+                .remove_property("display")?;
         }
         Ok(container)
     }

@@ -8,37 +8,29 @@ use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlLiElement, HtmlUListElement, Text, Window};
+use web_sys::{Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, HtmlLabelElement, HtmlLiElement, HtmlUListElement, Node, Text, Window};
 
 pub fn try_window() -> Result<Window, Error> {
-    web_sys::window().ok_or(Error::NoneError)
+    web_sys::window().ok_or(Error::CannotFindElement)
 }
 
-pub fn try_document() -> Result<Document, Error> {
-    try_window()?.document().ok_or(Error::NoneError)
+pub fn document() -> Result<Document, Error> {
+    try_window()?.document().ok_or(Error::CannotFindElement)
 }
 
-pub fn try_get_element_by_id<T: JsCast>(id: &str) -> Result<T, Error> {
-    let window = web_sys::window().ok_or(Error::NoneError)?;
-    let document = window.document().ok_or(Error::NoneError)?;
+pub fn get_element_by_id<T: JsCast>(id: &str) -> Result<T, Error> {
+    let window = web_sys::window().ok_or(Error::CannotFindElement)?;
+    let document = window.document().ok_or(Error::CannotFindElement)?;
     Ok(document
         .get_element_by_id(id)
-        .ok_or(Error::NoneError)?
+        .ok_or(Error::CannotFindElement)?
         .dyn_into::<T>()
         .ok()
         .ok_or(Error::TypeError)?)
 }
-//
-// pub fn try_create_div() -> Result<HtmlDivElement, Error> {
-//     Ok(try_document()?
-//         .create_element("div")?
-//         .dyn_into()
-//         .ok()
-//         .ok_or(Error::TypeError)?)
-// }
 
-pub fn try_create_text_node(text: &str) -> Result<Text, Error> {
-    Ok(try_document()?.create_text_node(text))
+pub fn create_text_node(text: &str) -> Result<Text, Error> {
+    Ok(document()?.create_text_node(text))
 }
 
 pub fn create_element<const TAG: &'static str>(
@@ -46,17 +38,48 @@ pub fn create_element<const TAG: &'static str>(
 where
     Tag<TAG>: HasElementType,
 {
-    Ok(try_document()?
+    Ok(document()?
         .create_element(TAG)?
         .dyn_into()
         .ok()
         .ok_or(Error::TypeError)?)
 }
 
+pub trait AppendChild {
+    fn append_element<const TAG: &'static str>(
+        &self,
+    ) -> Result<<Tag<TAG> as HasElementType>::ElementType, Error>
+    where
+        Tag<TAG>: HasElementType;
+    fn append_text(&self, text: &str) -> Result<Text, Error>;
+}
+
+impl<T> AppendChild for T
+where
+    T: AsRef<Node>,
+{
+    fn append_element<const TAG: &'static str>(
+        &self,
+    ) -> Result<<Tag<TAG> as HasElementType>::ElementType, Error>
+    where
+        Tag<TAG>: HasElementType,
+    {
+        let child = create_element::<TAG>()?;
+        self.as_ref().append_child(child.as_ref())?;
+        Ok(child)
+    }
+
+    fn append_text(&self, text: &str) -> Result<Text, Error> {
+        let text = create_text_node(text)?;
+        self.as_ref().append_child(&text)?;
+        Ok(text)
+    }
+}
+
 pub struct Tag<const TAG: &'static str>;
 
 pub trait HasElementType {
-    type ElementType: JsCast;
+    type ElementType: JsCast + AsRef<Node>;
 }
 
 impl HasElementType for Tag<"div"> {
@@ -81,6 +104,18 @@ impl HasElementType for Tag<"ul"> {
 
 impl HasElementType for Tag<"nav"> {
     type ElementType = HtmlElement;
+}
+
+impl HasElementType for Tag<"form"> {
+    type ElementType = HtmlFormElement;
+}
+
+impl HasElementType for Tag<"input"> {
+    type ElementType = HtmlInputElement;
+}
+
+impl HasElementType for Tag<"label">{
+    type ElementType = HtmlLabelElement;
 }
 
 pub async fn sleep(millis: i32) {
