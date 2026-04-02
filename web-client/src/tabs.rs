@@ -33,6 +33,7 @@ impl TabContainer {
         query_params: Rc<QueryParamsCell>,
     ) -> Result<Rc<TabContainer>, Error> {
         let node = create_element::<"div">()?;
+        node.set_class_name("container");
         let header = create_element::<"nav">()?;
         header.set_class_name("tab-header");
         node.append_child(&header)?;

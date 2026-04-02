@@ -49,6 +49,7 @@ mqtt-core = { path = "../common/mqtt-core" }
 uuid = { version = "1.19.0", features = ["v4", "js"] }
 futures-util = "0.3.31"
 by_address = "1.2.1"
+unicode-segmentation = "1.13.2"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.56"

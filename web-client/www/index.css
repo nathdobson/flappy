@@ -1,3 +1,10 @@
+.container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
 .settings-form{
     border-style: solid;
     border-width: 0.4vw;
@@ -44,29 +51,18 @@
     height: 90%;
 }
 
-.container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-}
-
 .content-form {
     display:flex;
     width:90%;
     margin:1vw;
 }
 
-.content-input{
+.content-form input[type=text] {
     width:100%;
     margin:1vw;
 }
 
-.content-input-src{
-    width:100%;
-    margin:1vw;
-}
-.content-submit{
+.content-form input[type=submit] {
     margin:1vw;
 }
 
@@ -89,10 +85,6 @@
     content: ":";
 }
 
-/*.content-form, .input, .label, .content-input, .content-submit, .status{*/
-/*    font-size: 3vw;*/
-/*}*/
-
 .status{
     height:10vw
 }
@@ -107,6 +99,7 @@
     padding: 0;
     display: flex;
     align-items: center;
+
 }
 
 .tab-header li {
@@ -130,4 +123,11 @@
 
 .tab-header a.active {
     background-color: #666;
+}
+
+.connect-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
 }

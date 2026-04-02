@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::root::DisplayResponseContainer;
+use crate::mqtt_connector::DisplayResponseContainer;
 use crate::status::{Status, StatusPriority};
 use crate::utils::{create_element, get_element_by_id, sleep};
 use embassy_futures::select::{select, Either};
@@ -8,6 +8,7 @@ use protocol::display::{
     DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS, MAX_GLYPH_BYTES,
 };
 use protocol::setup::DeviceInfo;
+use std::cell::{Ref, RefCell};
 use std::future::pending;
 use std::iter;
 use std::rc::Rc;
@@ -15,11 +16,16 @@ use std::str::FromStr;
 use tokio::sync::mpsc::Receiver;
 use web_sys::{HtmlDivElement, HtmlElement};
 
-pub struct Display {
-    display: HtmlDivElement,
+pub struct DeviceState {
     inners: Vec<HtmlDivElement>,
     outers: Vec<HtmlDivElement>,
+    info: Option<DeviceInfo>,
+}
+
+pub struct Display {
+    display: HtmlDivElement,
     dots: Vec<char>,
+    state: RefCell<DeviceState>,
 }
 
 #[derive(Clone)]
@@ -29,7 +35,7 @@ pub enum DisplayState {
 }
 
 impl Display {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Rc<Self>, Error> {
         let mut dots = vec![];
         for i in 0..8 {
             let mut codepoint = 0x2800;
@@ -51,21 +57,27 @@ impl Display {
         }
         let display = create_element::<"div">()?;
         display.set_class_name("display");
-        Ok(Display {
+        Ok(Rc::new(Display {
             display,
-            inners: vec![],
-            outers: vec![],
             dots,
-        })
+            state: RefCell::new(DeviceState {
+                inners: vec![],
+                outers: vec![],
+                info: None,
+            }),
+        }))
     }
     pub fn node(&self) -> &HtmlElement {
         &self.display
+    }
+    pub fn info(&self) -> Option<Ref<'_, DeviceInfo>> {
+        Ref::filter_map(self.state.borrow(), |x| x.info.as_ref()).ok()
     }
     pub async fn handle_state(&self, resp: DisplayState) -> Result<!, Error> {
         match resp {
             DisplayState::Running => {
                 for step in 0.. {
-                    for inner in &self.inners {
+                    for inner in &self.state.borrow().inners {
                         inner.set_text_content(Some(&format!(
                             "{}",
                             self.dots[step % self.dots.len()]
@@ -75,20 +87,22 @@ impl Display {
                 }
             }
             DisplayState::Stopped(text) => {
-                for (index, inner) in self.inners.iter().enumerate() {
+                for (index, inner) in self.state.borrow().inners.iter().enumerate() {
                     inner.set_text_content(Some(text.get(index).map_or(" ", |x| &**x)));
                 }
             }
         }
         pending().await
     }
-    pub fn build(&mut self, info: &DeviceInfo) -> Result<(), Error> {
+    pub fn build(&self, info: &DeviceInfo) -> Result<(), Error> {
+        let mut state = self.state.borrow_mut();
+        state.info = Some(info.clone());
         info!("DeviceInfo = {:?}", info);
         self.display
             .style()
             .set_property("color", &format!("#{}", info.foreground))?;
-        self.inners.clear();
-        for outer in self.outers.drain(..) {
+        state.inners.clear();
+        for outer in state.outers.drain(..) {
             self.display.remove_child(&outer)?;
         }
         let mut inners = vec![];
@@ -113,12 +127,12 @@ impl Display {
             inners.push(letter_inner);
             outers.push(letter_outer);
         }
-        self.inners = inners;
-        self.outers = outers;
+        state.inners = inners;
+        state.outers = outers;
         Ok(())
     }
     pub async fn run_display(
-        mut self,
+        &self,
         mut response_recv: Receiver<DisplayResponseContainer>,
         status: Rc<Status>,
     ) -> Result<!, Error> {

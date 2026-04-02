@@ -49,11 +49,15 @@ struct Args {
     background_color: String,
     #[arg(long)]
     foreground_color: String,
-    #[arg(long)]
-    glyphs: Vec<String>,
 }
 
 const KEEPALIVE: u16 = 60;
+
+const GLYPHS: &[&str] = &[
+    " ", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
+    "S", "T", "U", "V", "W", "X", "Y", "Z", "$", "&", "#", "0", "1", "2", "3", "4", "5", "6", "7",
+    "8", "9", ":", ".", "-", "?", "!",
+];
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -149,14 +153,14 @@ async fn main() -> anyhow::Result<()> {
             while let Some(next) = request_recv.recv().await {
                 match next {
                     DisplayRequest::Run(a) => {
-                        let glyphs = args.glyphs.iter().map(|x| &**x).collect::<Vec<_>>();
+                        let glyphs = GLYPHS.iter().map(|x| &**x).collect::<Vec<_>>();
                         let mut renderer = Renderer::<MAX_GLYPHS>::new(&glyphs);
                         renderer.append(&a)?;
                         let rendered = renderer.finish();
                         let rendered = rendered
                             .iter()
                             .map(|x| {
-                                heapless::String::<MAX_GLYPH_BYTES>::try_from(&*args.glyphs[*x])
+                                heapless::String::<MAX_GLYPH_BYTES>::try_from(&*GLYPHS[*x])
                             })
                             .collect::<Result<
                                 heapless::Vec<heapless::String<MAX_GLYPH_BYTES>, MAX_GLYPHS>,

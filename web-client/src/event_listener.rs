@@ -13,6 +13,8 @@ pub struct EventListener<'a> {
 pub enum EventType {
     Submit,
     Click,
+    Change,
+    Input,
 }
 
 impl<'a> EventListener<'a> {
@@ -36,6 +38,8 @@ impl EventType {
         match self {
             EventType::Submit => "submit",
             EventType::Click => "click",
+            EventType::Change => "change",
+            EventType::Input => "input",
         }
     }
 }

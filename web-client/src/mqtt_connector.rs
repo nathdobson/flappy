@@ -1,6 +1,5 @@
 use crate::error::Error;
 use crate::query_params::{QueryParams, QueryParamsCell};
-use crate::root::DisplayResponseContainer;
 use crate::status::{Status, StatusPriority};
 use crate::utils::{sleep, try_window};
 use arena::Arena;
@@ -25,6 +24,11 @@ const KEEPALIVE: u16 = 60;
 pub struct PeekReceiver<T> {
     receiver: Receiver<T>,
     buffer: Option<T>,
+}
+
+pub enum DisplayResponseContainer {
+    DisplayResponse(DisplayResponse),
+    DeviceInfo(DeviceInfo),
 }
 
 impl<T> PeekReceiver<T> {
@@ -184,7 +188,14 @@ pub async fn run_mqtt_once(
                         retain: false,
                     })
                     .await?;
-                status.set(StatusPriority::Info, format!("Published `{:?}`", next));
+                match next {
+                    DisplayRequest::Run(msg) => {
+                        status.set(StatusPriority::Info, format!("Sent \"{}\" to display.", msg));
+                    }
+                    DisplayRequest::RunSpindle(_) => {}
+                    DisplayRequest::Test => {}
+                }
+
             }
             Err(Error::ChannelClosed)
         },
