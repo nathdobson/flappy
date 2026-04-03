@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::product::serial_number;
 use crate::{make_static, product};
 use core::cell::{Cell, RefCell};
 use core::future::{join, pending};
@@ -8,12 +9,13 @@ use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_futures::yield_now;
+use embassy_rp::otp::get_chipid;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
 use embassy_time::{Duration, Timer, WithTimeout};
-use heapless::Vec;
+use heapless::{String, Vec, format};
 use log::{error, info, warn};
 use protocol::ble::SERIAL_MTU;
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
@@ -94,20 +96,25 @@ impl BleModule {
         let resources: &mut MyResources = make_static!(MyResources, MyResources::new());
         let stack: &MyStack = make_static!(MyStack, trouble_host::new(controller, resources));
         let mut host = stack.build();
+        let name: String<28> = format!("FLAP {}", serial_number().unwrap_or("<noid>"))?;
+        let name = make_static!(String<28>, name);
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
-            name: protocol::PRODUCT_NAME,
+            name,
             appearance: &appearance::domestic_appliance::COFFEE_MAKER,
         }))?;
-        let module: &BleModule = make_static!(BleModule, BleModule {
-            spawner,
-            stack,
-            conn: RefCell::new(None),
-            peri: Cell::new(Some(host.peripheral)),
-            server,
-            setup_request: Channel::new(),
-            setup_response: Channel::new(),
-            setup_status: Watch::new(),
-        });
+        let module: &BleModule = make_static!(
+            BleModule,
+            BleModule {
+                spawner,
+                stack,
+                conn: RefCell::new(None),
+                peri: Cell::new(Some(host.peripheral)),
+                server,
+                setup_request: Channel::new(),
+                setup_response: Channel::new(),
+                setup_status: Watch::new(),
+            }
+        );
         spawner.clone().spawn({
             #[embassy_executor::task]
             async fn ble_task(mut runner: MyRunner) {

@@ -2,6 +2,7 @@ use heapless::CapacityError;
 use io_adapters::tokio::TokioErrorAdapter;
 use mqtt_core::error::ProtocolError;
 use mqtt_core::protocol::ReasonCode;
+use protocol::setup::WriteSettingsError;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc::error::{SendError, TrySendError};
@@ -27,6 +28,11 @@ pub enum Error {
     Panic(Box<dyn Any + Send>),
     ChannelClosed,
     CannotFindElement,
+    BluetoothNotSupported,
+    SerdeDeError(serde_json_core::de::Error),
+    MissingStatusValue,
+    BadResponse,
+    WriteSettingsError(WriteSettingsError),
 }
 
 impl From<JsValue> for Error {
@@ -107,10 +113,22 @@ impl From<tokio::sync::oneshot::error::RecvError> for Error {
     }
 }
 
+impl From<serde_json_core::de::Error> for Error {
+    fn from(value: serde_json_core::de::Error) -> Self {
+        Error::SerdeDeError(value)
+    }
+}
+
+impl From<WriteSettingsError> for Error {
+    fn from(value: WriteSettingsError) -> Self {
+        Error::WriteSettingsError(value)
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::JsError(e) => write!(f, "{:?}", e),
+            Error::JsError(e) => write!(f, "JsError: {:?}", e),
             Error::UrlError(x) => write!(f, "{}", x),
             Error::QueryStringError(x) => write!(f, "{}", x),
             Error::WsError(x) => write!(f, "{}", x),
@@ -137,6 +155,11 @@ impl Display for Error {
             }
             Error::ChannelClosed => write!(f, "channel closed"),
             Error::CannotFindElement => write!(f, "cannot find element"),
+            Error::BluetoothNotSupported => write!(f, "Bluetooth not supported"),
+            Error::SerdeDeError(e) => write!(f, "Deserialization error: {}", e),
+            Error::MissingStatusValue => write!(f, "missing status value"),
+            Error::BadResponse => write!(f, "bad response"),
+            Error::WriteSettingsError(e) => write!(f, "Write settings error: {}", e),
         }
     }
 }

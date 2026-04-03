@@ -15,6 +15,7 @@ pub enum EventType {
     Click,
     Change,
     Input,
+    CharacteristicValueChanged,
 }
 
 impl<'a> EventListener<'a> {
@@ -40,6 +41,7 @@ impl EventType {
             EventType::Click => "click",
             EventType::Change => "change",
             EventType::Input => "input",
+            EventType::CharacteristicValueChanged => "characteristicvaluechanged",
         }
     }
 }

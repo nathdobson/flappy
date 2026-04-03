@@ -10,6 +10,7 @@
 #![feature(unwrap_infallible)]
 #![allow(incomplete_features)]
 #![allow(unused_mut)]
+#![feature(cell_get_cloned)]
 
 mod connect_tab;
 mod display;
@@ -18,9 +19,11 @@ mod event_listener;
 mod home_tab;
 mod mqtt_connector;
 mod query_params;
+mod setup_tab;
 mod status;
 mod tabs;
 mod utils;
+mod ble_connection;
 
 use crate::connect_tab::ConnectTab;
 use crate::display::{Display, DisplayState};
@@ -28,6 +31,7 @@ use crate::error::Error;
 use crate::home_tab::HomeTab;
 use crate::mqtt_connector::run_mqtt;
 use crate::query_params::{QueryParams, QueryParamsCell};
+use crate::setup_tab::SetupTab;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::{TabContainer, TabContent};
 use crate::utils::{
@@ -74,7 +78,8 @@ async fn main() -> Result<(), Error> {
     let query_params = Rc::new(QueryParamsCell::new()?);
     let home = Rc::new(HomeTab::new()?);
     let connect = Rc::new(ConnectTab::new(query_params.clone())?);
-    let tabs = TabContainer::new(vec![home, connect], query_params)?;
+    let setup = SetupTab::new()?;
+    let tabs = TabContainer::new(vec![home, connect, setup], query_params)?;
     document()?
         .body()
         .ok_or(Error::CannotFindElement)?

@@ -15,7 +15,7 @@ use btleplug::platform::{Adapter, Manager, Peripheral, PeripheralId};
 use futures_core::Stream;
 use futures_util::FutureExt;
 use futures_util::StreamExt;
-use protocol::ble::SERIAL_MTU;
+use protocol::ble::{APP_STATUS_UUID, FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID};
 use protocol::setup::WriteSettingsError::SerdeError;
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
 use serde_json_core::heapless;
@@ -27,10 +27,6 @@ use std::time::Duration;
 use tokio::time;
 use uuid::{Uuid, uuid};
 
-pub const FLAPPY_SERVICE_UUID: Uuid = uuid!("5af0b930-b9b5-11f0-b558-0800200c9a66");
-pub const SERIAL_OUT_UUID: Uuid = uuid!("2d2bc907-c9fa-49fd-ba45-410cddf61e5c");
-pub const SERIAL_IN_UUID: Uuid = uuid!("4574529b-fbe4-44ae-ba52-d877ac76ef2d");
-pub const APP_STATUS_UUID: Uuid = uuid!("4dc5669d-6bc8-40eb-b6af-8091d4e9b713");
 
 pub struct BleAddress {
     pub peripheral: Peripheral,

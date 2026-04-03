@@ -8,7 +8,11 @@ use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, HtmlLabelElement, HtmlLiElement, HtmlUListElement, Node, Text, Window};
+use web_sys::{
+    Bluetooth, Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement,
+    HtmlFormElement, HtmlInputElement, HtmlLabelElement, HtmlLiElement, HtmlUListElement, Node,
+    Text, Window,
+};
 
 pub fn try_window() -> Result<Window, Error> {
     web_sys::window().ok_or(Error::CannotFindElement)
@@ -16,6 +20,13 @@ pub fn try_window() -> Result<Window, Error> {
 
 pub fn document() -> Result<Document, Error> {
     try_window()?.document().ok_or(Error::CannotFindElement)
+}
+
+pub fn bluetooth() -> Result<Bluetooth, Error> {
+    try_window()?
+        .navigator()
+        .bluetooth()
+        .ok_or(Error::CannotFindElement)
 }
 
 pub fn get_element_by_id<T: JsCast>(id: &str) -> Result<T, Error> {
@@ -114,7 +125,7 @@ impl HasElementType for Tag<"input"> {
     type ElementType = HtmlInputElement;
 }
 
-impl HasElementType for Tag<"label">{
+impl HasElementType for Tag<"label"> {
     type ElementType = HtmlLabelElement;
 }
 
