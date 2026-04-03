@@ -60,6 +60,8 @@
 .content-form input[type=text] {
     width:100%;
     margin:1vw;
+    font-size: 6vw;
+    font-family: monospace, monospace;
 }
 
 .content-form input[type=submit] {
@@ -87,10 +89,6 @@
 
 .status{
     height:10vw
-}
-
-.content-form-hidden{
-    display: none
 }
 
 .tab-header {
