@@ -33,6 +33,8 @@ pub enum Error {
     MissingStatusValue,
     BadResponse,
     WriteSettingsError(WriteSettingsError),
+    ExpectedSingleFile,
+    NotConnected,
 }
 
 impl From<JsValue> for Error {
@@ -160,6 +162,8 @@ impl Display for Error {
             Error::MissingStatusValue => write!(f, "missing status value"),
             Error::BadResponse => write!(f, "bad response"),
             Error::WriteSettingsError(e) => write!(f, "Write settings error: {}", e),
+            Error::ExpectedSingleFile => write!(f, "expected single file"),
+            Error::NotConnected => write!(f, "not connected"),
         }
     }
 }

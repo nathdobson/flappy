@@ -6,7 +6,9 @@ use by_address::ByAddress;
 use log::info;
 use std::cell::{Cell, OnceCell};
 use std::rc::Rc;
-use web_sys::{Element, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlLiElement, Node};
+use web_sys::{
+    Element, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlLiElement, Node,
+};
 
 struct Tab {
     content: Rc<dyn TabContent>,
@@ -30,6 +32,7 @@ pub trait TabContent: 'static {
 impl TabContainer {
     pub fn new(
         content: Vec<Rc<dyn TabContent>>,
+        default: usize,
         query_params: Rc<QueryParamsCell>,
     ) -> Result<Rc<TabContainer>, Error> {
         let node = create_element::<"div">()?;
@@ -65,7 +68,7 @@ impl TabContainer {
                 .tabs
                 .iter()
                 .position(|t| t.content.id() == container.query_params.borrow().tab)
-                .unwrap_or(0);
+                .unwrap_or(default);
             container.current.set(Some(index));
             container.tabs[index].anchor.set_class_name("active");
             container.tabs[index]

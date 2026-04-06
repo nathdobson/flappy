@@ -3,6 +3,7 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
+    font-size: 3vw;
 }
 
 .settings-form{
@@ -29,7 +30,7 @@
     grid-auto-columns: minmax(0, 1fr);
 }
 
-.letter-outer{
+.display > div{
     aspect-ratio: 1/2;
     display:flex;
     justify-content: center;
@@ -41,7 +42,7 @@
 }
 
 
-.letter-inner {
+.display div div {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -66,6 +67,7 @@
 
 .content-form input[type=submit] {
     margin:1vw;
+    font-size: 2vw;
 }
 
 .mqtt-form {
@@ -128,4 +130,16 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
+}
+
+.setup-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.setup-tab button {
+    margin: 10px;
+    font-size: 3vw;
 }

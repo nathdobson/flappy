@@ -39,6 +39,10 @@ web-sys = { version = "0.3.94", features = [
   "BluetoothRemoteGattCharacteristic",
   "BlobPropertyBag",
   "Url",
+  "FileSystemFileHandle",
+  "File",
+  "Request",
+  "Response",
 ] }
 js-sys = "0.3.83"
 wasm-logger = "0.2.0"
@@ -61,6 +65,7 @@ futures-util = "0.3.31"
 by_address = "1.2.1"
 unicode-segmentation = "1.13.2"
 jsonformat = "2.1.0"
+itertools = "0.14.0"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.56"

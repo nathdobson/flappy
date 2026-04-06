@@ -109,7 +109,6 @@ impl Display {
         let mut outers = vec![];
         for i in 0..info.glyphs {
             let letter_outer = create_element::<"div">()?;
-            letter_outer.set_class_name("letter-outer");
             letter_outer
                 .style()
                 .set_property("background", &format!("#{}", info.background))?;
@@ -120,7 +119,6 @@ impl Display {
             letter_outer
                 .style()
                 .set_property("color", &format!("#{}", info.foreground))?;
-            letter_inner.set_class_name("letter-inner");
 
             letter_outer.append_child(&letter_inner)?;
             self.display.append_child(&letter_outer)?;
