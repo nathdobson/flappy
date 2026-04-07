@@ -221,7 +221,7 @@ impl Debug for HeapEntry {
                     f,
                     "{} (align {:?})",
                     self.layout.size(),
-                    self.layout.alignment().as_nonzero()
+                    self.layout.alignment().as_nonzero_usize()
                 )
             })
             .field("refcount", &self.refcount)

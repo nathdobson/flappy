@@ -9,9 +9,7 @@
     core_intrinsics,
     unboxed_closures,
     deref_patterns,
-    trait_alias,
-    super_let,
-    try_blocks
+    trait_alias
 )]
 #![feature(unsize)]
 #![feature(coerce_unsized)]

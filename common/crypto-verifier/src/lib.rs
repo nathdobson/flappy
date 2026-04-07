@@ -6,10 +6,7 @@
 mod test;
 
 use core::marker::PhantomData;
-use embedded_tls::{
-    Aes128GcmSha256, Certificate, CertificateEntryRef, CertificateVerifyRef, CryptoProvider,
-    CryptoRng, CryptoRngCore, NoVerify, SignatureScheme, TlsCipherSuite, TlsError, TlsVerifier,
-};
+use embedded_tls::{Aes128GcmSha256, Certificate, CertificateEntryRef, CertificateVerifyRef, CryptoProvider, CryptoRng, CryptoRngCore, NoSign, NoVerify, SignatureScheme, TlsCipherSuite, TlsError, TlsVerifier};
 use log::info;
 use p256::SecretKey;
 use p256::ecdsa::signature::digest::Digest;
@@ -41,7 +38,7 @@ impl<C: TlsCipherSuite, R> TlsVerifier<C> for FixedProvider<C, R> {
     fn verify_certificate(
         &mut self,
         transcript: &<C as TlsCipherSuite>::Hash,
-        ca: &Option<Certificate>,
+        //ca: &Option<Certificate>,
         cert: embedded_tls::CertificateRef,
     ) -> Result<(), TlsError> {
         let mut sha2 = Sha256::new();
@@ -81,16 +78,4 @@ impl<C: TlsCipherSuite, R: CryptoRngCore> CryptoProvider for FixedProvider<C, R>
         Ok(self)
     }
 
-    fn signer(
-        &mut self,
-        key_der: &[u8],
-    ) -> Result<(impl signature::SignerMut<Self::Signature>, SignatureScheme), TlsError> {
-        let secret_key =
-            SecretKey::from_sec1_der(key_der).map_err(|_| TlsError::InvalidPrivateKey)?;
-
-        Ok((
-            SigningKey::from(&secret_key),
-            SignatureScheme::EcdsaSecp256r1Sha256,
-        ))
-    }
 }

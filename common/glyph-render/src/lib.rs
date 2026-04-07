@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(iter_order_by)]
 #![deny(unused_must_use)]
 #![allow(unused_imports)]
 
