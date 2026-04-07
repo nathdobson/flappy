@@ -4,13 +4,11 @@
 #![allow(unused_variables)]
 #![feature(never_type)]
 #![allow(unreachable_code)]
-#![feature(try_blocks)]
 #![feature(unsized_const_params)]
 #![feature(adt_const_params)]
 #![feature(unwrap_infallible)]
 #![allow(incomplete_features)]
 #![allow(unused_mut)]
-#![feature(cell_get_cloned)]
 
 mod ble_connection;
 mod connect_tab;
