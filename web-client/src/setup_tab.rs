@@ -144,25 +144,35 @@ impl SetupTab {
         Ok(setup_tab)
     }
     async fn read_settings(&self) -> Result<(), Error> {
-        if let Some(connection) = self.connection.borrow().clone() {
-            let settings = connection.read_settings().await?;
-            let settings = serde_json_core::to_string::<_, MAX_SETUP_MESSAGE_SIZE>(&settings)?;
-            let settings = jsonformat::format(&settings, Indentation::FourSpace);
-            let link = create_element::<"a">()?;
-            let parts = js_sys::Array::new();
-            parts.push(&Uint8Array::from(&*settings.as_bytes()));
-            let props = BlobPropertyBag::new();
-            props.set_type("text/plain");
-            let file = Blob::new_with_u8_array_sequence_and_options(&parts, &props)?;
-            let url = Url::create_object_url_with_blob(&file)?;
-            link.set_href(&url);
-            link.set_download("setup.json");
-            link.click();
-            Url::revoke_object_url(&link.href())?;
-        }
+        self.connect_status
+            .set(StatusPriority::Info, "Reading settings...".to_string());
+        let Some(connection) = self.connection.borrow().clone() else {
+            return Err(Error::NotConnected);
+        };
+        let settings = connection.read_settings().await?;
+        let settings = serde_json_core::to_string::<_, MAX_SETUP_MESSAGE_SIZE>(&settings)?;
+        let settings = jsonformat::format(&settings, Indentation::FourSpace);
+        let link = create_element::<"a">()?;
+        let parts = js_sys::Array::new();
+        parts.push(&Uint8Array::from(&*settings.as_bytes()));
+        let props = BlobPropertyBag::new();
+        props.set_type("text/plain");
+        let file = Blob::new_with_u8_array_sequence_and_options(&parts, &props)?;
+        let url = Url::create_object_url_with_blob(&file)?;
+        link.set_href(&url);
+        link.set_download("setup.json");
+        link.click();
+        Url::revoke_object_url(&link.href())?;
+        self.connect_status.set(
+            StatusPriority::Info,
+            "Finished reading settings.".to_string(),
+        );
         Ok(())
     }
     async fn write_settings(&self) -> Result<(), Error> {
+        let Some(connection) = self.connection.borrow().clone() else {
+            return Err(Error::NotConnected);
+        };
         let x: Array<FileSystemFileHandle> =
             try_window()?.show_open_file_picker()?.into_future().await?;
         let file: FileSystemFileHandle = x
@@ -175,23 +185,13 @@ impl SetupTab {
         let file: String = file.into();
         let mut temp = vec![0; MAX_SETUP_MESSAGE_SIZE];
         let app_settings: AppSettings = serde_json_core::from_str_escaped(&file, &mut temp)?.0;
-        let response = try_window()?
-            .fetch_with_request(&Request::new_with_str(&app_settings.mqtt.certificate_url)?)
-            .await?
-            .dyn_into::<Response>()?;
-        info!("{:?}",response.ok());
-        let response = response
-            .array_buffer()?
-            .into_future()
-            .await?
-            .dyn_into::<ArrayBuffer>()?;
-        let response = Uint8Array::new(&response).to_vec();
-
-        info!("{:?}", response);
-        let Some(connection) = self.connection.borrow().clone() else {
-            return Err(Error::NotConnected);
-        };
+        self.connect_status
+            .set(StatusPriority::Info, "Writing settings...".to_string());
         connection.write_settings(app_settings).await?;
+        self.connect_status.set(
+            StatusPriority::Info,
+            "Finished writing settings.".to_string(),
+        );
         Ok(())
     }
 }

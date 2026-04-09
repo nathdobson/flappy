@@ -37,8 +37,6 @@ pub struct MqttSettings {
     pub username: String<128>,
     pub password: String<128>,
     pub topic: String<128>,
-    pub certificate_url: String<128>,
-    pub certificate_list_sha256: Option<[u8; 32]>,
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq)]

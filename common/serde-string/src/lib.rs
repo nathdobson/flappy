@@ -1,6 +1,5 @@
 #![allow(unused_variables)]
 #![deny(unused_must_use)]
-#![feature(never_type)]
 #![allow(dead_code)]
 
 use crate::de::StringDeserializer;

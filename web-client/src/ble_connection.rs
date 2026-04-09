@@ -170,7 +170,6 @@ impl BleConnection {
         Ok(())
     }
     fn update_serial_in(&self) -> Result<(), Error> {
-        info!("Receiving on serial in");
         let value = self
             .serial_in_char
             .value()
@@ -178,7 +177,6 @@ impl BleConnection {
         let value: ArrayBuffer = value.buffer();
         let value = Uint8Array::new(&value).to_vec();
         let mut serial_in_buffer = self.serial_in_buffer.borrow_mut();
-        info!("value = {:?}", value);
         let len = value.len();
         serial_in_buffer.extend(value);
         if len < SERIAL_MTU {
@@ -196,7 +194,6 @@ impl BleConnection {
         let mut response = self.response_rx.lock().await;
         let buffer = serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(&request)?;
         for chunk in buffer.chunks(SERIAL_MTU) {
-            info!("Sending {:?}", chunk);
             self.send(chunk).await?;
         }
         if buffer.len() % SERIAL_MTU == 0 {
