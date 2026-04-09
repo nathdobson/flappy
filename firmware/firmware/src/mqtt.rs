@@ -5,7 +5,7 @@ use core::fmt;
 use core::fmt::{Display, Formatter, write};
 use core::future::pending;
 use core::intrinsics::unreachable;
-use crypto_verifier::FixedProvider;
+use crypto_verifier::{FixedProvider, WebPkiProvider};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, Either4, Either5, select, select4, select5};
 use embassy_futures::yield_now;
@@ -22,6 +22,7 @@ use embassy_time::{Duration, TimeoutError, Timer, with_timeout};
 use embedded_io::ErrorKind;
 use embedded_io_async::{ErrorType, Read, Write};
 use embedded_tls::alert::{AlertDescription, AlertLevel};
+use embedded_tls::webpki::CertVerifier;
 use embedded_tls::{
     Aes128GcmSha256, Certificate, NoClock, NoVerify, TlsCipherSuite, TlsConfig, TlsConnection,
     TlsContext, TlsError, TlsVerifier, TlsWriter, UnsecureProvider,
@@ -392,12 +393,12 @@ impl MqttModule {
         info!("{MODULE} [TLS] Starting handshake");
         tls.open::<_>(TlsContext::new(
             &config,
-            FixedProvider::<_, _>::new(
-                RoscRng,
-                settings
-                    .certificate_list_sha256
-                    .ok_or(MqttServiceError::NoCertificateListSha256)?,
-            ),
+            WebPkiProvider {
+                rng: RoscRng,
+                verifier: CertVerifier::new(Certificate::X509(
+                    mozilla_root_ca::pem::PEM_BUNDLE.as_bytes(),
+                )),
+            },
         ))
         .await
         .map_err(convert_tls_error)?;

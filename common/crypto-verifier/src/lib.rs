@@ -6,7 +6,8 @@
 mod test;
 
 use core::marker::PhantomData;
-use embedded_tls::{Aes128GcmSha256, Certificate, CertificateEntryRef, CertificateVerifyRef, CryptoProvider, CryptoRng, CryptoRngCore, NoSign, NoVerify, SignatureScheme, TlsCipherSuite, TlsError, TlsVerifier};
+use embedded_tls::webpki::CertVerifier;
+use embedded_tls::{Aes128GcmSha256, Certificate, CertificateEntryRef, CertificateVerifyRef, CryptoProvider, CryptoRng, CryptoRngCore, NoClock, NoSign, NoVerify, SignatureScheme, TlsCipherSuite, TlsClock, TlsError, TlsVerifier};
 use log::info;
 use p256::SecretKey;
 use p256::ecdsa::signature::digest::Digest;
@@ -66,6 +67,11 @@ impl<C: TlsCipherSuite, R> TlsVerifier<C> for FixedProvider<C, R> {
     }
 }
 
+pub struct WebPkiProvider<'a, C: TlsCipherSuite, R> {
+    pub rng: R,
+    pub verifier: CertVerifier<'a, C, NoClock, 4096>, //Aes128GcmSha256
+}
+
 impl<C: TlsCipherSuite, R: CryptoRngCore> CryptoProvider for FixedProvider<C, R> {
     type CipherSuite = C;
     type Signature = p256::ecdsa::DerSignature;
@@ -77,5 +83,13 @@ impl<C: TlsCipherSuite, R: CryptoRngCore> CryptoProvider for FixedProvider<C, R>
     fn verifier(&mut self) -> Result<&mut impl TlsVerifier<Self::CipherSuite>, TlsError> {
         Ok(self)
     }
+}
 
+impl<'a, C: TlsCipherSuite, R: CryptoRngCore> CryptoProvider for WebPkiProvider<'a, C, R> {
+    type CipherSuite = C;
+    type Signature = p256::ecdsa::DerSignature;
+
+    fn rng(&mut self) -> impl CryptoRngCore {
+        &mut self.rng
+    }
 }
