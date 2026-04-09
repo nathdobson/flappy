@@ -37,3 +37,6 @@
 [submodule "submodules/heapless"]
 	path = submodules/heapless
 	url = https://github.com/nathdobson/heapless.git
+[submodule "submodules/rust-mbedtls"]
+	path = submodules/rust-mbedtls
+	url = git@github.com:nathdobson/rust-mbedtls.git
