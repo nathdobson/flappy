@@ -132,4 +132,8 @@ pub enum MqttServiceError {
     NoCertificateListSha256,
     TopicTooLong,
     AllocError,
+    MbedtlsError,
 }
+
+
+

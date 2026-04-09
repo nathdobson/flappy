@@ -14,6 +14,7 @@
 #![feature(try_blocks)]
 #![feature(str_split_remainder)]
 #![feature(allocator_api)]
+#![feature(c_size_t)]
 #![allow(unreachable_code)]
 
 use core::future::pending;

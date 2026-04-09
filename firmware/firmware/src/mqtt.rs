@@ -1,6 +1,8 @@
 use crate::error::Error;
+use alloc::sync::Arc;
 use arena::Arena;
 use core::cell::Cell;
+use core::ffi::{c_int, c_size_t, c_uchar};
 use core::fmt;
 use core::fmt::{Display, Formatter, write};
 use core::future::pending;
@@ -28,6 +30,8 @@ use embedded_tls::{
 };
 use heapless::{String, format};
 use log::{error, info, trace, warn};
+use mbedtls::rng::{EntropyCallback, RngCallback};
+use mbedtls::ssl::io::{AnyIo, IoCallback};
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use mqtt_core::protocol::{Packet, PublishPacket, Qos};
@@ -37,6 +41,7 @@ use smoltcp::wire::IpEndpoint;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 // use rust_mqtt::utils::rng_generator::CountingRng;
+use mbedtls_sys::types::raw_types::c_void;
 use protocol::display::DisplayResponse;
 
 const MODULE: &'static str = "[MQTT ]";
@@ -85,6 +90,16 @@ impl<'a, 'b> Write for &'a TcpSocketMutex<'b> {
 impl<'a, 'b> Read for &'a TcpSocketMutex<'b> {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         self.read.lock().await.read(buf).await
+    }
+}
+
+impl<'a> IoCallback<AnyIo> for TcpSocketMutex<'a> {
+    fn recv(&mut self, buf: &mut [u8]) -> mbedtls::Result<usize> {
+        todo!()
+    }
+
+    fn send(&mut self, buf: &[u8]) -> mbedtls::Result<usize> {
+        todo!()
     }
 }
 
@@ -221,6 +236,36 @@ fn convert_mqtt_error(error: mqtt_client::error::Error<TlsError>) -> MqttService
     match error {
         mqtt_client::error::Error::NetworkError(e) => convert_tls_error(e),
         mqtt_client::error::Error::ProtocolError(e) => MqttServiceError::MqttError(e),
+    }
+}
+
+struct MyRngCallback;
+
+impl RngCallback for MyRngCallback {
+    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: c_size_t) -> c_int
+    where
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn data_ptr(&self) -> *mut c_void {
+        todo!()
+    }
+}
+
+struct MyEntropyCallback;
+
+impl EntropyCallback for MyEntropyCallback {
+    unsafe extern "C" fn call(user_data: *mut c_void, data: *mut c_uchar, len: c_size_t) -> c_int
+    where
+        Self: Sized,
+    {
+        todo!()
+    }
+
+    fn data_ptr(&self) -> *mut c_void {
+        todo!()
     }
 }
 
@@ -377,168 +422,192 @@ impl MqttModule {
             read: Mutex::new(read),
         };
 
-        let mut read_record_buffer = [0; 16384];
-        let mut write_record_buffer = [0; 16384];
-        let config = TlsConfig::new()
-            .with_server_name(dns)
-            .enable_rsa_signatures();
-        let mut tls = TlsConnection::<_, Aes128GcmSha256>::new(
-            &socket_mutex,
-            &mut read_record_buffer,
-            &mut write_record_buffer,
-        );
+        let entropy = Arc::try_new(MyEntropyCallback).map_err(|_| MqttServiceError::AllocError)?;
+        let rng = Arc::try_new(MyRngCallback).map_err(|_| MqttServiceError::AllocError)?;
+        let cert = Arc::try_new(
+            mbedtls::x509::Certificate::from_pem_multiple(
+                mozilla_root_ca::pem::PEM_BUNDLE.as_bytes(),
+            )
+            .map_err(|_| MqttServiceError::MbedtlsError)?,
+        )
+        .map_err(|_| MqttServiceError::AllocError)?;
 
-        self.status.sender().send(MqttServiceStatus::TlsConnect);
-        info!("{MODULE} [TLS] Starting handshake");
-        tls.open::<_>(TlsContext::new(
-            &config,
-            FixedProvider::<_, _>::new(
-                RoscRng,
-                settings
-                    .certificate_list_sha256
-                    .ok_or(MqttServiceError::NoCertificateListSha256)?,
-            ),
-        ))
-        .await
-        .map_err(convert_tls_error)?;
+        let mut config = mbedtls::ssl::Config::new(
+            mbedtls::ssl::config::Endpoint::Client,
+            mbedtls::ssl::config::Transport::Stream,
+            mbedtls::ssl::config::Preset::Default,
+        );
+        config.set_rng(rng);
+        config.set_ca_list(cert, None);
+        let config = Arc::try_new(config).map_err(|_| MqttServiceError::AllocError)?;
+        let mut ctx = mbedtls::ssl::Context::new(config);
+
+        ctx.establish(socket_mutex, None).map_err(|_| MqttServiceError::MbedtlsError)?;
+
+        
+
+        // let mut read_record_buffer = [0; 16384];
+        // let mut write_record_buffer = [0; 16384];
+        // let config = TlsConfig::new()
+        //     .with_server_name(dns)
+        //     .enable_rsa_signatures();
+        // let mut tls = TlsConnection::<_, Aes128GcmSha256>::new(
+        //     &socket_mutex,
+        //     &mut read_record_buffer,
+        //     &mut write_record_buffer,
+        // );
+
+        // self.status.sender().send(MqttServiceStatus::TlsConnect);
+        // info!("{MODULE} [TLS] Starting handshake");
+        // tls.open::<_>(TlsContext::new(
+        //     &config,
+        //     FixedProvider::<_, _>::new(
+        //         RoscRng,
+        //         settings
+        //             .certificate_list_sha256
+        //             .ok_or(MqttServiceError::NoCertificateListSha256)?,
+        //     ),
+        // ))
+        // .await
+        // .map_err(convert_tls_error)?;
         info!("{MODULE} [TLS] Handshake complete");
 
-        let (read, write): (_, TlsWriter<_, _>) = tls.split();
-        let sender = MqttSender::<_, 1024, 1, 1>::new(write);
-        let mut receiver = MqttReceiver::new(read);
-        match select5(
-            async {
-                let mut arena_slice = [0u8; 1024];
-                loop {
-                    let mut arena =
-                        Arena::new(&mut arena_slice).map_err(|e| MqttServiceError::AllocError)?;
-                    let (ack, packet) =
-                        receiver.receive(arena).await.map_err(convert_mqtt_error)?;
-                    match packet {
-                        Packet::Publish(publish) => {
-                            self.handle_publish(&publish);
-                        }
-                        Packet::Disconnect(disconnect) => {
-                            info!("Disconnected: {}", disconnect.reason);
-                        }
-                        _ => {}
-                    }
-                    sender.acknowledge(ack).map_err(convert_mqtt_error)?;
-                }
-                Ok::<!, MqttServiceError>(unreachable!())
-            },
-            async {
-                let disconnect = sender.wait_disconnect().await.map_err(convert_mqtt_error)?;
-                error!("Disconnect: {}", disconnect);
-                Err::<!, MqttServiceError>(MqttServiceError::Disconnected)
-            },
-            async {
-                sender.send_acks().await.map_err(convert_mqtt_error)?;
-                Ok::<!, MqttServiceError>(unreachable!())
-            },
-            async {
-                Timer::after(Duration::from_secs(KEEPALIVE as u64)).await;
-                loop {
-                    let mut timer = Timer::after(Duration::from_secs(KEEPALIVE as u64));
-                    match select(&mut timer, sender.ping()).await {
-                        Either::First(()) => return Err(MqttServiceError::DeadlineExceeded),
-                        Either::Second(p) => p.map_err(convert_mqtt_error)?,
-                    }
-                    timer.await
-                }
-                Ok::<!, MqttServiceError>(unreachable!())
-            },
-            async {
-                self.status.sender().send(MqttServiceStatus::MqttConnect);
-                info!(
-                    "{MODULE} Connecting to broker with client_id '{:?}' and username '{}'",
-                    settings.client_id, settings.username
-                );
-                sender
-                    .connect(&ConnectRequest {
-                        client_id: settings
-                            .client_id
-                            .as_deref()
-                            .unwrap_or(serial_number().unwrap_or(PRODUCT_NAME)),
-                        username: Some(&settings.username),
-                        password: Some(&settings.password),
-                        keepalive: 0,
-                    })
-                    .await
-                    .map_err(convert_mqtt_error)?;
-                info!("{MODULE} Connected to broker");
-
-                self.status.sender().send(MqttServiceStatus::MqttSubscribe);
-                let request_topic: String<128> = format!("{}/request", settings.topic)
-                    .ok()
-                    .ok_or(MqttServiceError::TopicTooLong)?;
-                let response_topic: String<128> = format!("{}/response", settings.topic)
-                    .ok()
-                    .ok_or(MqttServiceError::TopicTooLong)?;
-                let info_topic: String<128> = format!("{}/info", settings.topic)
-                    .ok()
-                    .ok_or(MqttServiceError::TopicTooLong)?;
-                info!("{MODULE} Subscribing to {}", request_topic);
-                sender
-                    .subscribe(&request_topic)
-                    .await
-                    .map_err(convert_mqtt_error)?;
-                info!("{MODULE} Subscribed");
-
-                self.status.sender().send(MqttServiceStatus::Connected);
-                loop {
-                    let response = self.display_response.receive().await;
-                    match response {
-                        DisplayResponseContainer::DisplayResponse(response) => {
-                            match serde_json_core::to_vec::<DisplayResponse, PACKET_SIZE>(&response)
-                            {
-                                Ok(response) => {
-                                    sender
-                                        .publish(&PublishRequest {
-                                            qos: Qos::AtMostOnce,
-                                            topic: &response_topic,
-                                            payload: &response,
-                                            retain: true,
-                                        })
-                                        .await
-                                        .map_err(convert_mqtt_error)?;
-                                }
-                                Err(e) => {
-                                    warn!("Cannot encode response {:?}", e);
-                                }
-                            }
-                        }
-                        DisplayResponseContainer::DeviceInfo(info) => {
-                            match serde_json_core::to_vec::<DeviceInfo, PACKET_SIZE>(&info) {
-                                Ok(info) => {
-                                    sender
-                                        .publish(&PublishRequest {
-                                            qos: Qos::AtMostOnce,
-                                            topic: &info_topic,
-                                            payload: &info,
-                                            retain: true,
-                                        })
-                                        .await
-                                        .map_err(convert_mqtt_error)?;
-                                }
-                                Err(e) => {
-                                    warn!("Cannot encode info {:?}", e);
-                                }
-                            }
-                        }
-                    }
-                }
-                Ok::<!, MqttServiceError>(unreachable!())
-            },
-        )
-        .await
-        {
-            Either5::First(x) => x?,
-            Either5::Second(x) => x?,
-            Either5::Third(x) => x?,
-            Either5::Fourth(x) => x?,
-            Either5::Fifth(x) => x?,
-        }
+        // let (read, write): (_, TlsWriter<_, _>) = tls.split();
+        // let sender = MqttSender::<_, 1024, 1, 1>::new(write);
+        // let mut receiver = MqttReceiver::new(read);
+        // match select5(
+        //     async {
+        //         let mut arena_slice = [0u8; 1024];
+        //         loop {
+        //             let mut arena =
+        //                 Arena::new(&mut arena_slice).map_err(|e| MqttServiceError::AllocError)?;
+        //             let (ack, packet) =
+        //                 receiver.receive(arena).await.map_err(convert_mqtt_error)?;
+        //             match packet {
+        //                 Packet::Publish(publish) => {
+        //                     self.handle_publish(&publish);
+        //                 }
+        //                 Packet::Disconnect(disconnect) => {
+        //                     info!("Disconnected: {}", disconnect.reason);
+        //                 }
+        //                 _ => {}
+        //             }
+        //             sender.acknowledge(ack).map_err(convert_mqtt_error)?;
+        //         }
+        //         Ok::<!, MqttServiceError>(unreachable!())
+        //     },
+        //     async {
+        //         let disconnect = sender.wait_disconnect().await.map_err(convert_mqtt_error)?;
+        //         error!("Disconnect: {}", disconnect);
+        //         Err::<!, MqttServiceError>(MqttServiceError::Disconnected)
+        //     },
+        //     async {
+        //         sender.send_acks().await.map_err(convert_mqtt_error)?;
+        //         Ok::<!, MqttServiceError>(unreachable!())
+        //     },
+        //     async {
+        //         Timer::after(Duration::from_secs(KEEPALIVE as u64)).await;
+        //         loop {
+        //             let mut timer = Timer::after(Duration::from_secs(KEEPALIVE as u64));
+        //             match select(&mut timer, sender.ping()).await {
+        //                 Either::First(()) => return Err(MqttServiceError::DeadlineExceeded),
+        //                 Either::Second(p) => p.map_err(convert_mqtt_error)?,
+        //             }
+        //             timer.await
+        //         }
+        //         Ok::<!, MqttServiceError>(unreachable!())
+        //     },
+        //     async {
+        //         self.status.sender().send(MqttServiceStatus::MqttConnect);
+        //         info!(
+        //             "{MODULE} Connecting to broker with client_id '{:?}' and username '{}'",
+        //             settings.client_id, settings.username
+        //         );
+        //         sender
+        //             .connect(&ConnectRequest {
+        //                 client_id: settings
+        //                     .client_id
+        //                     .as_deref()
+        //                     .unwrap_or(serial_number().unwrap_or(PRODUCT_NAME)),
+        //                 username: Some(&settings.username),
+        //                 password: Some(&settings.password),
+        //                 keepalive: 0,
+        //             })
+        //             .await
+        //             .map_err(convert_mqtt_error)?;
+        //         info!("{MODULE} Connected to broker");
+        //
+        //         self.status.sender().send(MqttServiceStatus::MqttSubscribe);
+        //         let request_topic: String<128> = format!("{}/request", settings.topic)
+        //             .ok()
+        //             .ok_or(MqttServiceError::TopicTooLong)?;
+        //         let response_topic: String<128> = format!("{}/response", settings.topic)
+        //             .ok()
+        //             .ok_or(MqttServiceError::TopicTooLong)?;
+        //         let info_topic: String<128> = format!("{}/info", settings.topic)
+        //             .ok()
+        //             .ok_or(MqttServiceError::TopicTooLong)?;
+        //         info!("{MODULE} Subscribing to {}", request_topic);
+        //         sender
+        //             .subscribe(&request_topic)
+        //             .await
+        //             .map_err(convert_mqtt_error)?;
+        //         info!("{MODULE} Subscribed");
+        //
+        //         self.status.sender().send(MqttServiceStatus::Connected);
+        //         loop {
+        //             let response = self.display_response.receive().await;
+        //             match response {
+        //                 DisplayResponseContainer::DisplayResponse(response) => {
+        //                     match serde_json_core::to_vec::<DisplayResponse, PACKET_SIZE>(&response)
+        //                     {
+        //                         Ok(response) => {
+        //                             sender
+        //                                 .publish(&PublishRequest {
+        //                                     qos: Qos::AtMostOnce,
+        //                                     topic: &response_topic,
+        //                                     payload: &response,
+        //                                     retain: true,
+        //                                 })
+        //                                 .await
+        //                                 .map_err(convert_mqtt_error)?;
+        //                         }
+        //                         Err(e) => {
+        //                             warn!("Cannot encode response {:?}", e);
+        //                         }
+        //                     }
+        //                 }
+        //                 DisplayResponseContainer::DeviceInfo(info) => {
+        //                     match serde_json_core::to_vec::<DeviceInfo, PACKET_SIZE>(&info) {
+        //                         Ok(info) => {
+        //                             sender
+        //                                 .publish(&PublishRequest {
+        //                                     qos: Qos::AtMostOnce,
+        //                                     topic: &info_topic,
+        //                                     payload: &info,
+        //                                     retain: true,
+        //                                 })
+        //                                 .await
+        //                                 .map_err(convert_mqtt_error)?;
+        //                         }
+        //                         Err(e) => {
+        //                             warn!("Cannot encode info {:?}", e);
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //         Ok::<!, MqttServiceError>(unreachable!())
+        //     },
+        // )
+        // .await
+        // {
+        //     Either5::First(x) => x?,
+        //     Either5::Second(x) => x?,
+        //     Either5::Third(x) => x?,
+        //     Either5::Fourth(x) => x?,
+        //     Either5::Fifth(x) => x?,
+        // }
     }
     pub fn handle_publish(&self, publish: &PublishPacket<'_>) {
         let Ok(message) = str::from_utf8(publish.payload) else {
