@@ -26,7 +26,7 @@ pub fn bluetooth() -> Result<Bluetooth, Error> {
     try_window()?
         .navigator()
         .bluetooth()
-        .ok_or(Error::CannotFindElement)
+        .ok_or(Error::BluetoothNotSupported)
 }
 
 pub fn get_element_by_id<T: JsCast>(id: &str) -> Result<T, Error> {

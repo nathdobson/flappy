@@ -17,13 +17,13 @@ use tokio::sync::{mpsc, Mutex};
 use wasm_bindgen::sys::Undefined;
 use web_sys::{
     BluetoothLeScanFilterInit, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer, Event,
-    RequestDeviceOptions,
+    HtmlDivElement, RequestDeviceOptions, Text,
 };
 
 pub struct BleConnection {
     connect_status: Rc<Status>,
-    wifi_status: Rc<Status>,
-    mqtt_status: Rc<Status>,
+    wifi_status: HtmlDivElement,
+    mqtt_status: HtmlDivElement,
     server: BluetoothRemoteGattServer,
     status_char: BluetoothRemoteGattCharacteristic,
     serial_in_char: BluetoothRemoteGattCharacteristic,
@@ -38,8 +38,8 @@ pub struct BleConnection {
 impl BleConnection {
     pub async fn new(
         connect_status: Rc<Status>,
-        wifi_status: Rc<Status>,
-        mqtt_status: Rc<Status>,
+        wifi_status: HtmlDivElement,
+        mqtt_status: HtmlDivElement,
     ) -> Result<Rc<BleConnection>, Error> {
         let bluetooth = bluetooth()?;
         let options = RequestDeviceOptions::new();
@@ -158,14 +158,10 @@ impl BleConnection {
             let result = serde_json_core::from_slice_escaped::<AppStatus>(&value, &mut temp)?.0;
             self.connect_status
                 .set(StatusPriority::Info, "Bluetooth: Connected".to_string());
-            self.mqtt_status.set(
-                StatusPriority::Info,
-                format!("Wifi: {}", result.mqtt_status),
-            );
-            self.wifi_status.set(
-                StatusPriority::Info,
-                format!("MQTT: {}", result.wifi_status),
-            );
+            self.mqtt_status
+                .set_text_content(Some(&format!("Wifi: {}", result.mqtt_status)));
+            self.wifi_status
+                .set_text_content(Some(&format!("MQTT: {}", result.wifi_status)));
         }
         Ok(())
     }

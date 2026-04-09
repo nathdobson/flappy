@@ -10,8 +10,8 @@ use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::{
-    Blob, BlobPropertyBag, Bluetooth, BluetoothLeScanFilterInit, File, FileSystemFileHandle,
-    HtmlDivElement, HtmlElement, Request, RequestDeviceOptions, Response, Url,
+    Blob, BlobPropertyBag, Bluetooth, BluetoothLeScanFilterInit, Event, File, FileSystemFileHandle,
+    HtmlDivElement, HtmlElement, Request, RequestDeviceOptions, Response, Text, Url,
 };
 
 use crate::ble_connection::BleConnection;
@@ -21,7 +21,7 @@ use jsonformat::Indentation;
 use protocol::setup::{AppSettings, AppStatus, MAX_SETUP_MESSAGE_SIZE};
 use std::future::IntoFuture;
 use std::iter::Once;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 
 pub struct SetupTab {
     node: HtmlDivElement,
@@ -30,8 +30,9 @@ pub struct SetupTab {
     write_listener: OnceCell<EventListener<'static>>,
     connection: RefCell<Option<Rc<BleConnection>>>,
     connect_status: Rc<Status>,
-    wifi_status: Rc<Status>,
-    mqtt_status: Rc<Status>,
+    device_info: HtmlDivElement,
+    wifi_status: HtmlDivElement,
+    mqtt_status: HtmlDivElement,
 }
 
 impl TabContent for SetupTab {
@@ -52,98 +53,109 @@ impl SetupTab {
     pub fn new() -> Result<Rc<Self>, Error> {
         let node = create_element::<"div">()?;
         node.set_class_name("setup-tab");
-        let connect_button = node.append_element::<"button">()?;
+
+        let connect_section = node.append_element::<"div">()?;
+        connect_section.set_class_name("setup-section");
+        let connect_status = Status::new()?;
+        connect_section.append_child(connect_status.node())?;
+        connect_status.set(StatusPriority::Info, "Display not connected".to_string());
+
+        let device_section = node.append_element::<"div">()?;
+        device_section.set_class_name("setup-section");
+        let device_info = device_section.append_element::<"div">()?;
+        device_info.set_text_content(Some("Device Info: n/a"));
+        let wifi_status = device_section.append_element::<"div">()?;
+        wifi_status.set_text_content(Some("Wifi: n/a"));
+        let mqtt_status = device_section.append_element::<"div">()?;
+        mqtt_status.set_text_content(Some("MQTT: n/a"));
+
+        let connect_button = connect_section.append_element::<"button">()?;
         connect_button.append_text("Connect via Bluetooth")?;
         let read_button = node.append_element::<"button">()?;
         read_button.append_text("Read settings off device")?;
         let write_button = node.append_element::<"button">()?;
         write_button.append_text("Write settings to device")?;
 
-        let connect_status = Status::new()?;
-        node.append_child(connect_status.node())?;
-        let wifi_status = Status::new()?;
-        node.append_child(wifi_status.node())?;
-        let mqtt_status = Status::new()?;
-        node.append_child(mqtt_status.node())?;
-        let setup_tab = Rc::new(SetupTab {
+        let this = Rc::new(SetupTab {
             node,
             connect_listener: OnceCell::new(),
             read_listener: OnceCell::new(),
             write_listener: OnceCell::new(),
             connection: RefCell::new(None),
             connect_status,
+            device_info,
             wifi_status,
             mqtt_status,
         });
-        let connect_listener =
-            EventListener::new(connect_button.clone().into(), EventType::Click, {
-                let setup_tab = Rc::downgrade(&setup_tab);
-                move |_| {
-                    if let Some(setup_tab) = setup_tab.upgrade() {
-                        spawn_local(async move {
-                            match BleConnection::new(
-                                setup_tab.connect_status.clone(),
-                                setup_tab.wifi_status.clone(),
-                                setup_tab.mqtt_status.clone(),
-                            )
-                            .await
-                            {
-                                Ok(connection) => {
-                                    *setup_tab.connection.borrow_mut() = Some(connection);
-                                }
-                                Err(e) => setup_tab.connect_status.set(
-                                    StatusPriority::Error,
-                                    format!("Failed to connect via bluetooth: {}", e),
-                                ),
-                            }
-                        });
-                    }
-                    false
-                }
-            })?;
-        setup_tab
-            .connect_listener
-            .set(connect_listener)
+        this.connect_listener
+            .set(EventListener::new(
+                connect_button.clone().into(),
+                EventType::Click,
+                this.weak_callback(Self::connect_ble),
+            )?)
             .ok()
             .unwrap();
-        let read_listener = EventListener::new(read_button.clone().into(), EventType::Click, {
-            let setup_tab = Rc::downgrade(&setup_tab);
-            move |_| {
-                if let Some(setup_tab) = setup_tab.upgrade() {
-                    spawn_local(async move {
-                        if let Err(e) = setup_tab.read_settings().await {
-                            setup_tab.connect_status.set(
-                                StatusPriority::Error,
-                                format!("Failed to read settings via bluetooth: {}", e),
-                            );
-                        }
-                    });
-                }
-                false
-            }
-        })?;
-        setup_tab.read_listener.set(read_listener).ok().unwrap();
-        let write_listener = EventListener::new(write_button.clone().into(), EventType::Click, {
-            let setup_tab = Rc::downgrade(&setup_tab);
-            move |_| {
-                if let Some(setup_tab) = setup_tab.upgrade() {
-                    spawn_local(async move {
-                        if let Err(e) = setup_tab.write_settings().await {
-                            setup_tab.connect_status.set(
-                                StatusPriority::Error,
-                                format!("Failed to write settings via bluetooth: {}", e),
-                            );
-                        }
-                    });
-                }
-                false
-            }
-        })?;
-        setup_tab.write_listener.set(write_listener).ok().unwrap();
-
-        Ok(setup_tab)
+        this.read_listener
+            .set(EventListener::new(
+                read_button.clone().into(),
+                EventType::Click,
+                this.weak_callback(Self::read_settings),
+            )?)
+            .ok()
+            .unwrap();
+        this.write_listener
+            .set(EventListener::new(
+                write_button.clone().into(),
+                EventType::Click,
+                this.weak_callback(Self::write_settings),
+            )?)
+            .ok()
+            .unwrap();
+        Ok(this)
     }
-    async fn read_settings(&self) -> Result<(), Error> {
+    fn weak_callback(self: &Rc<Self>, callback: fn(Rc<Self>, Event)) -> impl Fn(Event) -> bool {
+        let this = Rc::downgrade(self);
+        move |event| {
+            if let Some(this) = this.upgrade() {
+                callback(this, event)
+            }
+            false
+        }
+    }
+    fn connect_ble(self: Rc<Self>, event: Event) {
+        spawn_local(async move {
+            if let Err(e) = self.try_connect_ble().await {
+                self.connect_status.set(
+                    StatusPriority::Error,
+                    format!("Failed to connect via bluetooth: {}", e),
+                )
+            }
+        });
+    }
+    async fn try_connect_ble(&self) -> Result<(), Error> {
+        self.connect_status.reset();
+        self.connect_status
+            .set(StatusPriority::Info, "Bluetooth: connecting...".to_string());
+        let connection = BleConnection::new(
+            self.connect_status.clone(),
+            self.wifi_status.clone(),
+            self.mqtt_status.clone(),
+        )
+        .await?;
+        *self.connection.borrow_mut() = Some(connection);
+        Ok(())
+    }
+    fn read_settings(self: Rc<Self>, event: Event) {
+        spawn_local(async move {
+            if let Err(e) = self.try_read_settings().await {
+                self.connect_status.set(
+                    StatusPriority::Error,
+                    format!("Failed to read settings via bluetooth: {}", e),
+                );
+            }
+        });
+    }
+    async fn try_read_settings(&self) -> Result<(), Error> {
         self.connect_status
             .set(StatusPriority::Info, "Reading settings...".to_string());
         let Some(connection) = self.connection.borrow().clone() else {
@@ -169,7 +181,17 @@ impl SetupTab {
         );
         Ok(())
     }
-    async fn write_settings(&self) -> Result<(), Error> {
+    fn write_settings(self: Rc<Self>, event: Event) {
+        spawn_local(async move {
+            if let Err(e) = self.try_write_settings().await {
+                self.connect_status.set(
+                    StatusPriority::Error,
+                    format!("Failed to write settings via bluetooth: {}", e),
+                );
+            }
+        });
+    }
+    async fn try_write_settings(&self) -> Result<(), Error> {
         let Some(connection) = self.connection.borrow().clone() else {
             return Err(Error::NotConnected);
         };

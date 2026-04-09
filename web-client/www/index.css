@@ -103,7 +103,7 @@
 }
 
 .tab-header li {
-    margin: 0;
+    margin: 3px;
     padding: 0;
 }
 
@@ -137,9 +137,20 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
+    width:100%;
 }
 
 .setup-tab button {
     margin: 10px;
     font-size: 3vw;
+}
+
+.setup-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    border: 4px solid;
+    width:100%;
+    margin:10px;
 }

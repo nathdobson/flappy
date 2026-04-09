@@ -6,7 +6,9 @@ use protocol::setup::WriteSettingsError;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc::error::{SendError, TrySendError};
+use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
+use web_sys::DomException;
 
 #[derive(Debug)]
 pub enum Error {
@@ -130,7 +132,14 @@ impl From<WriteSettingsError> for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::JsError(e) => write!(f, "JsError: {:?}", e),
+            Error::JsError(e) => {
+                if let Ok(e) = e.clone().dyn_into::<DomException>() {
+                    write!(f, "{} ({})", e.message(), e.name())?;
+                } else {
+                    write!(f, "JsError: {:?}", e)?;
+                }
+                Ok(())
+            }
             Error::UrlError(x) => write!(f, "{}", x),
             Error::QueryStringError(x) => write!(f, "{}", x),
             Error::WsError(x) => write!(f, "{}", x),

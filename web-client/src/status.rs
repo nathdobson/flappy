@@ -27,6 +27,9 @@ impl Status {
     pub fn node(&self) -> &HtmlElement {
         &self.element
     }
+    pub fn reset(&self) {
+        *self.priority.borrow_mut() = StatusPriority::Info;
+    }
     pub fn set(&self, priority: StatusPriority, value: String) {
         info!("Status[{:?}] = {}", priority, value);
         let mut old = self.priority.borrow_mut();
