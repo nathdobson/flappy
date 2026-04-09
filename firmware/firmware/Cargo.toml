@@ -50,7 +50,8 @@ serde-json-core = { path="../../submodules/serde-json-core", optional = true }
 rand_core = "0.9.3"
 uuid = { version = "1.18.1", default-features = false, optional = true }
 heapless = { version = "0.9.2" }
-embedded-tls = { path="../../submodules/embedded-tls", default-features = false, optional = true, features = ["webpki"] }
+#embedded-tls = { path="../../submodules/embedded-tls", default-features = false, optional = true, features = ["webpki"] }
+embedded-tls = {version = "0.18.0",default-features = false,optional = true,features = ["webpki"]}
 embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
 smoltcp = { version = "0.12.0", default-features = false, optional = true }
@@ -66,10 +67,10 @@ cyw43-pio = { path = "../../submodules/embassy/cyw43-pio", features = [
 ], optional = true }
 glyph-render = {path ="../../common/glyph-render", default-features = false}
 mqtt-core = {path="../../common/mqtt-core"}
-crypto-verifier = {path="../../common/crypto-verifier",optional=true}
 fixed = {version="1.29.0",optional=true}
 spindle={path="../../spindle/spindle",optional = true}
-mozilla-root-ca = {version="2025.6.7",features = ["pem"]}
+mozilla-root-ca = {version="2025.6.7",features = ["pem"],optional = true}
+p256={version="0.13.2",default-features = false,optional = true}
 
 [target.'cfg(target_arch="arm")'.dependencies]
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }
@@ -104,7 +105,7 @@ ble = [
   "preemption"
 ]
 wifi = ["radio","dep:smoltcp","embassy-net"]
-mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena",  "dep:crypto-verifier"]
+mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena",  "dep:mozilla-root-ca","dep:p256"]
 preemption = []
 usb = ["dep:embassy-usb"]
 spindle = ["dep:spindle"]

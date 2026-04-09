@@ -1,3 +1,8 @@
+mod merge_socket;
+mod tls;
+mod webpki_provider;
+mod error;
+
 use crate::error::Error;
 use arena::Arena;
 use core::cell::Cell;
@@ -5,7 +10,6 @@ use core::fmt;
 use core::fmt::{Display, Formatter, write};
 use core::future::pending;
 use core::intrinsics::unreachable;
-use crypto_verifier::{FixedProvider, WebPkiProvider};
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, Either4, Either5, select, select4, select5};
 use embassy_futures::yield_now;
@@ -43,9 +47,13 @@ use protocol::display::DisplayResponse;
 const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
 const PACKET_SIZE: usize = 1024;
+const RECORD_SIZE: usize = 16384;
 
 use crate::application::DisplayResponseContainer;
 use crate::make_static;
+use crate::mqtt::merge_socket::MergeSocket;
+use crate::mqtt::tls::TlsConnectionBuilder;
+use crate::mqtt::webpki_provider::WebPkiProvider;
 use crate::product::serial_number;
 use protocol::display::DisplayRequest;
 use protocol::error::{
@@ -54,6 +62,7 @@ use protocol::error::{
 };
 use protocol::setup::{AppSettings, DeviceInfo, MqttServiceStatus, MqttSettings};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
+use crate::mqtt::error::convert_mqtt_error;
 
 pub struct MqttModule {
     spawner: Spawner,
@@ -62,167 +71,6 @@ pub struct MqttModule {
     display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
     display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     status: Watch<NoopRawMutex, MqttServiceStatus, 1>,
-}
-
-struct TcpSocketMutex<'a> {
-    write: Mutex<NoopRawMutex, TcpWriter<'a>>,
-    read: Mutex<NoopRawMutex, TcpReader<'a>>,
-}
-
-impl<'a, 'b> ErrorType for &'a TcpSocketMutex<'b> {
-    type Error = embassy_net::tcp::Error;
-}
-
-impl<'a, 'b> Write for &'a TcpSocketMutex<'b> {
-    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        self.write.lock().await.write(buf).await
-    }
-
-    async fn flush(&mut self) -> Result<(), Self::Error> {
-        self.write.lock().await.flush().await
-    }
-}
-
-impl<'a, 'b> Read for &'a TcpSocketMutex<'b> {
-    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        self.read.lock().await.read(buf).await
-    }
-}
-
-fn convert_dns_error(error: dns::Error) -> MqttServiceError {
-    MqttServiceError::DnsError(match error {
-        dns::Error::InvalidName => DnsError::InvalidName,
-        dns::Error::NameTooLong => DnsError::NameTooLong,
-        dns::Error::Failed => DnsError::Failed,
-    })
-}
-
-fn convert_tcp_error(error: ConnectError) -> MqttServiceError {
-    MqttServiceError::TcpError(match error {
-        ConnectError::InvalidState => TcpError::InvalidState,
-        ConnectError::ConnectionReset => TcpError::ConnectionReset,
-        ConnectError::TimedOut => TcpError::TimedOut,
-        ConnectError::NoRoute => TcpError::NoRoute,
-    })
-}
-
-fn convert_alert_level(a: AlertLevel) -> TlsAlertLevel {
-    match a {
-        AlertLevel::Warning => TlsAlertLevel::Warning,
-        AlertLevel::Fatal => TlsAlertLevel::Fatal,
-    }
-}
-
-fn convert_alert_description(a: AlertDescription) -> TlsAlertDescription {
-    match a {
-        AlertDescription::CloseNotify => TlsAlertDescription::CloseNotify,
-        AlertDescription::UnexpectedMessage => TlsAlertDescription::UnexpectedMessage,
-        AlertDescription::BadRecordMac => TlsAlertDescription::BadRecordMac,
-        AlertDescription::RecordOverflow => TlsAlertDescription::RecordOverflow,
-        AlertDescription::HandshakeFailure => TlsAlertDescription::HandshakeFailure,
-        AlertDescription::BadCertificate => TlsAlertDescription::BadCertificate,
-        AlertDescription::UnsupportedCertificate => TlsAlertDescription::UnsupportedCertificate,
-        AlertDescription::CertificateRevoked => TlsAlertDescription::CertificateRevoked,
-        AlertDescription::CertificateExpired => TlsAlertDescription::CertificateExpired,
-        AlertDescription::CertificateUnknown => TlsAlertDescription::CertificateUnknown,
-        AlertDescription::IllegalParameter => TlsAlertDescription::IllegalParameter,
-        AlertDescription::UnknownCa => TlsAlertDescription::UnknownCa,
-        AlertDescription::AccessDenied => TlsAlertDescription::AccessDenied,
-        AlertDescription::DecodeError => TlsAlertDescription::DecodeError,
-        AlertDescription::DecryptError => TlsAlertDescription::DecryptError,
-        AlertDescription::ProtocolVersion => TlsAlertDescription::ProtocolVersion,
-        AlertDescription::InsufficientSecurity => TlsAlertDescription::InsufficientSecurity,
-        AlertDescription::InternalError => TlsAlertDescription::InternalError,
-        AlertDescription::InappropriateFallback => TlsAlertDescription::InappropriateFallback,
-        AlertDescription::UserCanceled => TlsAlertDescription::UserCanceled,
-        AlertDescription::MissingExtension => TlsAlertDescription::MissingExtension,
-        AlertDescription::UnsupportedExtension => TlsAlertDescription::UnsupportedExtension,
-        AlertDescription::UnrecognizedName => TlsAlertDescription::UnrecognizedName,
-        AlertDescription::BadCertificateStatusResponse => {
-            TlsAlertDescription::BadCertificateStatusResponse
-        }
-        AlertDescription::UnknownPskIdentity => TlsAlertDescription::UnknownPskIdentity,
-        AlertDescription::CertificateRequired => TlsAlertDescription::CertificateRequired,
-        AlertDescription::NoApplicationProtocol => TlsAlertDescription::NoApplicationProtocol,
-    }
-}
-
-fn convert_tls_io_error(e: ErrorKind) -> EmbeddedIoErrorKind {
-    match e {
-        ErrorKind::Other => EmbeddedIoErrorKind::Other,
-        ErrorKind::NotFound => EmbeddedIoErrorKind::NotFound,
-        ErrorKind::PermissionDenied => EmbeddedIoErrorKind::PermissionDenied,
-        ErrorKind::ConnectionRefused => EmbeddedIoErrorKind::ConnectionRefused,
-        ErrorKind::ConnectionReset => EmbeddedIoErrorKind::ConnectionReset,
-        ErrorKind::ConnectionAborted => EmbeddedIoErrorKind::ConnectionAborted,
-        ErrorKind::NotConnected => EmbeddedIoErrorKind::NotConnected,
-        ErrorKind::AddrInUse => EmbeddedIoErrorKind::AddrInUse,
-        ErrorKind::AddrNotAvailable => EmbeddedIoErrorKind::AddrNotAvailable,
-        ErrorKind::BrokenPipe => EmbeddedIoErrorKind::BrokenPipe,
-        ErrorKind::AlreadyExists => EmbeddedIoErrorKind::AlreadyExists,
-        ErrorKind::InvalidInput => EmbeddedIoErrorKind::InvalidInput,
-        ErrorKind::InvalidData => EmbeddedIoErrorKind::InvalidData,
-        ErrorKind::TimedOut => EmbeddedIoErrorKind::TimedOut,
-        ErrorKind::Interrupted => EmbeddedIoErrorKind::Interrupted,
-        ErrorKind::Unsupported => EmbeddedIoErrorKind::Unsupported,
-        ErrorKind::OutOfMemory => EmbeddedIoErrorKind::OutOfMemory,
-        ErrorKind::WriteZero => EmbeddedIoErrorKind::WriteZero,
-        _ => EmbeddedIoErrorKind::Unknown,
-    }
-}
-fn convert_tls_error(error: TlsError) -> MqttServiceError {
-    MqttServiceError::TlsError(match error {
-        TlsError::ConnectionClosed => protocol::error::TlsError::ConnectionClosed,
-        TlsError::Unimplemented => protocol::error::TlsError::Unimplemented,
-        TlsError::MissingHandshake => protocol::error::TlsError::MissingHandshake,
-        TlsError::HandshakeAborted(level, description) => {
-            protocol::error::TlsError::HandshakeAborted(
-                convert_alert_level(level),
-                convert_alert_description(description),
-            )
-        }
-        TlsError::AbortHandshake(level, description) => protocol::error::TlsError::AbortHandshake(
-            convert_alert_level(level),
-            convert_alert_description(description),
-        ),
-        TlsError::IoError => protocol::error::TlsError::IoError,
-        TlsError::InternalError => protocol::error::TlsError::InternalError,
-        TlsError::InvalidRecord => protocol::error::TlsError::InvalidRecord,
-        TlsError::UnknownContentType => protocol::error::TlsError::UnknownContentType,
-        TlsError::InvalidNonceLength => protocol::error::TlsError::InvalidNonceLength,
-        TlsError::InvalidTicketLength => protocol::error::TlsError::InvalidTicketLength,
-        TlsError::UnknownExtensionType => protocol::error::TlsError::UnknownExtensionType,
-        TlsError::InsufficientSpace => protocol::error::TlsError::InsufficientSpace,
-        TlsError::InvalidHandshake => protocol::error::TlsError::InvalidHandshake,
-        TlsError::InvalidCipherSuite => protocol::error::TlsError::InvalidCipherSuite,
-        TlsError::InvalidSignatureScheme => protocol::error::TlsError::InvalidSignatureScheme,
-        TlsError::InvalidSignature => protocol::error::TlsError::InvalidSignature,
-        TlsError::InvalidExtensionsLength => protocol::error::TlsError::InvalidExtensionsLength,
-        TlsError::InvalidSessionIdLength => protocol::error::TlsError::InvalidSessionIdLength,
-        TlsError::InvalidSupportedVersions => protocol::error::TlsError::InvalidSupportedVersions,
-        TlsError::InvalidApplicationData => protocol::error::TlsError::InvalidApplicationData,
-        TlsError::InvalidKeyShare => protocol::error::TlsError::InvalidKeyShare,
-        TlsError::InvalidCertificate => protocol::error::TlsError::InvalidCertificate,
-        TlsError::InvalidCertificateEntry => protocol::error::TlsError::InvalidCertificateEntry,
-        TlsError::InvalidCertificateRequest => protocol::error::TlsError::InvalidCertificateRequest,
-        TlsError::UnableToInitializeCryptoEngine => {
-            protocol::error::TlsError::UnableToInitializeCryptoEngine
-        }
-        TlsError::ParseError(error) => protocol::error::TlsError::ParseError,
-        TlsError::OutOfMemory => protocol::error::TlsError::OutOfMemory,
-        TlsError::CryptoError => protocol::error::TlsError::CryptoError,
-        TlsError::EncodeError => protocol::error::TlsError::EncodeError,
-        TlsError::DecodeError => protocol::error::TlsError::DecodeError,
-        TlsError::Io(error) => protocol::error::TlsError::Io(convert_tls_io_error(error)),
-        TlsError::InvalidPrivateKey => protocol::error::TlsError::InvalidPrivateKey,
-    })
-}
-
-fn convert_mqtt_error(error: mqtt_client::error::Error<TlsError>) -> MqttServiceError {
-    match error {
-        mqtt_client::error::Error::NetworkError(e) => convert_tls_error(e),
-        mqtt_client::error::Error::ProtocolError(e) => MqttServiceError::MqttError(e),
-    }
 }
 
 impl MqttModule {
@@ -258,6 +106,8 @@ impl MqttModule {
         let mut settings = self.settings.wait().await;
         let mut rx_buffer = make_static!([u8; PACKET_SIZE], [0; PACKET_SIZE]);
         let mut tx_buffer = make_static!([u8; PACKET_SIZE], [0; PACKET_SIZE]);
+        let mut read_record_buffer = make_static!([u8; RECORD_SIZE], [0; RECORD_SIZE]);
+        let mut write_record_buffer = make_static!([u8; RECORD_SIZE], [0; RECORD_SIZE]);
         loop {
             if let Some(s) = self.settings.try_take() {
                 settings = s;
@@ -265,7 +115,13 @@ impl MqttModule {
             // Cancel the MQTT connection every time the settings change.
             match select(
                 self.settings.wait(),
-                self.run_with_settings(&settings, rx_buffer, tx_buffer),
+                self.run_with_settings(
+                    &settings,
+                    rx_buffer,
+                    tx_buffer,
+                    read_record_buffer,
+                    write_record_buffer,
+                ),
             )
             .await
             {
@@ -289,6 +145,8 @@ impl MqttModule {
 
         rx_buffer: &mut [u8],
         tx_buffer: &mut [u8],
+        read_record_buffer: &mut [u8],
+        write_record_buffer: &mut [u8],
     ) -> Result<!, MqttServiceError> {
         if settings.hostname.is_empty() {
             self.status.sender().send(MqttServiceStatus::Unconfigured);
@@ -335,74 +193,22 @@ impl MqttModule {
             );
         }
 
-        let mut socket = TcpSocket::new(*self.stack, rx_buffer, tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(60)));
-        let dns = &*settings.hostname;
-        let port = settings.port;
-        info!("{MODULE} [DNS] Querying {:?}", dns);
-        self.status.sender().send(MqttServiceStatus::DnsQuery);
-        let addr = self
-            .stack
-            .dns_query(dns, DnsQueryType::A)
-            .await
-            .map_err(convert_dns_error)?[0];
-
-        let remote_endpoint = IpEndpoint { addr, port };
-        info!("{MODULE} [DNS] Resolved {}", remote_endpoint);
-        self.status.sender().send(MqttServiceStatus::TcpConnect);
-
-        info!("{MODULE} [TCP] Connecting to {}", remote_endpoint);
-        socket
-            .connect(remote_endpoint)
-            .await
-            .map_err(convert_tcp_error)?;
-        info!(
-            "{MODULE} [TCP] Connected ({} -> {})",
-            fmt::from_fn(|f| {
-                if let Some(local) = socket.local_endpoint() {
-                    write!(f, "{}", local)?
-                }
-                Ok(())
-            }),
-            fmt::from_fn(|f| {
-                if let Some(remote) = socket.remote_endpoint() {
-                    write!(f, "{}", remote)?
-                }
-                Ok(())
-            }),
-        );
-
-        let (read, write) = socket.split();
-        let socket_mutex = TcpSocketMutex {
-            write: Mutex::new(write),
-            read: Mutex::new(read),
+        let mut tls = TlsConnectionBuilder {
+            rx_buffer,
+            tx_buffer,
+            read_record_buffer,
+            write_record_buffer,
+            hostname: &settings.hostname,
+            port: settings.port,
+            stack: self.stack,
         };
-
-        let mut read_record_buffer = [0; 16384];
-        let mut write_record_buffer = [0; 16384];
-        let config = TlsConfig::new()
-            .with_server_name(dns)
-            .enable_rsa_signatures();
-        let mut tls = TlsConnection::<_, Aes128GcmSha256>::new(
-            &socket_mutex,
-            &mut read_record_buffer,
-            &mut write_record_buffer,
-        );
-
+        self.status.sender().send(MqttServiceStatus::DnsQuery);
+        let mut tls = tls.resolve_dns().await?;
+        self.status.sender().send(MqttServiceStatus::TcpConnect);
+        let mut tls = tls.connect_tcp().await?;
         self.status.sender().send(MqttServiceStatus::TlsConnect);
-        info!("{MODULE} [TLS] Starting handshake");
-        tls.open::<_>(TlsContext::new(
-            &config,
-            WebPkiProvider {
-                rng: RoscRng,
-                verifier: CertVerifier::new(Certificate::X509(
-                    mozilla_root_ca::pem::PEM_BUNDLE.as_bytes(),
-                )),
-            },
-        ))
-        .await
-        .map_err(convert_tls_error)?;
-        info!("{MODULE} [TLS] Handshake complete");
+        let mut tls = tls.merge_socket();
+        let mut tls = tls.connect_tls().await?;
 
         let (read, write): (_, TlsWriter<_, _>) = tls.split();
         let sender = MqttSender::<_, 1024, 1, 1>::new(write);
