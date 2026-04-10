@@ -12,6 +12,7 @@ use embassy_usb::{Builder, Config, UsbDevice};
 use log::error;
 use protocol::usb::{PRODUCT_ID, VENDOR_ID};
 use static_cell::StaticCell;
+use crate::interrupts::Irqs;
 
 pub const MAX_PACKET_SIZE: u8 = 64;
 
@@ -28,10 +29,6 @@ struct RuntimeState {
     msos_descriptor: [u8; 256],
     control_buf: [u8; 64],
 }
-
-bind_interrupts!(struct UsbIrqs {
-    USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
-});
 
 impl UsbModule {
     pub fn new() -> &'static Self {
@@ -51,7 +48,7 @@ impl UsbModule {
         spawner: Spawner,
         peri: Peri<'static, USB>,
     ) -> Result<(), Error> {
-        let driver = Driver::new(peri, UsbIrqs);
+        let driver = Driver::new(peri, Irqs);
 
         let mut config = Config::new(VENDOR_ID, PRODUCT_ID);
         config.manufacturer = Some(protocol::PRODUCT_MANUFACTURER);

@@ -88,7 +88,8 @@ impl Application {
         #[cfg(feature = "radio")]
         let led = crate::led::LedModule::new(spawner, radio_drivers.module).await?;
         #[cfg(feature = "ble")]
-        let ble = crate::ble::BleModule::new(spawner, radio_drivers.ble).await?;
+        let ble = crate::ble::BleModule::new(spawner, radio_drivers.ble, radio_drivers.mac_address)
+            .await?;
         #[cfg(feature = "wifi")]
         let wifi = crate::wifi::WifiModule::new(
             spawner,
@@ -356,8 +357,10 @@ impl Application {
                     self.display_request.signal(DisplayRequest::Test);
                 }
                 TestType::Enable => {
+                    #[cfg(feature = "display")]
                     self.driver.set_enabled(true);
                     Delay.delay_ms(100_000).await;
+                    #[cfg(feature = "display")]
                     self.driver.set_enabled(false);
                 }
                 TestType::Read => {

@@ -17,7 +17,7 @@ bench = false
 embassy-rp = { path = "../../submodules/embassy/embassy-rp", features = [
   "rp235xa",
   "time-driver",
-   "critical-section-impl", "rp235xa","binary-info"
+   "critical-section-impl", "rp235xa","binary-info",
 ] }
 embassy-time = { path = "../../submodules/embassy/embassy-time", features = [] }
 embassy-usb = { path = "../../submodules/embassy/embassy-usb" ,optional = true}
@@ -33,12 +33,12 @@ embassy-net = { path = "../../submodules/embassy/embassy-net", features = [
 ], optional = true }
 embassy-futures = { path = "../../submodules/embassy/embassy-futures" }
 embassy-executor = { path = "../../submodules/embassy/embassy-executor", features = [
-  "arch-cortex-m",
   "executor-thread",
   "executor-interrupt",
+  "platform-cortex-m"
 ] }
 embassy-sync = { path = "../../submodules/embassy/embassy-sync", features = [] }
-trouble-host = { path = "../../submodules/trouble/host", optional = true }
+trouble-host = { path = "../../submodules/trouble/host", features = ["legacy-pairing"],optional = true }
 
 critical-section = "1.1"
 log = "0.4.28"
@@ -54,7 +54,7 @@ heapless = { version = "0.9.2" }
 embedded-tls = {version = "0.18.0",default-features = false,optional = true,features = ["webpki"]}
 embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
-smoltcp = { version = "0.12.0", default-features = false, optional = true }
+smoltcp = { version = "0.13.0", default-features = false, features = ["proto-ipv4","proto-ipv6"], optional = true }
 embedded-io-async = { version = "0.7.0", optional = true }
 embedded-io = { version = "0.7.1", optional = true }
 mqtt-client = { path = "../../common/mqtt-client", optional = true }

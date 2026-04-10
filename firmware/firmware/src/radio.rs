@@ -1,3 +1,5 @@
+use crate::interrupts::Irqs;
+use crate::make_static;
 use core::mem;
 use cyw43::{A4, Aligned, Control, NetDriver, aligned_bytes};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
@@ -6,22 +8,16 @@ use embassy_futures::yield_now;
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::{Common, Irq, IrqFlags, Pio, StateMachine};
-use embassy_rp::{Peri, bind_interrupts};
+use embassy_rp::{Peri, bind_interrupts, dma};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Timer};
 use fixed::FixedU32;
 use log::info;
-use crate::make_static;
 
 const MODULE: &'static str = "[Radio]";
 
-bind_interrupts!(struct PioIrqs {
-    PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
-});
-
-type MyRunner =
-    cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>>;
+type MyRunner = cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>>;
 
 #[allow(non_snake_case)]
 pub struct RadioPeripherals {
@@ -52,6 +48,7 @@ pub struct RadioDrivers {
     pub ble: cyw43::bluetooth::BtDriver<'static>,
     #[cfg(feature = "wifi")]
     pub net: NetDriver<'static>,
+    pub mac_address: [u8; 6],
 }
 
 static FIRMWARE: &'static Aligned<A4, [u8]> =
@@ -70,7 +67,7 @@ impl RadioModule {
         info!("[Radio] Connecting to CYW43 radio transceiver over PIO-SPI");
         let pwr = Output::new(peri.PIN_23, Level::Low);
         let cs = Output::new(peri.PIN_25, Level::High);
-        let mut pio = Pio::new(peri.PIO0, PioIrqs);
+        let mut pio = Pio::new(peri.PIO0, Irqs);
         let spi = PioSpi::new(
             &mut pio.common,
             pio.sm0,
@@ -85,7 +82,7 @@ impl RadioModule {
             cs,
             peri.PIN_24,
             peri.PIN_29,
-            peri.DMA_CH0,
+            dma::Channel::new(peri.DMA_CH0, Irqs),
         );
 
         let state = make_static!(cyw43::State, cyw43::State::new());
@@ -109,18 +106,22 @@ impl RadioModule {
         control
             .set_power_management(cyw43::PowerManagementMode::None)
             .await;
+        let mac_address = control.address().await;
 
-        module = make_static!(RadioModule, RadioModule {
-            control: Mutex::new(control),
-            common: pio.common,
-            irq_flags: pio.irq_flags,
-            irq1: pio.irq1,
-            irq2: pio.irq2,
-            irq3: pio.irq3,
-            sm1: pio.sm1,
-            sm2: pio.sm2,
-            sm3: pio.sm3,
-        });
+        module = make_static!(
+            RadioModule,
+            RadioModule {
+                control: Mutex::new(control),
+                common: pio.common,
+                irq_flags: pio.irq_flags,
+                irq1: pio.irq1,
+                irq2: pio.irq2,
+                irq3: pio.irq3,
+                sm1: pio.sm1,
+                sm2: pio.sm2,
+                sm3: pio.sm3,
+            }
+        );
         info!("{MODULE} Connected");
         Ok(RadioDrivers {
             module,
@@ -128,6 +129,7 @@ impl RadioModule {
             ble: bt_device,
             #[cfg(feature = "wifi")]
             net: net_device,
+            mac_address,
         })
     }
 }

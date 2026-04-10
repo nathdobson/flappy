@@ -1,3 +1,4 @@
+use crate::make_static;
 use core::future::Future;
 use core::sync::atomic::{AtomicBool, Ordering};
 use embassy_executor::{Executor, InterruptExecutor, SendSpawner, Spawner};
@@ -5,8 +6,6 @@ use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::UART0;
 use embassy_rp::uart::InterruptHandler;
 use embassy_rp::{bind_interrupts, interrupt};
-use crate::make_static;
-
 #[cfg(feature = "preemption")]
 static RUNTIME_EXECUTOR: InterruptExecutor = InterruptExecutor::new();
 #[cfg(feature = "preemption")]

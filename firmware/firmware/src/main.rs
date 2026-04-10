@@ -59,6 +59,7 @@ mod make_static;
 #[cfg(feature = "spindle")]
 mod spindle;
 mod display;
+mod interrupts;
 
 extern crate alloc;
 

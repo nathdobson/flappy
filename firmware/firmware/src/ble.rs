@@ -9,6 +9,7 @@ use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
 use embassy_futures::select::{Either, select};
 use embassy_futures::yield_now;
+use embassy_rp::clocks::RoscRng;
 use embassy_rp::otp::get_chipid;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
@@ -30,10 +31,10 @@ use trouble_host::gap::{GapConfig, PeripheralConfig};
 use trouble_host::gatt::{GattConnection, GattConnectionEvent, GattEvent};
 use trouble_host::l2cap::{CreditFlowPolicy, L2capChannel, L2capChannelConfig};
 use trouble_host::prelude::{
-    AsGatt, CccdTable, DefaultPacketPool, ExternalController, FromGatt, HeaplessString, Peripheral,
-    Runner, appearance, descriptors, gatt_server, gatt_service, uuid,
+    AddrKind, AsGatt, BdAddr, CccdTable, DefaultPacketPool, ExternalController, FromGatt,
+    HeaplessString, Peripheral, Runner, appearance, descriptors, gatt_server, gatt_service, uuid,
 };
-use trouble_host::{HostResources, PacketPool, Stack};
+use trouble_host::{Address, HostResources, PacketPool, Stack};
 
 const MODULE: &'static str = "[BLE  ]";
 /// Max number of connections
@@ -56,10 +57,12 @@ pub struct Server {
 pub struct FlappyService {
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Serial in")]
     #[characteristic(uuid = "4574529b-fbe4-44ae-ba52-d877ac76ef2d", read, notify)]
+    // permissions(encrypted, cccd = authenticated)
     pub serial_in: Vec<u8, SERIAL_MTU>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Serial out")]
     #[characteristic(uuid = "2d2bc907-c9fa-49fd-ba45-410cddf61e5c", write)]
+    //permissions(encrypted, cccd = authenticated)
     pub serial_out: Vec<u8, SERIAL_MTU>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "App Status")]
@@ -81,7 +84,8 @@ pub struct BleModule {
 type MyPacketPool = DefaultPacketPool;
 type MyDriver = BtDriver<'static>;
 pub type MyController = ExternalController<MyDriver, SLOTS>;
-type MyResources = HostResources<DefaultPacketPool, CONNECTIONS_MAX, L2CAP_CHANNELS_MAX>;
+type MyResources =
+    HostResources<MyController, DefaultPacketPool, CONNECTIONS_MAX, L2CAP_CHANNELS_MAX>;
 type MyPeripheral = Peripheral<'static, MyController, MyPacketPool>;
 type MyStack = Stack<'static, MyController, MyPacketPool>;
 type MyRunner = Runner<'static, MyController, MyPacketPool>;
@@ -90,12 +94,25 @@ type MyConnection = GattConnection<'static, 'static, MyPacketPool>;
 type MyServer = Server<'static>;
 
 impl BleModule {
-    pub async fn new(spawner: Spawner, driver: MyDriver) -> Result<&'static BleModule, Error> {
+    pub async fn new(
+        spawner: Spawner,
+        driver: MyDriver,
+        mac_address: [u8; 6],
+    ) -> Result<&'static BleModule, Error> {
         info!("{MODULE} Starting Bluetooth Low Energy");
         let controller = MyController::new(driver);
         let resources: &mut MyResources = make_static!(MyResources, MyResources::new());
-        let stack: &MyStack = make_static!(MyStack, trouble_host::new(controller, resources));
-        let mut host = stack.build();
+        let stack: &MyStack = make_static!(
+            MyStack,
+            trouble_host::new(controller, resources)
+                .set_random_address(Address::random(mac_address))
+                .set_random_generator_seed(&mut RoscRng)
+                .set_secure_connections_only(false)
+                .build()
+        );
+        let central = stack.central();
+        let runner = stack.runner();
+        let peri = stack.peripheral();
         let name: String<28> = format!("FLAP {}", serial_number().unwrap_or("<noid>"))?;
         let name = make_static!(String<28>, name);
         let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
@@ -108,7 +125,7 @@ impl BleModule {
                 spawner,
                 stack,
                 conn: RefCell::new(None),
-                peri: Cell::new(Some(host.peripheral)),
+                peri: Cell::new(Some(peri)),
                 server,
                 setup_request: Channel::new(),
                 setup_response: Channel::new(),
@@ -122,7 +139,7 @@ impl BleModule {
                     error!("{MODULE} system error: {:?}", e);
                 }
             }
-            ble_task(host.runner)?
+            ble_task(runner)?
         });
         spawner.clone().spawn({
             #[embassy_executor::task]
@@ -177,15 +194,15 @@ impl BleModule {
         let mut advertiser_data = [0; 128];
         const FLAPPY_SERVICE_UUID_BYTES: [u8; 16] = {
             match FLAPPY_SERVICE_UUID {
-                Uuid::Uuid16(_) => unreachable!(),
                 Uuid::Uuid128(x) => x,
+                _ => unreachable!(),
             }
         };
         let mut service_uuid = FLAPPY_SERVICE_UUID_BYTES;
         let len = AdStructure::encode_slice(
             &[
                 AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
-                AdStructure::ServiceUuids128(&[service_uuid]),
+                AdStructure::IncompleteServiceUuids128(&[service_uuid]),
                 AdStructure::CompleteLocalName(PRODUCT_SHORT_NAME.as_bytes()),
             ],
             &mut advertiser_data[..],
@@ -216,6 +233,10 @@ impl BleModule {
                     GattConnectionEvent::Disconnected { reason } => {
                         break;
                     }
+                    // GattConnectionEvent::PassKeyInput => {
+                    //     info!("[gatt] passkey input");
+                    //     conn.pass_key_input(1234)?;
+                    // }
                     GattConnectionEvent::Gatt { event } => {
                         match &event {
                             GattEvent::Write(event) => {
@@ -243,6 +264,9 @@ impl BleModule {
                             }
                             GattEvent::Read(event) => {}
                             GattEvent::Other(other) => {}
+                            GattEvent::NotAllowed(e) => {
+                                info!("Event not allowed");
+                            }
                         };
                         match event.accept() {
                             Ok(reply) => reply.send().await,
