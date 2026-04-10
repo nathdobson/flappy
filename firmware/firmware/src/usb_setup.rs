@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::make_static;
 use crate::usb::MAX_PACKET_SIZE;
 use core::mem;
 use embassy_executor::Spawner;
@@ -17,7 +18,6 @@ use protocol::setup::{
     AppStatus, MAX_SETUP_MESSAGE_SIZE, MqttServiceStatus, SetupRequest, SetupResponse,
 };
 use protocol::usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID};
-use crate::make_static;
 
 pub struct UsbSetupModule {
     setup_request: Channel<CriticalSectionRawMutex, SetupRequest, 1>,
@@ -27,11 +27,14 @@ pub struct UsbSetupModule {
 
 impl UsbSetupModule {
     pub fn new() -> &'static Self {
-        make_static!(UsbSetupModule, UsbSetupModule {
-            setup_request: Channel::new(),
-            setup_response: Channel::new(),
-            setup_status: Watch::new(),
-        })
+        make_static!(
+            UsbSetupModule,
+            UsbSetupModule {
+                setup_request: Channel::new(),
+                setup_response: Channel::new(),
+                setup_status: Watch::new(),
+            }
+        )
     }
     pub async fn start(
         &'static self,
@@ -132,13 +135,12 @@ impl UsbSetupModule {
             .receiver()
             .ok_or(Error::NotEnoughReceivers)?;
         loop {
+            let status = receiver.changed().await;
+            info!("Sending status {:?}", status);
             in_ep.wait_enabled().await;
-            loop {
-                let status = receiver.changed().await;
-                info!("Sending status {:?}", status);
-                buf = serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(&status)?;
-                in_ep.write_transfer(&buf, true).await?;
-            }
+            buf = serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(&status)?;
+            in_ep.write_transfer(&buf, true).await?;
+            info!("Finished sending status");
         }
         Ok(())
     }

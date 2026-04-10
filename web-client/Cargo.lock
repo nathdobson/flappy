@@ -215,6 +215,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "empty-rc"
+version = "0.1.0"
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1223,6 +1227,7 @@ dependencies = [
  "by_address",
  "console_error_panic_hook",
  "embassy-futures",
+ "empty-rc",
  "futures-util",
  "heapless 0.9.2",
  "io-adapters",

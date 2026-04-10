@@ -8,7 +8,7 @@ use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
-use web_sys::DomException;
+use web_sys::{DomException, UsbTransferStatus};
 
 #[derive(Debug)]
 pub enum Error {
@@ -37,6 +37,11 @@ pub enum Error {
     WriteSettingsError(WriteSettingsError),
     ExpectedSingleFile,
     NotConnected,
+    UsbConfigurationNotFound,
+    UsbMissingInterface,
+    UsbMissingEndpoint,
+    UsbTransferError(UsbTransferStatus),
+    UsbMissingData,
 }
 
 impl From<JsValue> for Error {
@@ -173,6 +178,11 @@ impl Display for Error {
             Error::WriteSettingsError(e) => write!(f, "Write settings error: {}", e),
             Error::ExpectedSingleFile => write!(f, "expected single file"),
             Error::NotConnected => write!(f, "not connected"),
+            Error::UsbConfigurationNotFound => write!(f, "USB configuration not found"),
+            Error::UsbMissingInterface => write!(f, "USB missing interface"),
+            Error::UsbMissingEndpoint => write!(f, "USB missing endpoint"),
+            Error::UsbTransferError(x) => write!(f, "USB transfer error: {:?}", x),
+            Error::UsbMissingData => write!(f, "USB missing data"),
         }
     }
 }

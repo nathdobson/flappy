@@ -12,6 +12,7 @@
 
 mod ble_connection;
 mod connect_tab;
+mod connection;
 mod display;
 mod error;
 mod event_listener;
@@ -21,7 +22,9 @@ mod query_params;
 mod setup_tab;
 mod status;
 mod tabs;
+mod usb_connection;
 mod utils;
+mod value_editor;
 
 use crate::connect_tab::ConnectTab;
 use crate::display::{Display, DisplayState};
@@ -32,9 +35,7 @@ use crate::query_params::{QueryParams, QueryParamsCell};
 use crate::setup_tab::SetupTab;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::{TabContainer, TabContent};
-use crate::utils::{
-    create_element, create_text_node, document, get_element_by_id, sleep, spawn_local_joinable,
-};
+use crate::utils::{create_element, create_text_node, document, get_element_by_id, sleep};
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
 use futures_util::AsyncWriteExt;
 use io_adapters::split::split_io;

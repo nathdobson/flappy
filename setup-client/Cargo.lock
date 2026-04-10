@@ -904,6 +904,7 @@ dependencies = [
  "futures-util",
  "itertools",
  "jsonformat",
+ "log",
  "nusb",
  "objc2 0.6.3",
  "protocol",

@@ -1,10 +1,12 @@
 use crate::error::Error;
 use futures_util::future::FutureExt;
+use log::info;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::AssertUnwindSafe;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use tokio::select;
 use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
@@ -146,15 +148,16 @@ pub fn spawn_local_joinable<F: 'static + Future>(f: F) -> JoinHandle<F::Output>
 where
     F::Output: 'static,
 {
-    let (tx, rx) = oneshot::channel();
+    let (mut tx, rx) = oneshot::channel();
     spawn_local(async move {
-        tx.send(
-            AssertUnwindSafe(f)
-                .catch_unwind()
-                .await
-                .map_err(|e| e.into()),
-        )
-        .ok();
+        select!(
+            _ = tx.closed() => {
+
+            }
+            result = AssertUnwindSafe(f).catch_unwind() => {
+                tx.send(result.map_err(|e| e.into())).ok();
+            }
+        );
     });
     JoinHandle(rx)
 }

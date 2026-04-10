@@ -154,3 +154,57 @@
     width:100%;
     margin:10px;
 }
+
+.device-info-section {
+    display: grid;
+    grid-template-columns: max-content max-content;
+}
+
+.device-info-section > div{
+    margin:4px;
+}
+
+.device-info-section > *:nth-child(odd) {
+    text-align: end;
+}
+
+.device-info-section > *:nth-child(even)::before {
+    content: ": ";
+}
+
+.struct-editor {
+    display: grid;
+    grid-template-columns: max-content max-content;
+}
+
+.struct-editor > div{
+    margin:1vw;
+}
+
+.struct-editor > *:nth-child(odd) {
+    text-align: end;
+}
+
+.struct-editor > *:nth-child(even) {
+}
+
+.struct-editor > *:nth-child(odd)::after {
+    content: ": ";
+}
+
+.text-editor {
+    font-size: 3vw;
+    margin:0.5vw;
+}
+
+.editor-form {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.editor-form input[type=submit]{
+    font-size: 3vw;
+    margin:1vw;
+}

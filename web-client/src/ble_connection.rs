@@ -13,7 +13,7 @@ use protocol::setup::{
 use std::cell::{OnceCell, RefCell};
 use std::future::IntoFuture;
 use std::rc::Rc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, watch, Mutex};
 use wasm_bindgen::sys::Undefined;
 use web_sys::{
     BluetoothLeScanFilterInit, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer, Event,
@@ -22,8 +22,6 @@ use web_sys::{
 
 pub struct BleConnection {
     connect_status: Rc<Status>,
-    wifi_status: HtmlDivElement,
-    mqtt_status: HtmlDivElement,
     server: BluetoothRemoteGattServer,
     status_char: BluetoothRemoteGattCharacteristic,
     serial_in_char: BluetoothRemoteGattCharacteristic,
@@ -33,14 +31,12 @@ pub struct BleConnection {
     serial_in_notify_listener: OnceCell<EventListener<'static>>,
     response_rx: Mutex<mpsc::UnboundedReceiver<SetupResponse>>,
     response_tx: mpsc::UnboundedSender<SetupResponse>,
+    app_status_rx: Mutex<watch::Receiver<AppStatus>>,
+    app_status_tx: watch::Sender<AppStatus>,
 }
 
 impl BleConnection {
-    pub async fn new(
-        connect_status: Rc<Status>,
-        wifi_status: HtmlDivElement,
-        mqtt_status: HtmlDivElement,
-    ) -> Result<Rc<BleConnection>, Error> {
+    pub async fn new(connect_status: Rc<Status>) -> Result<Rc<BleConnection>, Error> {
         let bluetooth = bluetooth()?;
         let options = RequestDeviceOptions::new();
         let filter = BluetoothLeScanFilterInit::new();
@@ -83,10 +79,9 @@ impl BleConnection {
             .into_future()
             .await?;
         let (response_tx, response_rx) = mpsc::unbounded_channel();
+        let (app_status_tx, app_status_rx) = watch::channel(AppStatus::default());
         let connection = Rc::new(BleConnection {
             connect_status,
-            wifi_status,
-            mqtt_status,
             server: gatt,
             status_char: status_char.clone(),
             serial_in_char: serial_in_char.clone(),
@@ -95,12 +90,14 @@ impl BleConnection {
             serial_in_notify_listener: OnceCell::new(),
             status_notify_listener: OnceCell::new(),
             response_tx,
+            app_status_rx: Mutex::new(app_status_rx),
             response_rx: Mutex::new(response_rx),
+            app_status_tx,
         });
         connection
             .status_notify_listener
             .set(EventListener::new(
-                status_char.clone().into(),
+                &status_char,
                 EventType::CharacteristicValueChanged,
                 {
                     let connection = Rc::downgrade(&connection);
@@ -121,7 +118,7 @@ impl BleConnection {
         connection
             .serial_in_notify_listener
             .set(EventListener::new(
-                serial_in_char.clone().into(),
+                &serial_in_char,
                 EventType::CharacteristicValueChanged,
                 {
                     let connection = Rc::downgrade(&connection);
@@ -145,7 +142,9 @@ impl BleConnection {
         );
         status_char.start_notifications().into_future().await?;
         serial_in_char.start_notifications().into_future().await?;
-        connection.touch_app_status().await?;
+        connection
+            .connect_status
+            .set(StatusPriority::Info, "Bluetooth: Connected".to_string());
         Ok(connection)
     }
     fn update_status(&self) -> Result<(), Error> {
@@ -156,14 +155,15 @@ impl BleConnection {
         if value.len() > 0 {
             let mut temp = vec![0u8; MAX_SETUP_MESSAGE_SIZE];
             let result = serde_json_core::from_slice_escaped::<AppStatus>(&value, &mut temp)?.0;
-            self.connect_status
-                .set(StatusPriority::Info, "Bluetooth: Connected".to_string());
-            self.mqtt_status
-                .set_text_content(Some(&format!("Wifi: {}", result.mqtt_status)));
-            self.wifi_status
-                .set_text_content(Some(&format!("MQTT: {}", result.wifi_status)));
+            self.app_status_tx.send(result).ok();
         }
         Ok(())
+    }
+    pub async fn next_status(&self) -> Result<AppStatus, Error> {
+        let mut app_status_rx = self.app_status_rx.lock().await;
+        app_status_rx.changed().await.ok();
+        let result = app_status_rx.borrow().clone();
+        Ok(result)
     }
     fn update_serial_in(&self) -> Result<(), Error> {
         let value = self
@@ -198,30 +198,7 @@ impl BleConnection {
         info!("Finished sending");
         Ok(response.recv().await.ok_or(Error::ChannelClosed)?)
     }
-    pub async fn device_info(&self) -> Result<DeviceInfo, Error> {
-        match self.invoke(SetupRequest::DeviceInfo).await? {
-            SetupResponse::DeviceInfo(device_info) => Ok(device_info),
-            _ => Err(Error::BadResponse),
-        }
-    }
-    pub async fn touch_app_status(&self) -> Result<(), Error> {
-        match self.invoke(SetupRequest::TouchAppStatus).await? {
-            SetupResponse::TouchAppStatus => Ok(()),
-            _ => Err(Error::BadResponse),
-        }
-    }
-    pub async fn read_settings(&self) -> Result<AppSettings, Error> {
-        match self.invoke(SetupRequest::ReadSettings).await? {
-            SetupResponse::ReadSettings(settings) => Ok(settings),
-            _ => Err(Error::BadResponse),
-        }
-    }
-    pub async fn write_settings(&self, settings: AppSettings) -> Result<(), Error> {
-        match self.invoke(SetupRequest::WriteSettings(settings)).await? {
-            SetupResponse::WriteSettings(settings) => Ok(settings?),
-            _ => Err(Error::BadResponse),
-        }
-    }
+
     async fn send(&self, chunk: &[u8]) -> Result<(), Error> {
         let x: Undefined = self
             .serial_out_char

@@ -1,5 +1,5 @@
-use log::info;
 use crate::error::Error;
+use log::info;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::{Event, EventTarget};
@@ -20,14 +20,14 @@ pub enum EventType {
 
 impl<'a> EventListener<'a> {
     pub fn new(
-        target: EventTarget,
+        target: &EventTarget,
         typ: EventType,
         callback: impl 'a + FnMut(Event) -> bool,
     ) -> Result<EventListener<'a>, Error> {
         let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(Event) -> bool>);
         target.add_event_listener_with_callback(typ.name(), &closure.as_ref().unchecked_ref())?;
         Ok(EventListener {
-            target,
+            target: target.clone(),
             typ,
             closure,
         })

@@ -6,7 +6,7 @@ use crate::query_params::QueryParamsCell;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
 use crate::utils::AppendChild;
-use crate::utils::{create_element, spawn_local_joinable};
+use crate::utils::{create_element};
 use embassy_futures::select::{select, Either};
 use log::{error, info};
 use protocol::display::{DisplayRequest, DisplayResponse, MAX_GLYPHS};
@@ -105,7 +105,7 @@ impl ConnectTab {
 
             inner = ConnectTabInner::ConnectForm(ConnectForm {
                 form: form.clone(),
-                listener: EventListener::new(form.clone().into(), EventType::Submit, move |e| {
+                listener: EventListener::new(&form, EventType::Submit, move |e| {
                     e.prevent_default();
                     if ws_url.value().is_empty() {
                         return false;
@@ -131,7 +131,7 @@ impl ConnectTab {
             let text = form.append_element::<"input">()?;
             text.set_type("text");
             text.set_placeholder("e.g. helloworld");
-            let change_listener = EventListener::new(text.clone().into(), EventType::Input, {
+            let change_listener = EventListener::new(&text, EventType::Input, {
                 let status = status.clone();
                 let display = display.clone();
                 let text = text.clone();
@@ -158,7 +158,7 @@ impl ConnectTab {
             let (request_send, request_recv) = channel::<DisplayRequest>(10);
             let (response_send, mut response_recv) = channel::<DisplayResponseContainer>(10);
 
-            let submit_listener = EventListener::new(form.clone().into(), EventType::Submit, {
+            let submit_listener = EventListener::new(&form, EventType::Submit, {
                 let status = status.clone();
                 let text = text.clone();
                 move |e| {

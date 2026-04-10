@@ -8,6 +8,7 @@ use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResp
 use protocol::usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, PRODUCT_ID, VENDOR_ID};
 use std::io::Read;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt};
+use log::info;
 
 #[derive(Debug)]
 pub struct UsbAddress {
@@ -37,6 +38,7 @@ impl UsbAddress {
         let dev = self.device.open().await?;
         let config = dev.active_configuration()?;
         for int in config.interfaces() {
+            println!("{:?}", int.first_alt_setting().class());
             if int.first_alt_setting().class() == CUSTOM_CLASS_ID {
                 let int = dev.claim_interface(int.interface_number()).await?;
                 if let Some(desc) = int.descriptor() {
