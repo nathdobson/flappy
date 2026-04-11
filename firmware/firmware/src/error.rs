@@ -44,6 +44,7 @@ pub enum Error {
     #[cfg(feature = "ble")]
     FromGattError(trouble_host::types::gatt_traits::FromGattError),
     NoCertificateListSha256,
+    BootselButtonTimeout,
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -87,7 +88,8 @@ impl Display for Error {
             Error::NotEnoughReceivers => write!(f, "Not enough receivers"),
             #[cfg(feature = "ble")]
             Error::FromGattError(e) => write!(f, "Error converting GATT data: {:?}", e),
-            Error::NoCertificateListSha256 => write!(f, "Missing certificate list sha256")
+            Error::NoCertificateListSha256 => write!(f, "Missing certificate list sha256"),
+            Error::BootselButtonTimeout => write!(f, "Timeout waiting for the user to press bootsel."),
         }
     }
 }

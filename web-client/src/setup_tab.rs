@@ -197,12 +197,16 @@ impl SetupTab {
         self.disconnect_button
             .style()
             .set_property("display", if connection { "block" } else { "none" })?;
-        self.serial_number.set_text_content(None);
-        self.firmware_version.set_text_content(None);
-        self.glyph_count.set_text_content(None);
-        self.wifi_status.set_text_content(None);
-        self.mqtt_status.set_text_content(None);
-        self.wifi_settings.set_value(&WifiSettings::default());
+        if !connection {
+            self.serial_number.set_text_content(None);
+            self.firmware_version.set_text_content(None);
+            self.glyph_count.set_text_content(None);
+            self.wifi_status.set_text_content(None);
+            self.mqtt_status.set_text_content(None);
+            self.wifi_settings.set_value(&WifiSettings::default());
+            self.connect_status.reset();
+            self.connect_status.set(StatusPriority::Info, String::new());
+        }
         Ok(())
     }
     fn weak_callback(

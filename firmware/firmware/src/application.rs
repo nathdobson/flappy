@@ -90,8 +90,13 @@ impl Application {
         #[cfg(feature = "radio")]
         let led = crate::led::LedModule::new(spawner, radio_drivers.module).await?;
         #[cfg(feature = "ble")]
-        let ble = crate::ble::BleModule::new(spawner, radio_drivers.ble, radio_drivers.mac_address)
-            .await?;
+        let ble = crate::ble::BleModule::new(
+            spawner,
+            radio_drivers.ble,
+            radio_drivers.mac_address,
+            bootsel,
+        )
+        .await?;
         #[cfg(feature = "wifi")]
         let wifi = crate::wifi::WifiModule::new(
             spawner,

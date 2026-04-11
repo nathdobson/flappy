@@ -1,3 +1,4 @@
+use crate::bootsel::BootselModule;
 use crate::error::Error;
 use crate::product::serial_number;
 use crate::{make_static, product};
@@ -15,7 +16,8 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::{Channel, DynamicReceiver, DynamicSender};
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
-use embassy_time::{Duration, Timer, WithTimeout};
+use embassy_time::{Delay, Duration, Timer, WithTimeout};
+use embedded_hal_async::delay::DelayNs;
 use heapless::{String, Vec, format};
 use log::{error, info, warn};
 use protocol::ble::SERIAL_MTU;
@@ -26,7 +28,7 @@ use trouble_host::advertise::{
     LE_GENERAL_DISCOVERABLE, PhyKind, TxPower,
 };
 use trouble_host::attribute::{AttributeTable, Characteristic, Uuid};
-use trouble_host::connection::Connection;
+use trouble_host::connection::{Connection, SecurityLevel};
 use trouble_host::gap::{GapConfig, PeripheralConfig};
 use trouble_host::gatt::{GattConnection, GattConnectionEvent, GattEvent};
 use trouble_host::l2cap::{CreditFlowPolicy, L2capChannel, L2capChannelConfig};
@@ -60,7 +62,7 @@ pub struct FlappyService {
         uuid = "4574529b-fbe4-44ae-ba52-d877ac76ef2d",
         read,
         notify,
-        permissions(authenticated)
+        permissions(encrypted)
     )]
     //
     pub serial_in: Vec<u8, SERIAL_MTU>,
@@ -69,7 +71,7 @@ pub struct FlappyService {
     #[characteristic(
         uuid = "2d2bc907-c9fa-49fd-ba45-410cddf61e5c",
         write,
-        permissions(authenticated)
+        permissions(encrypted)
     )]
     //
     pub serial_out: Vec<u8, SERIAL_MTU>,
@@ -77,14 +79,6 @@ pub struct FlappyService {
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "App Status")]
     #[characteristic(uuid = "4dc5669d-6bc8-40eb-b6af-8091d4e9b713", read, notify)]
     pub app_status: HeaplessString<256>,
-
-    #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Dummy")]
-    #[characteristic(
-        uuid = "4a02f134-cc41-4a7b-94af-e29d290cffa5",
-        read,
-        permissions(authenticated)
-    )]
-    pub dummy: u8,
 }
 
 pub struct BleModule {
@@ -96,6 +90,7 @@ pub struct BleModule {
     setup_request: Channel<NoopRawMutex, SetupRequest, 1>,
     setup_response: Channel<NoopRawMutex, SetupResponse, 1>,
     setup_status: Watch<NoopRawMutex, AppStatus, 1>,
+    bootsel: &'static BootselModule,
 }
 
 type MyPacketPool = DefaultPacketPool;
@@ -115,6 +110,7 @@ impl BleModule {
         spawner: Spawner,
         driver: MyDriver,
         mac_address: [u8; 6],
+        bootsel: &'static BootselModule,
     ) -> Result<&'static BleModule, Error> {
         info!("{MODULE} Starting Bluetooth Low Energy");
         let controller = MyController::new(driver);
@@ -148,6 +144,7 @@ impl BleModule {
                 setup_request: Channel::new(),
                 setup_response: Channel::new(),
                 setup_status: Watch::new(),
+                bootsel,
             }
         );
         spawner.clone().spawn({
@@ -248,6 +245,19 @@ impl BleModule {
                 match conn.next().await {
                     GattConnectionEvent::Disconnected { reason } => {
                         break;
+                    }
+                    GattConnectionEvent::PairingComplete { .. } => {
+                        let mut pressed = false;
+                        for i in 0..100 {
+                            if self.bootsel.is_pressed() {
+                                pressed = true;
+                                break;
+                            }
+                            Delay.delay_ms(100).await;
+                        }
+                        if !pressed {
+                            return Err(Error::BootselButtonTimeout);
+                        }
                     }
                     GattConnectionEvent::Gatt { event } => {
                         match &event {

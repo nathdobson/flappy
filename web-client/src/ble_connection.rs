@@ -5,7 +5,7 @@ use crate::utils::{bluetooth, sleep};
 use js_sys::{ArrayBuffer, Uint8Array};
 use log::{error, info};
 use protocol::ble::{
-    APP_STATUS_UUID, DUMMY_UUID, FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID,
+    APP_STATUS_UUID,  FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID,
 };
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, MAX_SETUP_MESSAGE_SIZE,
@@ -76,10 +76,6 @@ impl BleConnection {
             .await?;
         let serial_out_char = service
             .get_characteristic_with_str(&SERIAL_OUT_UUID.to_string())
-            .into_future()
-            .await?;
-        let dummy_char = service
-            .get_characteristic_with_str(&DUMMY_UUID.to_string())
             .into_future()
             .await?;
         connect_status.set(
@@ -154,22 +150,14 @@ impl BleConnection {
             .unwrap();
         connection.connect_status.set(
             StatusPriority::Info,
-            "Bluetooth: reading dummy...".to_string(),
-        );
-        dummy_char.read_value().into_future().await?;
-        connection.connect_status.set(
-            StatusPriority::Info,
-            "Bluetooth: subscribing to status updates...".to_string(),
+            "Waiting for status notifications...".to_string(),
         );
         status_char.start_notifications().into_future().await?;
         connection.connect_status.set(
             StatusPriority::Info,
-            "Bluetooth: subscribing to serial input updates...".to_string(),
+            "Press white button on microcontroller.".to_string(),
         );
-        while let Err(e) = serial_in_char.start_notifications().into_future().await {
-            error!("{:?}", e);
-            sleep(1000).await;
-        }
+        serial_in_char.start_notifications().into_future().await?;
         connection
             .connect_status
             .set(StatusPriority::Info, "Bluetooth: Connected".to_string());
