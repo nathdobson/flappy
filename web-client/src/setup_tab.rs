@@ -15,6 +15,7 @@ use web_sys::{
     Url,
 };
 
+use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
 use crate::ble_connection::BleConnection;
 use crate::connection::{Connection, ConnectionType};
 use crate::field;
@@ -125,22 +126,17 @@ impl SetupTab {
         wifi_struct.add(field!(password), TextEditor::new()?)?;
         let wifi_settings = ValueForm::new(wifi_struct)?;
         wifi_settings.set_submit_name("Save Wifi Settings");
-        wifi_settings.set_on_submit({
-            let this = this.downgrade();
-            move |settings| {
-                let this = this.clone();
-                Box::pin(async move {
-                    if let Some(this) = this.upgrade() {
-                        this.write_settings_partial(WriteAppSettings {
-                            wifi: Some(settings),
-                            ..WriteAppSettings::default()
-                        })
-                        .await?;
-                    }
-                    Ok(())
+        wifi_settings.set_on_submit(bind_weak_try_async_fn1(
+            this.downgrade(),
+            async move |this, settings| {
+                this.write_settings_partial(WriteAppSettings {
+                    wifi: Some(settings),
+                    ..WriteAppSettings::default()
                 })
-            }
-        });
+                .await?;
+                Ok(())
+            },
+        ));
         wifi_section.append_child(wifi_settings.node())?;
 
         let read_button = node.append_element::<"button">()?;

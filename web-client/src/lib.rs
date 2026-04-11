@@ -7,8 +7,14 @@
 #![feature(unsized_const_params)]
 #![feature(adt_const_params)]
 #![feature(unwrap_infallible)]
+#![feature(async_fn_traits)]
+#![feature(tuple_trait)]
+#![feature(unboxed_closures)]
 #![allow(incomplete_features)]
 #![allow(unused_mut)]
+#![feature(unsized_fn_params)]
+#![allow(internal_features)]
+#![feature(fn_traits)]
 
 mod ble_connection;
 mod connect_tab;
@@ -25,6 +31,8 @@ mod tabs;
 mod usb_connection;
 mod utils;
 mod value_editor;
+mod bind_weak;
+mod dyn_async_fn;
 
 use crate::connect_tab::ConnectTab;
 use crate::display::{Display, DisplayState};

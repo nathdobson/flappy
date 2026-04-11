@@ -1,3 +1,4 @@
+use crate::dyn_async_fn::DynAsyncFn;
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::status::StatusPriority;
@@ -8,6 +9,7 @@ use empty_rc::EmptyRc;
 use futures_util::future::{BoxFuture, LocalBoxFuture};
 use js_sys::futures::spawn_local;
 use std::cell::{OnceCell, RefCell};
+use std::future::Future;
 use std::rc::Rc;
 use web_sys::{HtmlDivElement, HtmlFormElement, HtmlInputElement, Text};
 
@@ -17,7 +19,7 @@ pub struct ValueForm<T> {
     submit: HtmlInputElement,
     submit_status: HtmlDivElement,
     event_listener: EventListener<'static>,
-    on_submit: RefCell<Option<Rc<dyn Fn(T) -> LocalBoxFuture<'static, Result<(), Error>>>>>,
+    on_submit: RefCell<Option<Rc<dyn DynAsyncFn(T) -> Result<(), Error>>>>,
 }
 
 impl<T: 'static> ValueForm<T> {
@@ -62,8 +64,8 @@ impl<T: 'static> ValueForm<T> {
         let value = self.value.borrow().get_value()?;
         let on_submit = self.on_submit.borrow().clone();
         if let Some(on_submit) = on_submit {
-            let on_submit = on_submit(value);
             spawn_local(async move {
+                let on_submit = on_submit.call(value);
                 if let Err(e) = on_submit.await {
                     self.submit_status.set_text_content(Some(&format!("{}", e)));
                 }
@@ -77,10 +79,10 @@ impl<T: 'static> ValueForm<T> {
     pub fn set_value(&self, value: &T) {
         self.value.borrow_mut().set_value(value);
     }
-    pub fn set_on_submit(
-        &self,
-        on_submit: impl 'static + Fn(T) -> LocalBoxFuture<'static, Result<(), Error>>,
-    ) {
+    pub fn set_on_submit<F>(&self, on_submit: F)
+    where
+        F: 'static + AsyncFn(T) -> Result<(), Error>,
+    {
         *self.on_submit.borrow_mut() = Some(Rc::new(on_submit));
     }
 }
