@@ -38,9 +38,12 @@ impl<T: 'static> ValueForm<T> {
             move |e| {
                 e.prevent_default();
                 if let Some(this) = this.upgrade() {
+                    this.submit_status.set_text_content(Some("Submitting..."));
                     if let Err(e) = this.clone().do_submit() {
                         this.submit_status
                             .set_text_content(Some(&format!("Submit failure: {}", e)));
+                    } else {
+                        this.submit_status.set_text_content(Some("Submitted"));
                     }
                 }
                 false

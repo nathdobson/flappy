@@ -42,6 +42,7 @@ pub enum Error {
     UsbMissingEndpoint,
     UsbTransferError(UsbTransferStatus),
     UsbMissingData,
+    ParseIntError(std::num::ParseIntError),
 }
 
 impl From<JsValue> for Error {
@@ -134,6 +135,12 @@ impl From<WriteSettingsError> for Error {
     }
 }
 
+impl From<std::num::ParseIntError> for Error {
+    fn from(value: std::num::ParseIntError) -> Self {
+        Error::ParseIntError(value)
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -183,6 +190,7 @@ impl Display for Error {
             Error::UsbMissingEndpoint => write!(f, "USB missing endpoint"),
             Error::UsbTransferError(x) => write!(f, "USB transfer error: {:?}", x),
             Error::UsbMissingData => write!(f, "USB missing data"),
+            Error::ParseIntError(e) => write!(f, "parse int error: {}", e),
         }
     }
 }

@@ -27,9 +27,7 @@ use empty_rc::EmptyRc;
 use itertools::Itertools;
 use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
 use jsonformat::Indentation;
-use protocol::setup::{
-    AppSettings, AppStatus, SetupRequest, WifiSettings, WriteAppSettings, MAX_SETUP_MESSAGE_SIZE,
-};
+use protocol::setup::{AppSettings, AppStatus, MqttSettings, SetupRequest, WifiSettings, WriteAppSettings, MAX_SETUP_MESSAGE_SIZE};
 use std::future::IntoFuture;
 use std::iter::Once;
 use wasm_bindgen::{JsCast, JsValue};
@@ -53,6 +51,7 @@ pub struct SetupTab {
     wifi_status: HtmlDivElement,
     mqtt_status: HtmlDivElement,
     wifi_settings: Rc<ValueForm<WifiSettings>>,
+    mqtt_settings: Rc<ValueForm<MqttSettings>>,
 }
 
 struct ConnectionTask {
@@ -139,6 +138,33 @@ impl SetupTab {
         ));
         wifi_section.append_child(wifi_settings.node())?;
 
+
+        let mqtt_section = node.append_element::<"div">()?;
+        mqtt_section.set_class_name("setup-section");
+        mqtt_section
+            .append_element::<"div">()?
+            .set_text_content(Some("MQTT Settings"));
+        let mut mqtt_struct = StructEditor::<MqttSettings>::new()?;
+        mqtt_struct.add(field!(hostname), TextEditor::new()?)?;
+        mqtt_struct.add(field!(port), TextEditor::new()?)?;
+        mqtt_struct.add(field!(username), TextEditor::new()?)?;
+        mqtt_struct.add(field!(password), TextEditor::new()?)?;
+        mqtt_struct.add(field!(topic), TextEditor::new()?)?;
+        let mqtt_settings = ValueForm::new(mqtt_struct)?;
+        mqtt_settings.set_submit_name("Save MQTT Settings");
+        mqtt_settings.set_on_submit(bind_weak_try_async_fn1(
+            this.downgrade(),
+            async move |this, settings| {
+                this.write_settings_partial(WriteAppSettings {
+                    mqtt: Some(settings),
+                    ..WriteAppSettings::default()
+                })
+                    .await?;
+                Ok(())
+            },
+        ));
+        mqtt_section.append_child(mqtt_settings.node())?;
+
         let read_button = node.append_element::<"button">()?;
         read_button.append_text("Read settings file from display")?;
         let write_button = node.append_element::<"button">()?;
@@ -188,6 +214,7 @@ impl SetupTab {
             wifi_status,
             mqtt_status,
             wifi_settings,
+            mqtt_settings,
         });
         this.show_connection(false)?;
         Ok(this)
@@ -269,6 +296,7 @@ impl SetupTab {
             .set_text_content(Some(&format!("{}", device_info.glyphs)));
         let settings = connection.read_settings().await?;
         self.wifi_settings.set_value(&settings.wifi);
+        self.mqtt_settings.set_value(&settings.mqtt);
         // There's probably a bug in chrome's WebUSB implementation that drops packets, so we
         // need to run touch_app_status twice.
         connection.touch_app_status().await?;

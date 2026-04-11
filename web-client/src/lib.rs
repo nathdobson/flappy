@@ -14,7 +14,6 @@
 #![allow(unused_mut)]
 #![feature(unsized_fn_params)]
 #![allow(internal_features)]
-#![feature(fn_traits)]
 
 mod ble_connection;
 mod connect_tab;
