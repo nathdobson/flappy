@@ -767,6 +767,7 @@ dependencies = [
  "embedded-storage",
  "embedded-storage-async",
  "fixed",
+ "log",
  "nb 1.1.0",
  "pio",
  "rand_core 0.10.0",

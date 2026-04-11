@@ -7,6 +7,13 @@ opt-level = "z"
 lto = true
 strip = true
 
+[profile.debug-release]
+lto = false
+inherits = "release"
+strip = false
+opt-level = "z"
+debug = true
+
 [patch.crates-io]
 embassy-time = { path = "../submodules/embassy/embassy-time" }
 embassy-sync = { path = "../submodules/embassy/embassy-sync" }

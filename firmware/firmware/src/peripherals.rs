@@ -1,3 +1,4 @@
+use crate::bootsel::BootselPeripherals;
 use crate::runtime::RuntimePeripherals;
 use embassy_rp::Peri;
 use embassy_rp::peripherals::USB;
@@ -7,8 +8,9 @@ pub struct AppPeripherals {
     pub flash_peri: crate::flash::FlashPeripherals,
     #[cfg(feature = "display")]
     pub driver_peri: crate::driver::DriverPeripherals,
-    #[cfg(feature="radio")]
+    #[cfg(feature = "radio")]
     pub radio_peri: crate::radio::RadioPeripherals,
+    pub bootsel: BootselPeripherals,
 }
 
 pub fn build_peripherals() -> (RuntimePeripherals, AppPeripherals) {
@@ -34,7 +36,7 @@ pub fn build_peripherals() -> (RuntimePeripherals, AppPeripherals) {
                 PIN_6: p.PIN_6,
                 SPI0: p.SPI0,
             },
-            #[cfg(feature="radio")]
+            #[cfg(feature = "radio")]
             radio_peri: crate::radio::RadioPeripherals {
                 PIN_23: p.PIN_23,
                 PIN_24: p.PIN_24,
@@ -43,6 +45,7 @@ pub fn build_peripherals() -> (RuntimePeripherals, AppPeripherals) {
                 PIO0: p.PIO0,
                 DMA_CH0: p.DMA_CH0,
             },
+            bootsel: BootselPeripherals { bootsel: p.BOOTSEL },
         },
     )
 }

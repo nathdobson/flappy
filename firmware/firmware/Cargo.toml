@@ -18,6 +18,7 @@ embassy-rp = { path = "../../submodules/embassy/embassy-rp", features = [
   "rp235xa",
   "time-driver",
    "critical-section-impl", "rp235xa","binary-info",
+  "log"
 ] }
 embassy-time = { path = "../../submodules/embassy/embassy-time", features = [] }
 embassy-usb = { path = "../../submodules/embassy/embassy-usb" ,optional = true}

@@ -1,11 +1,11 @@
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::status::{Status, StatusPriority};
-use crate::utils::bluetooth;
+use crate::utils::{bluetooth, sleep};
 use js_sys::{ArrayBuffer, Uint8Array};
 use log::{error, info};
 use protocol::ble::{
-    APP_STATUS_UUID, FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID,
+    APP_STATUS_UUID, DUMMY_UUID, FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID,
 };
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, MAX_SETUP_MESSAGE_SIZE,
@@ -64,7 +64,7 @@ impl BleConnection {
             .await?;
         connect_status.set(
             StatusPriority::Info,
-            "Bluetooth: listening to status updates...".to_string(),
+            "Bluetooth: retrieving characteristics...".to_string(),
         );
         let status_char = service
             .get_characteristic_with_str(&APP_STATUS_UUID.to_string())
@@ -78,6 +78,14 @@ impl BleConnection {
             .get_characteristic_with_str(&SERIAL_OUT_UUID.to_string())
             .into_future()
             .await?;
+        let dummy_char = service
+            .get_characteristic_with_str(&DUMMY_UUID.to_string())
+            .into_future()
+            .await?;
+        connect_status.set(
+            StatusPriority::Info,
+            "Bluetooth: listening to status updates...".to_string(),
+        );
         let (response_tx, response_rx) = mpsc::unbounded_channel();
         let (app_status_tx, app_status_rx) = watch::channel(AppStatus::default());
         let connection = Rc::new(BleConnection {
@@ -94,6 +102,10 @@ impl BleConnection {
             response_rx: Mutex::new(response_rx),
             app_status_tx,
         });
+        connection.connect_status.set(
+            StatusPriority::Info,
+            "Bluetooth: listening to status characteristic...".to_string(),
+        );
         connection
             .status_notify_listener
             .set(EventListener::new(
@@ -115,6 +127,10 @@ impl BleConnection {
             )?)
             .ok()
             .unwrap();
+        connection.connect_status.set(
+            StatusPriority::Info,
+            "Bluetooth: listening to serial input characteristic...".to_string(),
+        );
         connection
             .serial_in_notify_listener
             .set(EventListener::new(
@@ -138,10 +154,22 @@ impl BleConnection {
             .unwrap();
         connection.connect_status.set(
             StatusPriority::Info,
+            "Bluetooth: reading dummy...".to_string(),
+        );
+        dummy_char.read_value().into_future().await?;
+        connection.connect_status.set(
+            StatusPriority::Info,
             "Bluetooth: subscribing to status updates...".to_string(),
         );
         status_char.start_notifications().into_future().await?;
-        serial_in_char.start_notifications().into_future().await?;
+        connection.connect_status.set(
+            StatusPriority::Info,
+            "Bluetooth: subscribing to serial input updates...".to_string(),
+        );
+        while let Err(e) = serial_in_char.start_notifications().into_future().await {
+            error!("{:?}", e);
+            sleep(1000).await;
+        }
         connection
             .connect_status
             .set(StatusPriority::Info, "Bluetooth: Connected".to_string());

@@ -60,6 +60,7 @@ mod make_static;
 mod spindle;
 mod display;
 mod interrupts;
+mod bootsel;
 
 extern crate alloc;
 

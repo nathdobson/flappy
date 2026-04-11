@@ -1,3 +1,4 @@
+use crate::bootsel::BootselModule;
 use crate::cli::{Adjustment, Command, MqttField, TestType, WifiField};
 use crate::error::Error;
 use crate::peripherals::AppPeripherals;
@@ -74,6 +75,7 @@ impl Application {
         runtime: &'static RuntimeModule,
         peri: AppPeripherals,
     ) -> Result<&'static Self, Error> {
+        let bootsel = BootselModule::new(spawner, peri.bootsel)?;
         #[cfg(feature = "display")]
         let driver = crate::driver::DriverModule::new(peri.driver_peri).await?;
         #[cfg(feature = "display")]

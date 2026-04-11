@@ -34,7 +34,7 @@ use trouble_host::prelude::{
     AddrKind, AsGatt, BdAddr, CccdTable, DefaultPacketPool, ExternalController, FromGatt,
     HeaplessString, Peripheral, Runner, appearance, descriptors, gatt_server, gatt_service, uuid,
 };
-use trouble_host::{Address, HostResources, PacketPool, Stack};
+use trouble_host::{Address, HostResources, IoCapabilities, PacketPool, Stack};
 
 const MODULE: &'static str = "[BLE  ]";
 /// Max number of connections
@@ -56,18 +56,35 @@ pub struct Server {
 #[gatt_service(uuid = FLAPPY_SERVICE_UUID)]
 pub struct FlappyService {
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Serial in")]
-    #[characteristic(uuid = "4574529b-fbe4-44ae-ba52-d877ac76ef2d", read, notify)]
-    // permissions(encrypted, cccd = authenticated)
+    #[characteristic(
+        uuid = "4574529b-fbe4-44ae-ba52-d877ac76ef2d",
+        read,
+        notify,
+        permissions(authenticated)
+    )]
+    //
     pub serial_in: Vec<u8, SERIAL_MTU>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Serial out")]
-    #[characteristic(uuid = "2d2bc907-c9fa-49fd-ba45-410cddf61e5c", write)]
-    //permissions(encrypted, cccd = authenticated)
+    #[characteristic(
+        uuid = "2d2bc907-c9fa-49fd-ba45-410cddf61e5c",
+        write,
+        permissions(authenticated)
+    )]
+    //
     pub serial_out: Vec<u8, SERIAL_MTU>,
 
     #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "App Status")]
     #[characteristic(uuid = "4dc5669d-6bc8-40eb-b6af-8091d4e9b713", read, notify)]
     pub app_status: HeaplessString<256>,
+
+    #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Dummy")]
+    #[characteristic(
+        uuid = "4a02f134-cc41-4a7b-94af-e29d290cffa5",
+        read,
+        permissions(authenticated)
+    )]
+    pub dummy: u8,
 }
 
 pub struct BleModule {
@@ -107,7 +124,8 @@ impl BleModule {
             trouble_host::new(controller, resources)
                 .set_random_address(Address::random(mac_address))
                 .set_random_generator_seed(&mut RoscRng)
-                .set_secure_connections_only(false)
+                .set_secure_connections_only(true)
+                .set_io_capabilities(IoCapabilities::NoInputNoOutput)
                 .build()
         );
         let central = stack.central();
@@ -217,10 +235,8 @@ impl BleModule {
                 },
             )
             .await?;
-        let conn = advertiser
-            .accept()
-            .await?
-            .with_attribute_server(&self.server)?;
+        let conn = advertiser.accept().await?;
+        let conn = conn.with_attribute_server(&self.server)?;
         info!("{MODULE} connection established");
         Ok(conn)
     }
@@ -233,10 +249,6 @@ impl BleModule {
                     GattConnectionEvent::Disconnected { reason } => {
                         break;
                     }
-                    // GattConnectionEvent::PassKeyInput => {
-                    //     info!("[gatt] passkey input");
-                    //     conn.pass_key_input(1234)?;
-                    // }
                     GattConnectionEvent::Gatt { event } => {
                         match &event {
                             GattEvent::Write(event) => {
