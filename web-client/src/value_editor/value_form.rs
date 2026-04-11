@@ -1,9 +1,12 @@
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
+use crate::status::StatusPriority;
 use crate::utils::create_element;
 use crate::utils::AppendChild;
 use crate::value_editor::ValueEditor;
 use empty_rc::EmptyRc;
+use futures_util::future::{BoxFuture, LocalBoxFuture};
+use js_sys::futures::spawn_local;
 use std::cell::{OnceCell, RefCell};
 use std::rc::Rc;
 use web_sys::{HtmlDivElement, HtmlFormElement, HtmlInputElement, Text};
@@ -14,7 +17,7 @@ pub struct ValueForm<T> {
     submit: HtmlInputElement,
     submit_status: HtmlDivElement,
     event_listener: EventListener<'static>,
-    on_submit: RefCell<Option<Rc<dyn Fn(T) -> Result<(), Error>>>>,
+    on_submit: RefCell<Option<Rc<dyn Fn(T) -> LocalBoxFuture<'static, Result<(), Error>>>>>,
 }
 
 impl<T: 'static> ValueForm<T> {
@@ -33,7 +36,7 @@ impl<T: 'static> ValueForm<T> {
             move |e| {
                 e.prevent_default();
                 if let Some(this) = this.upgrade() {
-                    if let Err(e) = this.do_submit() {
+                    if let Err(e) = this.clone().do_submit() {
                         this.submit_status
                             .set_text_content(Some(&format!("Submit failure: {}", e)));
                     }
@@ -55,11 +58,16 @@ impl<T: 'static> ValueForm<T> {
     pub fn set_submit_name(&self, name: &str) {
         self.submit.set_value(name);
     }
-    fn do_submit(&self) -> Result<(), Error> {
+    fn do_submit(self: Rc<Self>) -> Result<(), Error> {
         let value = self.value.borrow().get_value()?;
         let on_submit = self.on_submit.borrow().clone();
         if let Some(on_submit) = on_submit {
-            on_submit(value)?;
+            let on_submit = on_submit(value);
+            spawn_local(async move {
+                if let Err(e) = on_submit.await {
+                    self.submit_status.set_text_content(Some(&format!("{}", e)));
+                }
+            });
         }
         Ok(())
     }
@@ -69,7 +77,10 @@ impl<T: 'static> ValueForm<T> {
     pub fn set_value(&self, value: &T) {
         self.value.borrow_mut().set_value(value);
     }
-    pub fn set_on_submit(&self, on_submit: impl 'static + Fn(T) -> Result<(), Error>) {
+    pub fn set_on_submit(
+        &self,
+        on_submit: impl 'static + Fn(T) -> LocalBoxFuture<'static, Result<(), Error>>,
+    ) {
         *self.on_submit.borrow_mut() = Some(Rc::new(on_submit));
     }
 }

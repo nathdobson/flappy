@@ -2,7 +2,7 @@ use crate::ble_connection::BleConnection;
 use crate::error::Error;
 use crate::status::Status;
 use crate::usb_connection::UsbConnection;
-use protocol::setup::{AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse};
+use protocol::setup::{AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteAppSettings};
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -45,13 +45,13 @@ impl Connection {
             _ => Err(Error::BadResponse),
         }
     }
-    pub async fn write_settings(&self, settings: AppSettings) -> Result<(), Error> {
+    pub async fn write_settings(&self, settings: WriteAppSettings) -> Result<(), Error> {
         match self.invoke(SetupRequest::WriteSettings(settings)).await? {
             SetupResponse::WriteSettings(settings) => Ok(settings?),
             _ => Err(Error::BadResponse),
         }
     }
-    
+
     async fn invoke(&self, request: SetupRequest) -> Result<SetupResponse, Error> {
         match self {
             Connection::UsbConnection(connection) => connection.invoke(request).await,

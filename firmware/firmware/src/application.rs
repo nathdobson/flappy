@@ -25,10 +25,10 @@ use log::{error, info};
 use protocol::display::MAX_GLYPH_BYTES;
 use protocol::display::MAX_GLYPHS;
 use protocol::display::{DisplayRequest, DisplayResponse};
-use protocol::setup::FLAP_COUNT;
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
+use protocol::setup::{FLAP_COUNT, WriteAppSettings};
 
 pub enum DisplayResponseContainer {
     DisplayResponse(DisplayResponse),
@@ -150,27 +150,33 @@ impl Application {
         );
         Ok(application)
     }
-    pub fn set_settings(&self, settings: &AppSettings) -> Result<(), WriteSettingsError> {
+    pub fn set_settings(&self, settings: &WriteAppSettings) -> Result<(), WriteSettingsError> {
         let mut old = self.settings.borrow_mut();
-        if old.wifi != settings.wifi {
-            old.wifi = settings.wifi.clone();
-            #[cfg(feature = "wifi")]
-            self.wifi.set_settings(settings.wifi.clone());
+        if let Some(wifi) = &settings.wifi {
+            if old.wifi != *wifi {
+                old.wifi = wifi.clone();
+                #[cfg(feature = "wifi")]
+                self.wifi.set_settings(wifi.clone());
+            }
         }
-        if old.mqtt != settings.mqtt {
-            old.mqtt = settings.mqtt.clone();
-            #[cfg(feature = "mqtt")]
-            self.mqtt.set_settings(settings.mqtt.clone());
+        if let Some(mqtt) = &settings.mqtt {
+            if old.mqtt != *mqtt {
+                old.mqtt = mqtt.clone();
+                #[cfg(feature = "mqtt")]
+                self.mqtt.set_settings(mqtt.clone());
+            }
         }
-        if old.display != settings.display {
-            old.display = settings.display.clone();
-            #[cfg(feature = "display")]
-            self.controller.set_settings(settings.display.clone());
-            #[cfg(feature = "display")]
-            self.display.set_settings(settings.display.clone());
+        if let Some(display) = &settings.display {
+            if old.display != *display {
+                old.display = display.clone();
+                #[cfg(feature = "display")]
+                self.controller.set_settings(display.clone());
+                #[cfg(feature = "display")]
+                self.display.set_settings(display.clone());
+            }
         }
         #[cfg(feature = "flash")]
-        self.flash.save(settings)?;
+        self.flash.save(&old)?;
         Ok(())
     }
 

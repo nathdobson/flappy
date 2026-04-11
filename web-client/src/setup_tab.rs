@@ -26,7 +26,9 @@ use empty_rc::EmptyRc;
 use itertools::Itertools;
 use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
 use jsonformat::Indentation;
-use protocol::setup::{AppSettings, AppStatus, SetupRequest, WifiSettings, MAX_SETUP_MESSAGE_SIZE};
+use protocol::setup::{
+    AppSettings, AppStatus, SetupRequest, WifiSettings, WriteAppSettings, MAX_SETUP_MESSAGE_SIZE,
+};
 use std::future::IntoFuture;
 use std::iter::Once;
 use wasm_bindgen::{JsCast, JsValue};
@@ -126,10 +128,17 @@ impl SetupTab {
         wifi_settings.set_on_submit({
             let this = this.downgrade();
             move |settings| {
-                if let Some(this) = this.upgrade() {
-                    this.write_wifi_settings(settings);
-                }
-                Ok(())
+                let this = this.clone();
+                Box::pin(async move {
+                    if let Some(this) = this.upgrade() {
+                        this.write_settings_partial(WriteAppSettings {
+                            wifi: Some(settings),
+                            ..WriteAppSettings::default()
+                        })
+                        .await?;
+                    }
+                    Ok(())
+                })
             }
         });
         wifi_section.append_child(wifi_settings.node())?;
@@ -254,7 +263,7 @@ impl SetupTab {
         self.serial_number
             .set_text_content(Some(&format!("{:016x}", device_info.serial)));
         let dirty = if device_info.git_dirty == Some(true) {
-            "(dirty)"
+            " (modified)"
         } else {
             ""
         };
@@ -368,24 +377,21 @@ impl SetupTab {
         let app_settings: AppSettings = serde_json_core::from_str_escaped(&file, &mut temp)?.0;
         self.connect_status
             .set(StatusPriority::Info, "Writing settings...".to_string());
-        connection.write_settings(app_settings).await?;
+        connection
+            .write_settings(WriteAppSettings {
+                wifi: Some(app_settings.wifi),
+                mqtt: Some(app_settings.mqtt),
+                display: Some(app_settings.display),
+            })
+            .await?;
         self.connect_status.set(
             StatusPriority::Info,
             "Finished writing settings.".to_string(),
         );
         Ok(())
     }
-    fn write_wifi_settings(self: Rc<Self>, settings: WifiSettings) {
-        spawn_local(async move {
-            if let Err(e) = self.try_write_wifi_settings(settings).await {
-                error!("{:?}", e);
-            }
-        });
-    }
-    async fn try_write_wifi_settings(&self, settings: WifiSettings) -> Result<(), Error> {
-        let connection = self.connection()?;
-        // connection.write_wifi_settings(settings).await?;
-        info!("Writing {:?}", settings);
+    async fn write_settings_partial(&self, settings: WriteAppSettings) -> Result<(), Error> {
+        self.connection()?.write_settings(settings).await?;
         Ok(())
     }
 }

@@ -13,9 +13,17 @@ pub const FLAP_COUNT: usize = 45;
 pub enum SetupRequest {
     Ping,
     ReadSettings,
-    WriteSettings(AppSettings),
+    WriteSettings(WriteAppSettings),
     TouchAppStatus,
     DeviceInfo,
+}
+
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct WriteAppSettings {
+    pub wifi: Option<WifiSettings>,
+    pub mqtt: Option<MqttSettings>,
+    pub display: Option<DisplaySettings>,
 }
 
 #[derive(Debug, Clone)]
@@ -74,14 +82,23 @@ pub struct DisplaySettings {
     #[cfg_attr(feature = "serde", serde(default))]
     pub fast_ticks_per_step: Option<u8>,
     #[cfg_attr(feature = "serde", serde(default))]
-    pub rehome_after_stopping: bool
+    pub rehome_after_stopping: bool,
 }
+
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AppSettings {
     pub wifi: WifiSettings,
     pub mqtt: MqttSettings,
     pub display: DisplaySettings,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum PartialAppSettings {
+    WifiSettings(WifiSettings),
+    MqttSettings(MqttSettings),
+    DisplaySettings(DisplaySettings),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
