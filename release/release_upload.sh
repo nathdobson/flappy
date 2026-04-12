@@ -14,6 +14,7 @@ cp models/simplified/outer.3mf release/artifacts/model-outer.3mf
 cp models/simplified/left-cap.3mf release/artifacts/model-left-cap.3mf
 cp models/simplified/right-cap.3mf release/artifacts/model-right-cap.3mf
 cp firmware/target/thumbv8m.main-none-eabihf/release/controller release/artifacts/firmware.elf
+cp firmware/target/firmware.bin release/artifacts/firmware.bin
 
 cp setup-client/target/aarch64-apple-darwin/release/setup-client release/artifacts/setup-client-aarch64-apple-darwin
 cp setup-client/target/x86_64-apple-darwin/release/setup-client release/artifacts/setup-client-x86_64-apple-darwin

@@ -3,6 +3,7 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 #![feature(try_blocks)]
+#![allow(unused_features)]
 #[cfg(feature = "ble")]
 mod ble;
 mod error;
@@ -194,7 +195,7 @@ async fn main() -> Result<(), Error> {
                 buf
             };
             eprintln!("reading file");
-            let mut settings: AppSettings =
+            let settings: AppSettings =
                 serde_json_core::from_slice_escaped(&settings, &mut [0u8; MAX_SETUP_MESSAGE_SIZE])?
                     .0;
             eprintln!("writing settings");

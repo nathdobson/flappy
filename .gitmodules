@@ -43,3 +43,7 @@
 [submodule "submodules/cross-usb"]
 	path = submodules/cross-usb
 	url = https://github.com/nathdobson/cross-usb.git
+[submodule "submodules/nusb"]
+	path = submodules/nusb
+	url = https://github.com/nathdobson/nusb.git
+	branch = task/webusb-rebased
