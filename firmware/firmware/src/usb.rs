@@ -10,7 +10,7 @@ use embassy_rp::usb::Driver;
 use embassy_rp::{Peri, bind_interrupts};
 use embassy_usb::{Builder, Config, UsbDevice};
 use log::error;
-use protocol::usb::{PRODUCT_ID, VENDOR_ID};
+use protocol::usb::{APPLICATION_PRODUCT_ID, VENDOR_ID};
 use static_cell::StaticCell;
 use crate::interrupts::Irqs;
 
@@ -50,7 +50,7 @@ impl UsbModule {
     ) -> Result<(), Error> {
         let driver = Driver::new(peri, Irqs);
 
-        let mut config = Config::new(VENDOR_ID, PRODUCT_ID);
+        let mut config = Config::new(VENDOR_ID, APPLICATION_PRODUCT_ID);
         config.manufacturer = Some(protocol::PRODUCT_MANUFACTURER);
         config.product = Some(protocol::PRODUCT_NAME);
 

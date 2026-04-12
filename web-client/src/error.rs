@@ -43,6 +43,7 @@ pub enum Error {
     UsbTransferError(UsbTransferStatus),
     UsbMissingData,
     ParseIntError(std::num::ParseIntError),
+    NotApplicationMode,
 }
 
 impl From<JsValue> for Error {
@@ -191,6 +192,7 @@ impl Display for Error {
             Error::UsbTransferError(x) => write!(f, "USB transfer error: {:?}", x),
             Error::UsbMissingData => write!(f, "USB missing data"),
             Error::ParseIntError(e) => write!(f, "parse int error: {}", e),
+            Error::NotApplicationMode => write!(f, "Device not in application mode. Restart device with no buttons pressed."),
         }
     }
 }

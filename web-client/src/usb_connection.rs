@@ -1,4 +1,5 @@
 use crate::ble_connection::BleConnection;
+use crate::connection::ConnectionMode;
 use crate::error::Error;
 use crate::status::{Status, StatusPriority};
 use crate::utils::try_window;
@@ -9,7 +10,9 @@ use protocol::ble::SERIAL_MTU;
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, MAX_SETUP_MESSAGE_SIZE,
 };
-use protocol::usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, VENDOR_ID};
+use protocol::usb::{
+    APPLICATION_PRODUCT_ID, CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, PICOBOOT_SUBCLASS_ID, VENDOR_ID,
+};
 use serde::Deserialize;
 use std::future::IntoFuture;
 use std::rc::Rc;
@@ -18,12 +21,23 @@ use web_sys::{
     UsbTransferStatus,
 };
 
-pub struct UsbConnection {
-    device: UsbDevice,
+struct ApplicationInterface {
     interface: UsbInterface,
     request: UsbEndpoint,
     response: UsbEndpoint,
     status: UsbEndpoint,
+}
+
+struct PicobootInterface {
+    interface: UsbInterface,
+    endpoint_in: UsbEndpoint,
+    endpoint_out: UsbEndpoint,
+}
+
+pub struct UsbConnection {
+    device: UsbDevice,
+    application_interface: Option<ApplicationInterface>,
+    picoboot_interface: Option<PicobootInterface>,
 }
 
 impl UsbConnection {
@@ -47,24 +61,48 @@ impl UsbConnection {
             StatusPriority::Info,
             "USB: Claiming interface...".to_string(),
         );
+
         for interface in interfaces {
             let alternate = interface.alternate();
-            if alternate.interface_class() == CUSTOM_CLASS_ID
-                && alternate.interface_subclass() == CUSTOM_SUBCLASS_ID
-            {
-                device.claim_interface(interface.interface_number()).await?;
-                let mut endpoints = alternate.endpoints().into_iter();
-                let response = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
-                let request = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
-                let status = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
-                connect_status.set(StatusPriority::Info, "USB: Connected".to_string());
-                return Ok(Rc::new(UsbConnection {
-                    device,
-                    interface,
-                    request,
-                    response,
-                    status,
-                }));
+            match (alternate.interface_class(), alternate.interface_subclass()) {
+                (CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID) => {
+                    device.claim_interface(interface.interface_number()).await?;
+                    let mut endpoints = alternate.endpoints().into_iter();
+                    let response = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
+                    let request = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
+                    let status = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
+                    connect_status.set(StatusPriority::Info, "USB: Connected".to_string());
+                    return Ok(Rc::new(UsbConnection {
+                        device,
+                        application_interface: Some(ApplicationInterface {
+                            interface,
+                            request,
+                            response,
+                            status,
+                        }),
+                        picoboot_interface: None,
+                    }));
+                }
+                (CUSTOM_CLASS_ID, PICOBOOT_SUBCLASS_ID) => {
+                    device.claim_interface(interface.interface_number()).await?;
+                    let mut endpoints = alternate.endpoints().into_iter();
+                    let endpoint_in = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
+                    let endpoint_out = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
+                    connect_status.set(
+                        StatusPriority::Info,
+                        "USB: Connected (with picoboot)".to_string(),
+                    );
+                    return Ok(Rc::new(UsbConnection {
+                        device,
+                        picoboot_interface: Some(PicobootInterface {
+                            interface,
+                            endpoint_in,
+                            endpoint_out,
+                        }),
+                        application_interface: None,
+                    }));
+                }
+                _ => {}
             }
         }
         Err(Error::UsbMissingInterface)
@@ -96,14 +134,29 @@ impl UsbConnection {
         Ok(response)
     }
     pub async fn invoke(&self, request: SetupRequest) -> Result<SetupResponse, Error> {
+        let application = self
+            .application_interface
+            .as_ref()
+            .ok_or(Error::NotApplicationMode)?;
         let mut request_buffer = serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(&request)?;
         self.device
-            .transfer_out_with_u8_slice(self.request.endpoint_number(), &mut request_buffer)?
+            .transfer_out_with_u8_slice(application.request.endpoint_number(), &mut request_buffer)?
             .await?;
-        self.receive_message(&self.response).await
+        self.receive_message(&application.response).await
     }
     pub async fn next_status(&self) -> Result<AppStatus, Error> {
-        Ok(self.receive_message(&self.status).await?)
+        let application = self
+            .application_interface
+            .as_ref()
+            .ok_or(Error::NotApplicationMode)?;
+        Ok(self.receive_message(&application.status).await?)
+    }
+    pub fn mode(&self) -> ConnectionMode {
+        if self.application_interface.is_some() {
+            ConnectionMode::Application
+        } else {
+            ConnectionMode::Picoboot
+        }
     }
 }
 

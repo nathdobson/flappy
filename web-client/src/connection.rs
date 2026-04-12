@@ -2,7 +2,9 @@ use crate::ble_connection::BleConnection;
 use crate::error::Error;
 use crate::status::Status;
 use crate::usb_connection::UsbConnection;
-use protocol::setup::{AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteAppSettings};
+use protocol::setup::{
+    AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteAppSettings,
+};
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -14,6 +16,12 @@ pub enum Connection {
 pub enum ConnectionType {
     Usb,
     Ble,
+}
+
+#[derive(Eq, Ord, PartialEq, PartialOrd, Debug, Hash, Copy, Clone)]
+pub enum ConnectionMode {
+    Application,
+    Picoboot,
 }
 
 impl Connection {
@@ -62,6 +70,12 @@ impl Connection {
         match self {
             Connection::UsbConnection(connection) => connection.next_status().await,
             Connection::BleConnection(connection) => connection.next_status().await,
+        }
+    }
+    pub fn mode(&self) -> ConnectionMode {
+        match self {
+            Connection::UsbConnection(x) => x.mode(),
+            Connection::BleConnection(_) => ConnectionMode::Application,
         }
     }
 }

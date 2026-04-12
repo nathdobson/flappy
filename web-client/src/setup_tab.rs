@@ -17,7 +17,7 @@ use web_sys::{
 
 use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
 use crate::ble_connection::BleConnection;
-use crate::connection::{Connection, ConnectionType};
+use crate::connection::{Connection, ConnectionMode, ConnectionType};
 use crate::field;
 use crate::usb_connection::UsbConnection;
 use crate::value_editor::struct_editor::{Field, StructEditor};
@@ -27,7 +27,10 @@ use empty_rc::EmptyRc;
 use itertools::Itertools;
 use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
 use jsonformat::Indentation;
-use protocol::setup::{AppSettings, AppStatus, MqttSettings, SetupRequest, WifiSettings, WriteAppSettings, MAX_SETUP_MESSAGE_SIZE};
+use protocol::setup::{
+    AppSettings, AppStatus, MqttSettings, SetupRequest, WifiSettings, WriteAppSettings,
+    MAX_SETUP_MESSAGE_SIZE,
+};
 use std::future::IntoFuture;
 use std::iter::Once;
 use wasm_bindgen::{JsCast, JsValue};
@@ -138,7 +141,6 @@ impl SetupTab {
         ));
         wifi_section.append_child(wifi_settings.node())?;
 
-
         let mqtt_section = node.append_element::<"div">()?;
         mqtt_section.set_class_name("setup-section");
         mqtt_section
@@ -159,11 +161,17 @@ impl SetupTab {
                     mqtt: Some(settings),
                     ..WriteAppSettings::default()
                 })
-                    .await?;
+                .await?;
                 Ok(())
             },
         ));
         mqtt_section.append_child(mqtt_settings.node())?;
+
+        let firmware_section = node.append_element::<"div">()?;
+        firmware_section.set_class_name("setup-section");
+        firmware_section
+            .append_element::<"div">()?
+            .set_text_content(Some("Firmware update"));
 
         let read_button = node.append_element::<"button">()?;
         read_button.append_text("Read settings file from display")?;
@@ -281,6 +289,9 @@ impl SetupTab {
         }
     }
     async fn run_connection(&self, connection: Connection) -> Result<(), Error> {
+        if connection.mode() != ConnectionMode::Application {
+            return Ok(());
+        }
         let device_info = connection.device_info().await?;
         info!("Device info: {:#?}", device_info);
         self.serial_number

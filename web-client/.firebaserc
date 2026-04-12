@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "flappy-7d77d"
-  }
+    "default": "flappy-7d77d",
+    "dev": "flappy-dev-d652f"
+  },
+  "targets": {},
+  "etags": {}
 }

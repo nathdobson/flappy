@@ -14,6 +14,7 @@
 #![allow(unused_mut)]
 #![feature(unsized_fn_params)]
 #![allow(internal_features)]
+#![deny(non_snake_case)]
 
 mod ble_connection;
 mod connect_tab;
