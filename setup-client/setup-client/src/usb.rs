@@ -1,14 +1,16 @@
 use crate::Connection;
 use crate::error::Error;
 use itertools::Itertools;
+use log::info;
 use nusb::io::{EndpointRead, EndpointWrite};
 use nusb::transfer::{Bulk, Direction, In, Out};
 use nusb::{Device, DeviceInfo, Endpoint, list_devices};
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
-use protocol::usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, APPLICATION_PRODUCT_ID, VENDOR_ID};
+use protocol::usb::{
+    APPLICATION_PRODUCT_ID, CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, PICOBOOT_PRODUCT_ID, VENDOR_ID,
+};
 use std::io::Read;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt};
-use log::info;
 
 #[derive(Debug)]
 pub struct UsbAddress {
@@ -27,12 +29,19 @@ impl UsbAddress {
     pub async fn list() -> Result<Vec<UsbAddress>, Error> {
         Ok(list_devices()
             .await?
-            .filter(|device| device.vendor_id() == VENDOR_ID && device.product_id() == APPLICATION_PRODUCT_ID)
+            .filter(|device| {
+                device.vendor_id() == VENDOR_ID
+                    && (device.product_id() == APPLICATION_PRODUCT_ID
+                        || device.product_id() == PICOBOOT_PRODUCT_ID)
+            })
             .map(|device| UsbAddress { device })
             .collect())
     }
     pub fn serial_number(&self) -> Option<&str> {
         self.device.serial_number()
+    }
+    pub fn is_picoboot(&self) -> bool {
+        self.device.product_id() == PICOBOOT_PRODUCT_ID
     }
     pub async fn connect(&self) -> Result<UsbConnection, Error> {
         let dev = self.device.open().await?;

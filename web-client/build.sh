@@ -7,6 +7,8 @@ cp www/index.css public/www
 cp www/index.html public/www
 cp www/index.js public/www
 cp www/bootstrap.js public/www
+cp www/favicon.png public/www
+cp -L www/firmware.bin public/www
 cp pkg/web_client_bg.js public/pkg
 cp pkg/web_client_bg.wasm public/pkg
 cp pkg/web_client.js public/pkg

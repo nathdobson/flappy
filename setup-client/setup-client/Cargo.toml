@@ -18,12 +18,12 @@ btleplug = {version="0.11.8",features = ["serde"], optional = true}
 uuid = "1.23.0"
 serde-string = {path="../../common/serde-string"}
 log = "0.4.29"
-picoboot-cross = {path="../../submodules/picoboot-cross"}
+picoboot-cross = {path="../../submodules/picoboot-cross", optional = true }
 
 [target.'cfg(darwin)'.dependencies]
 objc2={version="0.6.1",features=["disable-encoding-assertions"]}
 
 [features]
-usb = ["dep:nusb"]
+usb = ["dep:nusb","dep:picoboot-cross"]
 ble = ["dep:btleplug"]
 default = ["ble","usb"]

@@ -44,6 +44,7 @@ pub enum Error {
     UsbMissingData,
     ParseIntError(std::num::ParseIntError),
     NotApplicationMode,
+    Picoboot(picoboot::Error),
 }
 
 impl From<JsValue> for Error {
@@ -142,6 +143,12 @@ impl From<std::num::ParseIntError> for Error {
     }
 }
 
+impl From<picoboot::Error> for Error{
+    fn from(value: picoboot::Error) -> Self {
+        Error::Picoboot(value)
+    }
+}
+
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -193,6 +200,7 @@ impl Display for Error {
             Error::UsbMissingData => write!(f, "USB missing data"),
             Error::ParseIntError(e) => write!(f, "parse int error: {}", e),
             Error::NotApplicationMode => write!(f, "Device not in application mode. Restart device with no buttons pressed."),
+            Error::Picoboot(e) => write!(f, "{}", e),
         }
     }
 }

@@ -8,6 +8,8 @@ mod ble;
 mod error;
 #[cfg(feature = "usb")]
 mod usb;
+#[cfg(feature = "usb")]
+mod picoboot;
 
 use crate::error::Error;
 // use btleplug::api::Peripheral;
@@ -25,6 +27,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::stdin;
 use tokio::io::{AsyncReadExt, AsyncWrite};
 use uuid::Uuid;
+use crate::picoboot::picoboot;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -84,7 +87,7 @@ struct PicobootCommand {
     #[clap(long)]
     address: String,
     #[clap(long)]
-    bin_file: Option<PathBuf>,
+    bin_file: PathBuf,
 }
 
 enum Connection {
@@ -143,7 +146,11 @@ async fn main() -> Result<(), Error> {
             Transport::Usb => {
                 for display in crate::usb::UsbAddress::list().await? {
                     if let Some(serial) = display.serial_number() {
-                        println!("{}", serial);
+                        print!("{}", serial);
+                        if display.is_picoboot(){
+                            print!(" (awaiting firmware)");
+                        }
+                        println!();
                     }
                 }
             }
@@ -233,8 +240,9 @@ async fn main() -> Result<(), Error> {
                 _ => unreachable!(),
             }
         }
-        Subcommand::Picoboot(_) => {
-            todo!();
+        Subcommand::Picoboot(command) => {
+            #[cfg(feature = "usb")]
+            picoboot(command).await?;
         }
     }
     Ok(())

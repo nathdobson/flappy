@@ -66,6 +66,7 @@ impl UsbConnection {
             let alternate = interface.alternate();
             match (alternate.interface_class(), alternate.interface_subclass()) {
                 (CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID) => {
+                    info!("Application interface");
                     device.claim_interface(interface.interface_number()).await?;
                     let mut endpoints = alternate.endpoints().into_iter();
                     let response = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
@@ -85,6 +86,9 @@ impl UsbConnection {
                 }
                 (CUSTOM_CLASS_ID, PICOBOOT_SUBCLASS_ID) => {
                     device.claim_interface(interface.interface_number()).await?;
+                    if alternate.endpoints().length() == 0 {
+                        continue;
+                    }
                     let mut endpoints = alternate.endpoints().into_iter();
                     let endpoint_in = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;
                     let endpoint_out = endpoints.next().ok_or(Error::UsbMissingEndpoint)?;

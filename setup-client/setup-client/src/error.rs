@@ -27,6 +27,15 @@ pub enum Error {
     StringSerError(StringSerializerError),
     StringDeError(StringDeserializerError),
     FeatureNotEnabled(Transport),
+    #[cfg(feature = "usb")]
+    PicobootError(picoboot::Error),
+}
+
+#[cfg(feature = "usb")]
+impl From<picoboot::Error> for Error {
+    fn from(error: picoboot::Error) -> Self {
+        Error::PicobootError(error)
+    }
 }
 
 #[cfg(feature = "usb")]

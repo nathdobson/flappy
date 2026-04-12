@@ -167,12 +167,6 @@ impl SetupTab {
         ));
         mqtt_section.append_child(mqtt_settings.node())?;
 
-        let firmware_section = node.append_element::<"div">()?;
-        firmware_section.set_class_name("setup-section");
-        firmware_section
-            .append_element::<"div">()?
-            .set_text_content(Some("Firmware update"));
-
         let read_button = node.append_element::<"button">()?;
         read_button.append_text("Read settings file from display")?;
         let write_button = node.append_element::<"button">()?;

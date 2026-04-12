@@ -40,3 +40,6 @@
 [submodule "submodules/picoboot-cross"]
 	path = submodules/picoboot-cross
 	url = https://github.com/nathdobson/picoboot-cross.git
+[submodule "submodules/cross-usb"]
+	path = submodules/cross-usb
+	url = https://github.com/nathdobson/cross-usb.git

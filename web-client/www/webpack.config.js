@@ -17,6 +17,7 @@ module.exports = {
         'index.html',
         'index.css',
         'favicon.png',
+        'firmware.bin',
     ])
   ],
 };
