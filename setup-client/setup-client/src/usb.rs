@@ -5,7 +5,7 @@ use nusb::io::{EndpointRead, EndpointWrite};
 use nusb::transfer::{Bulk, Direction, In, Out};
 use nusb::{Device, DeviceInfo, Endpoint, list_devices};
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
-use protocol::usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, PRODUCT_ID, VENDOR_ID};
+use protocol::usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID, APPLICATION_PRODUCT_ID, VENDOR_ID};
 use std::io::Read;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWriteExt};
 use log::info;
@@ -27,7 +27,7 @@ impl UsbAddress {
     pub async fn list() -> Result<Vec<UsbAddress>, Error> {
         Ok(list_devices()
             .await?
-            .filter(|device| device.vendor_id() == VENDOR_ID && device.product_id() == PRODUCT_ID)
+            .filter(|device| device.vendor_id() == VENDOR_ID && device.product_id() == APPLICATION_PRODUCT_ID)
             .map(|device| UsbAddress { device })
             .collect())
     }

@@ -15,7 +15,9 @@ use clap::{Parser, ValueEnum};
 use futures_util::stream::StreamExt;
 use itertools::Itertools;
 use jsonformat::Indentation;
-use protocol::setup::{AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
+use protocol::setup::{
+    AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE, WriteAppSettings,
+};
 use protocol::setup::{SetupRequest, SetupResponse};
 use std::path::PathBuf;
 use tokio::fs;
@@ -46,6 +48,7 @@ enum Subcommand {
     Write(WriteCommand),
     Info(InfoCommand),
     Monitor(MonitorCommand),
+    Picoboot(PicobootCommand),
 }
 
 #[derive(Parser, Debug)]
@@ -74,6 +77,14 @@ struct MonitorCommand {
 struct InfoCommand {
     #[clap(long)]
     address: String,
+}
+
+#[derive(Parser, Debug)]
+struct PicobootCommand {
+    #[clap(long)]
+    address: String,
+    #[clap(long)]
+    bin_file: Option<PathBuf>,
 }
 
 enum Connection {
@@ -180,7 +191,13 @@ async fn main() -> Result<(), Error> {
                 serde_json_core::from_slice_escaped(&settings, &mut [0u8; MAX_SETUP_MESSAGE_SIZE])?
                     .0;
             eprintln!("writing settings");
-            let resp = conn.invoke(&SetupRequest::WriteSettings(settings)).await?;
+            let resp = conn
+                .invoke(&SetupRequest::WriteSettings(WriteAppSettings {
+                    wifi: Some(settings.wifi),
+                    mqtt: Some(settings.mqtt),
+                    display: Some(settings.display),
+                }))
+                .await?;
         }
         Subcommand::Monitor(monitor) => {
             let mut conn = args.transport.connect(&monitor.address).await?;
@@ -215,6 +232,9 @@ async fn main() -> Result<(), Error> {
                 }
                 _ => unreachable!(),
             }
+        }
+        Subcommand::Picoboot(_) => {
+            todo!();
         }
     }
     Ok(())
