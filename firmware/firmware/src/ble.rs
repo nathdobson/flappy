@@ -238,6 +238,7 @@ impl BleModule {
         Ok(conn)
     }
     async fn handle_connection(&'static self, conn: &MyConnection) -> Result<(), Error> {
+        let mut unlocked = false;
         let receive = async {
             let mut serial_out_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE> = Vec::new();
             let mut tmp = [0u8; MAX_SETUP_MESSAGE_SIZE];
@@ -246,23 +247,24 @@ impl BleModule {
                     GattConnectionEvent::Disconnected { reason } => {
                         break;
                     }
-                    GattConnectionEvent::PairingComplete { .. } => {
-                        let mut pressed = false;
-                        for i in 0..100 {
-                            if self.bootsel.is_pressed() {
-                                pressed = true;
-                                break;
-                            }
-                            Delay.delay_ms(100).await;
-                        }
-                        if !pressed {
-                            return Err(Error::BootselButtonTimeout);
-                        }
-                    }
                     GattConnectionEvent::Gatt { event } => {
                         match &event {
                             GattEvent::Write(event) => {
                                 if event.handle() == self.server.flappy_service.serial_out.handle {
+                                    // Require the user to press the bootsel button before executing
+                                    // commands.
+                                    if !unlocked {
+                                        for i in 0..100 {
+                                            if self.bootsel.is_pressed() {
+                                                unlocked = true;
+                                                break;
+                                            }
+                                            Delay.delay_ms(100).await;
+                                        }
+                                    }
+                                    if !unlocked {
+                                        return Err(Error::BootselButtonTimeout);
+                                    }
                                     let new_data =
                                         event.value(&self.server.flappy_service.serial_out)?;
                                     serial_out_buffer.extend_from_slice(&new_data)?;

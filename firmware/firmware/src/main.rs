@@ -15,6 +15,7 @@
 #![feature(str_split_remainder)]
 #![feature(allocator_api)]
 #![allow(unreachable_code)]
+#![allow(unused_features)]
 
 use core::future::pending;
 use crate::application::main_task;

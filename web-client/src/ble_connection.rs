@@ -155,12 +155,18 @@ impl BleConnection {
         status_char.start_notifications().into_future().await?;
         connection.connect_status.set(
             StatusPriority::Info,
-            "Press white button on microcontroller.".to_string(),
+            "Waiting for serial input notifications...".to_string(),
         );
         serial_in_char.start_notifications().into_future().await?;
+
+        connection
+            .connect_status
+            .set(StatusPriority::Info, "Press white button on microcontroller.".to_string());
+        connection.invoke(SetupRequest::Ping).await?;
         connection
             .connect_status
             .set(StatusPriority::Info, "Bluetooth: Connected".to_string());
+
         Ok(connection)
     }
     fn update_status(&self) -> Result<(), Error> {
