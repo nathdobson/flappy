@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::make_static;
 use crate::runtime::reboot_to_bootsel;
 use embassy_executor::Spawner;
 use embassy_rp::peripherals::USB;
@@ -6,7 +7,10 @@ use embassy_rp::usb::Driver;
 use embassy_usb::control::{InResponse, OutResponse, Recipient, Request, RequestType};
 use embassy_usb::types::{InterfaceNumber, StringIndex};
 use embassy_usb::{Builder, Handler};
-use crate::make_static;
+use protocol::usb::{
+    CUSTOM_CLASS_ID, PICOBOOT_RESET_INTERFACE_PROTOCOL, PICOBOOT_RESET_REQUEST_BOOTSEL,
+    PICOBOOT_SUBCLASS_ID,
+};
 
 /// Implement a USB interface for picotool to instruct the device to restart in BOOTSEL mode for
 /// firmware updates.
@@ -17,11 +21,6 @@ struct UsbResetHandler {
     comm_if: InterfaceNumber,
     str_idx: StringIndex,
 }
-
-const CLASS_VENDOR_SPECIFIC: u8 = 0xFF;
-const RESET_INTERFACE_SUBCLASS: u8 = 0x00;
-const RESET_INTERFACE_PROTOCOL: u8 = 0x01;
-const RESET_REQUEST_BOOTSEL: u8 = 0x01;
 
 impl UsbResetModule {
     pub fn new() -> &'static Self {
@@ -34,20 +33,23 @@ impl UsbResetModule {
     ) -> Result<(), Error> {
         let str_idx = builder.string();
         let mut func = builder.function(
-            CLASS_VENDOR_SPECIFIC,
-            RESET_INTERFACE_SUBCLASS,
-            RESET_INTERFACE_PROTOCOL,
+            CUSTOM_CLASS_ID,
+            PICOBOOT_SUBCLASS_ID,
+            PICOBOOT_RESET_INTERFACE_PROTOCOL,
         );
         let mut iface = func.interface();
         let comm_if = iface.interface_number();
         iface.alt_setting(
-            CLASS_VENDOR_SPECIFIC,
-            RESET_INTERFACE_SUBCLASS,
-            RESET_INTERFACE_PROTOCOL,
+            CUSTOM_CLASS_ID,
+            PICOBOOT_SUBCLASS_ID,
+            PICOBOOT_RESET_INTERFACE_PROTOCOL,
             Some(str_idx),
         );
         drop(func);
-        builder.handler(make_static!(UsbResetHandler, UsbResetHandler { comm_if, str_idx }));
+        builder.handler(make_static!(
+            UsbResetHandler,
+            UsbResetHandler { comm_if, str_idx }
+        ));
         Ok(())
     }
 }
@@ -62,7 +64,7 @@ impl Handler for UsbResetHandler {
         }
 
         match req.request {
-            RESET_REQUEST_BOOTSEL => {
+            PICOBOOT_RESET_REQUEST_BOOTSEL => {
                 reboot_to_bootsel();
             }
             _ => Some(OutResponse::Rejected),

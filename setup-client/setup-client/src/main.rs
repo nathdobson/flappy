@@ -4,16 +4,13 @@
 #![allow(unused_imports)]
 #![feature(try_blocks)]
 #![allow(unused_features)]
-#[cfg(feature = "ble")]
-mod ble;
 mod error;
-#[cfg(feature = "usb")]
-mod usb;
 #[cfg(feature = "usb")]
 mod picoboot;
 
-use crate::error::Error;
 // use btleplug::api::Peripheral;
+use crate::error::Error;
+use crate::picoboot::picoboot;
 use clap::{Parser, ValueEnum};
 use futures_util::stream::StreamExt;
 use itertools::Itertools;
@@ -22,13 +19,15 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE, WriteAppSettings,
 };
 use protocol::setup::{SetupRequest, SetupResponse};
+use setup_client_lib::ble::BleClientBuilder;
+use setup_client_lib::client::{Client, Transport};
+use setup_client_lib::usb::UsbClientBuilder;
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::io::stdin;
 use tokio::io::{AsyncReadExt, AsyncWrite};
 use uuid::Uuid;
-use crate::picoboot::picoboot;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -37,12 +36,6 @@ struct Args {
     transport: Transport,
     #[command(subcommand)]
     subcommand: Subcommand,
-}
-
-#[derive(Debug, Clone, ValueEnum, Copy)]
-enum Transport {
-    Usb,
-    Ble,
 }
 
 #[derive(Parser, Debug)]
@@ -91,102 +84,82 @@ struct PicobootCommand {
     bin_file: PathBuf,
 }
 
-enum Connection {
-    #[cfg(feature = "usb")]
-    Usb(crate::usb::UsbConnection),
-    #[cfg(feature = "ble")]
-    Ble(crate::ble::BleConnection),
-}
-
-impl Transport {
-    async fn connect(&self, address: &str) -> Result<Connection, Error> {
-        match self {
-            #[cfg(feature = "usb")]
-            Transport::Usb => Ok(Connection::Usb(
-                crate::usb::UsbConnection::new(address).await?,
-            )),
-            #[cfg(feature = "ble")]
-            Transport::Ble => Ok(Connection::Ble(
-                crate::ble::BleConnection::new(address).await?,
-            )),
-            #[allow(unreachable_patterns)]
-            _ => Err(Error::FeatureNotEnabled(*self)),
+async fn connect(transport: Transport, address: &str) -> Result<Client, Error> {
+    match transport {
+        #[cfg(feature = "usb")]
+        Transport::Usb => Ok(Client::UsbClient(
+            UsbClientBuilder::list()
+                .await?
+                .into_iter()
+                .find(|x| x.serial_number() == Some(address))
+                .ok_or(Error::DeviceNotFound)?
+                .connect()
+                .await?,
+        )),
+        #[cfg(feature = "ble")]
+        Transport::Ble => {
+            let mut scan = BleClientBuilder::scan().await?;
+            while let Some(next) = scan.next().await {
+                let next = next?;
+                if next.address() == address {
+                    let next = next.connect().await?;
+                    eprintln!("Press button on microcontroller.");
+                    let next = Client::BleClient(next);
+                    next.ping().await?;
+                    return Ok(next);
+                }
+            }
+            Err(Error::DeviceNotFound)
         }
-    }
-}
-
-impl Connection {
-    pub async fn invoke(&mut self, request: &SetupRequest) -> Result<SetupResponse, Error> {
-        match self {
-            #[cfg(feature = "usb")]
-            Connection::Usb(conn) => conn.invoke(request).await,
-            #[cfg(feature = "ble")]
-            Connection::Ble(conn) => conn.invoke(request).await,
-            #[allow(unreachable_patterns)]
-            _ => unreachable!(),
-        }
-    }
-    pub async fn receive(&mut self) -> Result<AppStatus, Error> {
-        match self {
-            #[cfg(feature = "usb")]
-            Connection::Usb(conn) => conn.receive().await,
-            #[cfg(feature = "ble")]
-            Connection::Ble(conn) => conn.receive().await,
-            #[allow(unreachable_patterns)]
-            _ => unreachable!(),
-        }
+        #[allow(unreachable_patterns)]
+        _ => Err(Error::FeatureNotEnabled(transport)),
     }
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() {
+    if let Err(e) = main_impl().await {
+        eprintln!("{}", e);
+    }
+}
+async fn main_impl() -> Result<(), Error> {
     let args = Args::parse();
     match &args.subcommand {
         Subcommand::List => match args.transport {
             #[cfg(feature = "usb")]
             Transport::Usb => {
-                for display in crate::usb::UsbAddress::list().await? {
-                    if let Some(serial) = display.serial_number() {
-                        print!("{}", serial);
-                        if display.is_picoboot(){
-                            print!(" (awaiting firmware)");
-                        }
-                        println!();
+                for x in UsbClientBuilder::list().await? {
+                    if let Some(sn) = x.serial_number() {
+                        println!("{}", sn);
+                    } else {
+                        println!("<unknown>",);
                     }
                 }
             }
             #[cfg(feature = "ble")]
             Transport::Ble => {
-                let mut list = crate::ble::BleAddress::list().await?;
-                while let Some(next) = list.next().await {
+                let mut scan = BleClientBuilder::scan().await?;
+                while let Some(next) = scan.next().await {
                     let next = next?;
-                    match next.try_to_string() {
-                        Ok(s) => println!("{}", s),
-                        Err(e) => eprintln!("{:?}", e),
-                    }
+                    println!("{}", next.address());
                 }
             }
             #[allow(unreachable_patterns)]
             _ => return Err(Error::FeatureNotEnabled(args.transport)),
         },
         Subcommand::Read(read) => {
-            let mut conn = args.transport.connect(&read.address).await?;
-            let resp = conn.invoke(&SetupRequest::ReadSettings).await?;
-            match resp {
-                SetupResponse::ReadSettings(config) => {
-                    let content = serde_json_core::to_string::<_, MAX_SETUP_MESSAGE_SIZE>(&config)?;
-                    let content = jsonformat::format(&content, Indentation::FourSpace);
-                    if let Some(output) = &read.output {
-                        fs::write(output, content).await?;
-                    } else {
-                        println!("{}", content);
-                    }
-                }
-                _ => unreachable!(),
+            let conn = connect(args.transport, &read.address).await?;
+            let settings = conn.read_settings().await?;
+            let content = serde_json_core::to_string::<_, MAX_SETUP_MESSAGE_SIZE>(&settings)?;
+            let content = jsonformat::format(&content, Indentation::FourSpace);
+            if let Some(output) = &read.output {
+                fs::write(output, content).await?;
+            } else {
+                println!("{}", content);
             }
         }
         Subcommand::Write(write) => {
-            let mut conn = args.transport.connect(&write.address).await?;
+            let conn = connect(args.transport, &write.address).await?;
             let settings = if let Some(input) = &write.file {
                 fs::read(input).await?
             } else {
@@ -200,46 +173,38 @@ async fn main() -> Result<(), Error> {
                     .0;
             eprintln!("writing settings");
             let resp = conn
-                .invoke(&SetupRequest::WriteSettings(WriteAppSettings {
+                .write_settings(WriteAppSettings {
                     wifi: Some(settings.wifi),
                     mqtt: Some(settings.mqtt),
                     display: Some(settings.display),
-                }))
+                })
                 .await?;
         }
         Subcommand::Monitor(monitor) => {
-            let mut conn = args.transport.connect(&monitor.address).await?;
-            match conn.invoke(&SetupRequest::TouchAppStatus).await? {
-                SetupResponse::TouchAppStatus => {}
-                _ => unreachable!(),
-            }
+            let conn = connect(args.transport, &monitor.address).await?;
+            conn.touch_app_status().await?;
             loop {
-                println!("status = {:?}", conn.receive().await?);
+                println!("status = {:?}", conn.receive_status().await?);
             }
         }
         Subcommand::Info(info) => {
-            let mut conn = args.transport.connect(&info.address).await?;
-            match conn.invoke(&SetupRequest::DeviceInfo).await? {
-                SetupResponse::DeviceInfo(x) => {
-                    let DeviceInfo {
-                        serial,
-                        git_version,
-                        git_dirty,
-                        git_head_ref,
-                        glyphs,
-                        background,
-                        foreground,
-                    } = x;
-                    println!("serial: {:016X}", serial);
-                    println!("git_version: {}", git_version);
-                    println!("git_dirty: {:?}", git_dirty);
-                    println!("git_head_ref: {}", git_head_ref);
-                    println!("glyphs: {}", glyphs);
-                    println!("background: {}", background);
-                    println!("foreground: {}", foreground);
-                }
-                _ => unreachable!(),
-            }
+            let conn = connect(args.transport, &info.address).await?;
+            let DeviceInfo {
+                serial,
+                git_version,
+                git_dirty,
+                git_head_ref,
+                glyphs,
+                background,
+                foreground,
+            } = conn.device_info().await?;
+            println!("serial: {:016X}", serial);
+            println!("git_version: {}", git_version);
+            println!("git_dirty: {:?}", git_dirty);
+            println!("git_head_ref: {}", git_head_ref);
+            println!("glyphs: {}", glyphs);
+            println!("background: {}", background);
+            println!("foreground: {}", foreground);
         }
         Subcommand::Picoboot(command) => {
             #[cfg(feature = "usb")]

@@ -47,3 +47,9 @@
 	path = submodules/nusb
 	url = https://github.com/nathdobson/nusb.git
 	branch = task/webusb-rebased
+[submodule "submodules/btleplug-wasm"]
+	path = submodules/btleplug-wasm
+	url = https://github.com/nathdobson/btleplug-wasm.git
+[submodule "submodules/wasm-bindgen"]
+	path = submodules/wasm-bindgen
+	url = https://github.com/nathdobson/wasm-bindgen.git

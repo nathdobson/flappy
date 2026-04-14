@@ -1,102 +1,27 @@
-use crate::Transport;
 use itertools::ExactlyOneError;
 use serde_json_core::heapless::CapacityError;
 use serde_string::{StringDeserializerError, StringSerializerError};
+use setup_client_lib::client::Transport;
+use std::io;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    #[cfg(feature = "usb")]
-    UsbError(nusb::Error),
-    #[cfg(feature = "usb")]
-    ActiveConfigurationError(nusb::ActiveConfigurationError),
-    IoError(std::io::Error),
-    MissingEndpoint,
-    MissingInterface,
-    DisplayNotFound,
-    DuplicateSerialNumber,
-    JsonSerError(serde_json_core::ser::Error),
-    JsonDeError(serde_json_core::de::Error),
-    #[cfg(feature = "ble")]
-    BtleError(btleplug::Error),
-    BleAdapterNotFound,
-    MissingService,
-    MissingCharacteristic,
-    MissingNotification,
-    CapacityError,
-    UuidError(uuid::Error),
-    StringSerError(StringSerializerError),
-    StringDeError(StringDeserializerError),
+    #[error("feature not enabled: {0}")]
     FeatureNotEnabled(Transport),
+    #[error("setup client error: {0}")]
+    SetupClientError(#[from] setup_client_lib::error::Error),
+    #[error("json serialization error: {0}")]
+    JsonSerializationError(#[from] serde_json_core::ser::Error),
+    #[error("json deserialization error: {0}")]
+    JsonDeserializationError(#[from] serde_json_core::de::Error),
+    #[error("io error: {0}")]
+    IoError(#[from] io::Error),
+    #[error("device not found")]
+    DeviceNotFound,
+    #[error("Failed to reboot device in picoboot mode")]
+    RebootFailed,
     #[cfg(feature = "usb")]
-    PicobootError(picoboot::Error),
-}
-
-#[cfg(feature = "usb")]
-impl From<picoboot::Error> for Error {
-    fn from(error: picoboot::Error) -> Self {
-        Error::PicobootError(error)
-    }
-}
-
-#[cfg(feature = "usb")]
-impl From<nusb::Error> for Error {
-    fn from(value: nusb::Error) -> Self {
-        Error::UsbError(value)
-    }
-}
-
-#[cfg(feature = "usb")]
-impl From<nusb::ActiveConfigurationError> for Error {
-    fn from(value: nusb::ActiveConfigurationError) -> Self {
-        Error::ActiveConfigurationError(value)
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(value: std::io::Error) -> Self {
-        Error::IoError(value)
-    }
-}
-
-impl From<serde_json_core::ser::Error> for Error {
-    fn from(value: serde_json_core::ser::Error) -> Self {
-        Error::JsonSerError(value)
-    }
-}
-
-impl From<serde_json_core::de::Error> for Error {
-    fn from(value: serde_json_core::de::Error) -> Self {
-        Error::JsonDeError(value)
-    }
-}
-
-#[cfg(feature = "ble")]
-impl From<btleplug::Error> for Error {
-    fn from(value: btleplug::Error) -> Self {
-        Error::BtleError(value)
-    }
-}
-
-impl From<CapacityError> for Error {
-    fn from(value: CapacityError) -> Self {
-        Error::CapacityError
-    }
-}
-
-impl From<uuid::Error> for Error {
-    fn from(value: uuid::Error) -> Self {
-        Error::UuidError(value)
-    }
-}
-
-impl From<StringSerializerError> for Error {
-    fn from(value: StringSerializerError) -> Self {
-        Error::StringSerError(value)
-    }
-}
-
-impl From<StringDeserializerError> for Error {
-    fn from(value: StringDeserializerError) -> Self {
-        Error::StringDeError(value)
-    }
+    #[error("picoboot error: {0}")]
+    PicobootError(#[from] picoboot::Error),
 }

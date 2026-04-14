@@ -2,16 +2,16 @@
 name = "web-client"
 version = "0.1.0"
 authors = ["Nathan Dobson <nadobson@mac.com>"]
-edition = "2018"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-wasm-bindgen = "0.2.106"
+wasm-bindgen = {version = "0.2.118"}
 mqtt-client = { path = "../common/mqtt-client" }
 console_error_panic_hook = { version = "0.1.7" }
-web-sys = { version = "0.3.94", features = [
+web-sys = { version = "0.3.95", features = [
   "console",
   "Window",
   "Location",
@@ -57,10 +57,10 @@ web-sys = { version = "0.3.94", features = [
   "UsbTransferStatus",
   "HtmlOListElement",
 ] }
-js-sys = "0.3.83"
+js-sys = {version = "0.3.95"}
 wasm-logger = "0.2.0"
 log = "0.4.29"
-wasm-bindgen-futures = "0.4.56"
+wasm-bindgen-futures = "0.4.68"
 url = "2.5.7"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_qs = "0.15.0"
@@ -69,7 +69,7 @@ io-adapters = { path = "../common/io-adapters" }
 embassy-futures = "0.1.2"
 arena = { path = "../common/arena" }
 protocol = { path = "../common/protocol", features = ["serde","uuid"] }
-tokio = { version = "1.48.0", features = ["sync", "macros"] }
+tokio = { version = "1.51.0", features = ["sync", "macros"] }
 serde-json-core = "0.6.0"
 heapless = "0.9.2"
 mqtt-core = { path = "../common/mqtt-core" }
@@ -81,10 +81,16 @@ jsonformat = "2.1.0"
 itertools = "0.14.0"
 empty-rc={path="../common/empty-rc"}
 picoboot-cross = {path="../submodules/picoboot-cross"}
+btleplug={path="../submodules/btleplug-wasm"}
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.56"
+wasm-bindgen-test = "0.3.68"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
+
+[patch.crates-io]
+web-sys={path="../submodules/wasm-bindgen/crates/web-sys"}
+wasm-bindgen={path="../submodules/wasm-bindgen"}
+js-sys={path="../submodules/wasm-bindgen/crates/js-sys"}

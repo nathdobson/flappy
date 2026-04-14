@@ -2,24 +2,29 @@ use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::status::{Status, StatusPriority};
 use crate::utils::{bluetooth, sleep};
+use btleplug::api::Central;
+use btleplug::api::CentralEvent;
+use btleplug::api::Manager;
+use btleplug::api::Peripheral;
+use btleplug::api::ScanFilter;
+use futures_util::StreamExt;
 use js_sys::{ArrayBuffer, Uint8Array};
 use log::{error, info};
 use protocol::ble::{
-    APP_STATUS_UUID,  FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID,
+    APP_STATUS_UUID, FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID,
 };
 use protocol::setup::{
-    AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, MAX_SETUP_MESSAGE_SIZE,
+    AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse,
 };
 use std::cell::{OnceCell, RefCell};
 use std::future::IntoFuture;
 use std::rc::Rc;
-use tokio::sync::{mpsc, watch, Mutex};
+use tokio::sync::{Mutex, mpsc, watch};
 use wasm_bindgen::sys::Undefined;
 use web_sys::{
     BluetoothLeScanFilterInit, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer, Event,
     HtmlDivElement, RequestDeviceOptions, Text,
 };
-
 pub struct BleConnection {
     connect_status: Rc<Status>,
     server: BluetoothRemoteGattServer,
@@ -37,6 +42,35 @@ pub struct BleConnection {
 
 impl BleConnection {
     pub async fn new(connect_status: Rc<Status>) -> Result<Rc<BleConnection>, Error> {
+        let manager = btleplug::platform::Manager::new().await?;
+        let adapters = manager.adapters().await?;
+        let central = adapters
+            .into_iter()
+            .nth(0)
+            .ok_or(Error::BluetoothNotSupported)?;
+        let mut stream = central.events().await?;
+        central
+            .start_scan(ScanFilter {
+                services: vec![FLAPPY_SERVICE_UUID],
+            })
+            .await?;
+        while let Some(next) = stream.next().await {
+            let central = central.clone();
+            match next {
+                CentralEvent::DeviceDiscovered(id) => {
+                    let peripheral = central.peripheral(&id).await.map_err(Error::from)?;
+                    let properties = peripheral.properties().await.map_err(Error::from)?;
+                    if let Some(properties) = properties {
+                        if properties.services.contains(&FLAPPY_SERVICE_UUID) {
+                            info!("{:?}", peripheral);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        todo!();
+
         let bluetooth = bluetooth()?;
         let options = RequestDeviceOptions::new();
         let filter = BluetoothLeScanFilterInit::new();
@@ -159,9 +193,10 @@ impl BleConnection {
         );
         serial_in_char.start_notifications().into_future().await?;
 
-        connection
-            .connect_status
-            .set(StatusPriority::Info, "Press white button on microcontroller.".to_string());
+        connection.connect_status.set(
+            StatusPriority::Info,
+            "Press white button on microcontroller.".to_string(),
+        );
         connection.invoke(SetupRequest::Ping).await?;
         connection
             .connect_status

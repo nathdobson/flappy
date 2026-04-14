@@ -1,39 +1,44 @@
+use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
+use crate::ble_connection::BleConnection;
+use crate::connection::{Connection, ConnectionMode, ConnectionType};
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
+use crate::field;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
-use crate::utils::{bluetooth, create_element, sleep, spawn_local_joinable, JoinHandle};
-use crate::utils::{try_window, AppendChild};
+use crate::usb_connection::UsbConnection;
+use crate::utils::{AppendChild, try_window};
+use crate::utils::{JoinHandle, bluetooth, create_element, sleep, spawn_local_joinable};
+use crate::value_editor::struct_editor::{Field, StructEditor};
+use crate::value_editor::text_editor::TextEditor;
+use crate::value_editor::value_form::ValueForm;
+use btleplug::api::Central;
+use btleplug::api::CentralEvent;
+use btleplug::api::Manager;
+use btleplug::api::Peripheral;
+use btleplug::api::ScanFilter;
+use empty_rc::EmptyRc;
+use futures_util::StreamExt;
+use itertools::Itertools;
+use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
+use jsonformat::Indentation;
 use log::{error, info};
 use protocol::ble::{APP_STATUS_UUID, FLAPPY_SERVICE_UUID};
+use protocol::setup::{
+    AppSettings, AppStatus, MAX_SETUP_MESSAGE_SIZE, MqttSettings, SetupRequest, WifiSettings,
+    WriteAppSettings,
+};
 use std::cell::{Cell, OnceCell, Ref, RefCell};
+use std::future::IntoFuture;
+use std::iter::Once;
 use std::rc::Rc;
-use wasm_bindgen_futures::{spawn_local, JsFuture};
+use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
     Blob, BlobPropertyBag, Bluetooth, BluetoothLeScanFilterInit, Event, File, FileSystemFileHandle,
     HtmlButtonElement, HtmlDivElement, HtmlElement, Request, RequestDeviceOptions, Response, Text,
     Url,
 };
-
-use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
-use crate::ble_connection::BleConnection;
-use crate::connection::{Connection, ConnectionMode, ConnectionType};
-use crate::field;
-use crate::usb_connection::UsbConnection;
-use crate::value_editor::struct_editor::{Field, StructEditor};
-use crate::value_editor::text_editor::TextEditor;
-use crate::value_editor::value_form::ValueForm;
-use empty_rc::EmptyRc;
-use itertools::Itertools;
-use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
-use jsonformat::Indentation;
-use protocol::setup::{
-    AppSettings, AppStatus, MqttSettings, SetupRequest, WifiSettings, WriteAppSettings,
-    MAX_SETUP_MESSAGE_SIZE,
-};
-use std::future::IntoFuture;
-use std::iter::Once;
-use wasm_bindgen::{JsCast, JsValue};
 
 pub struct SetupTab {
     node: HtmlDivElement,
@@ -246,7 +251,7 @@ impl SetupTab {
     fn weak_callback(
         this: &EmptyRc<Self>,
         callback: fn(Rc<Self>, Event),
-    ) -> impl Fn(Event) -> bool {
+    ) -> impl 'static + Fn(Event) -> bool {
         let this = this.downgrade();
         move |event| {
             if let Some(this) = this.upgrade() {

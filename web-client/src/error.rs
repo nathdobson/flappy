@@ -45,6 +45,7 @@ pub enum Error {
     ParseIntError(std::num::ParseIntError),
     NotApplicationMode,
     Picoboot(picoboot::Error),
+    BtleplugError(btleplug::Error),
 }
 
 impl From<JsValue> for Error {
@@ -201,6 +202,13 @@ impl Display for Error {
             Error::ParseIntError(e) => write!(f, "parse int error: {}", e),
             Error::NotApplicationMode => write!(f, "Device not in application mode. Restart device with no buttons pressed."),
             Error::Picoboot(e) => write!(f, "{}", e),
+            Error::BtleplugError(e) => write!(f, "{}", e),
         }
+    }
+}
+
+impl From<btleplug::Error> for Error {
+    fn from(value: btleplug::Error) -> Self {
+        Error::BtleplugError(value)
     }
 }

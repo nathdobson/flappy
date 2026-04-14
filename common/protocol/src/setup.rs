@@ -1,3 +1,4 @@
+use core::error::Error;
 use crate::display::MAX_GLYPH_BYTES;
 use crate::display::MAX_GLYPHS;
 use crate::error::MqttServiceError;
@@ -119,6 +120,8 @@ pub enum WriteSettingsError {
     SerdeError,
     FlashError,
 }
+
+impl Error for WriteSettingsError {}
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

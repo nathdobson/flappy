@@ -1,0 +1,12 @@
+[package]
+name = "spawn-local"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[target.'cfg(not(target_arch="wasm"))'.dependencies]
+tokio ={version = "1.51.1",features = ["rt"]}
+
+[target.'cfg(target_arch="wasm")'.dependencies]
+wasm-bindgen-futures = "0.4.68"
