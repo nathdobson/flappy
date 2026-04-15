@@ -19,10 +19,6 @@ async fn test() {
         println!("connecting {}", device.address());
         let mut device = device.connect().await.unwrap();
         println!("connected");
-        println!(
-            "{:?}",
-            device.invoke(&SetupRequest::DeviceInfo).await.unwrap()
-        );
     })
     .await
     .unwrap();

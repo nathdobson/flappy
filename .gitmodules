@@ -37,19 +37,16 @@
 [submodule "submodules/heapless"]
 	path = submodules/heapless
 	url = https://github.com/nathdobson/heapless.git
-[submodule "submodules/picoboot-cross"]
-	path = submodules/picoboot-cross
-	url = https://github.com/nathdobson/picoboot-cross.git
-[submodule "submodules/cross-usb"]
-	path = submodules/cross-usb
-	url = https://github.com/nathdobson/cross-usb.git
+[submodule "submodules/picoboot"]
+	path = submodules/picoboot
+	url = https://github.com/nathdobson/picoboot.git
 [submodule "submodules/nusb"]
 	path = submodules/nusb
 	url = https://github.com/nathdobson/nusb.git
 	branch = task/webusb-rebased
-[submodule "submodules/btleplug-wasm"]
-	path = submodules/btleplug-wasm
-	url = https://github.com/nathdobson/btleplug-wasm.git
+[submodule "submodules/btleplug"]
+	path = submodules/btleplug
+	url = https://github.com/nathdobson/btleplug.git
 [submodule "submodules/wasm-bindgen"]
 	path = submodules/wasm-bindgen
 	url = https://github.com/nathdobson/wasm-bindgen.git

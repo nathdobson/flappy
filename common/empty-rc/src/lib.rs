@@ -22,11 +22,12 @@ impl<T> EmptyRc<T> {
 
 #[test]
 fn test() {
+
     let foo = EmptyRc::<String>::new();
     let foo_weak = foo.downgrade();
     assert!(foo_weak.upgrade().is_none());
     let foo = foo.into_rc("hi".to_string());
     assert_eq!(*foo_weak.upgrade().unwrap(), "hi");
-    mem::drop(foo);
+    std::mem::drop(foo);
     assert!(foo_weak.upgrade().is_none());
 }
