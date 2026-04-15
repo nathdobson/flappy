@@ -20,7 +20,7 @@ pub async fn picoboot(command: &PicobootCommand) -> Result<(), Error> {
         eprintln!("Found device in Application mode. Rebooting in Picoboot mode.");
         if let Err(e) = builder.connect().await?.reset_picoboot().await {
             match e {
-                setup_client_lib::error::Error::TransferError(TransferError::Unknown(
+                setup_client_lib::error::Error::NusbTransferError(TransferError::Unknown(
                     0xe00002ed,
                 )) => {}
                 _ => eprintln!(

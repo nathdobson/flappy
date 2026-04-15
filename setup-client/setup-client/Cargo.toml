@@ -14,11 +14,11 @@ serde-json-core = {path="../../submodules/serde-json-core"}
 jsonformat="2.1.0"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
-btleplug = {path="../../submodules/btleplug-wasm",features = ["serde"], optional = true}
+btleplug = {path="../../submodules/btleplug",features = ["serde"], optional = true}
 uuid = "1.23.0"
 serde-string = {path="../../common/serde-string"}
 log = "0.4.29"
-picoboot-cross = {path="../../submodules/picoboot-cross", optional = true }
+picoboot = {path="../../submodules/picoboot", optional = true }
 setup-client-lib = {path="../../common/setup-client-lib",default-features = false,features = ["clap"]}
 thiserror= "2.0.18"
 
@@ -27,6 +27,6 @@ thiserror= "2.0.18"
 objc2={version="0.6.1",features=["disable-encoding-assertions"]}
 
 [features]
-usb = ["dep:nusb","dep:picoboot-cross"]
+usb = ["dep:nusb","dep:picoboot"]
 ble = ["dep:btleplug","setup-client-lib/ble"]
 default = ["ble","usb","setup-client-lib/usb"]
