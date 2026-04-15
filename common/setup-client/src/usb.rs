@@ -131,7 +131,6 @@ impl UsbClient {
         request_response.request.flush().await?;
         let mut response = vec![];
         loop {
-            info!("Beginning read");
             let packet_size = request_response.response.max_packet_size();
             request_response.response.submit(Buffer::new(packet_size));
             let buffer = request_response
@@ -140,10 +139,8 @@ impl UsbClient {
                 .await
                 .into_result()?
                 .into_vec();
-            info!("packet ={:?}", buffer);
             response.extend_from_slice(&buffer);
             if buffer.len() < packet_size {
-                info!("short packet.");
                 break;
             }
         }

@@ -23,7 +23,6 @@ mod display;
 mod dyn_async_fn;
 mod error;
 mod event_listener;
-mod firmware_tab;
 mod home_tab;
 mod mqtt_connector;
 mod query_params;
@@ -40,7 +39,6 @@ mod built_info {
 use crate::connect_tab::ConnectTab;
 use crate::display::{Display, DisplayState};
 use crate::error::Error;
-use crate::firmware_tab::FirmwareTab;
 use crate::home_tab::HomeTab;
 use crate::mqtt_connector::run_mqtt;
 use crate::query_params::{QueryParams, QueryParamsCell};
@@ -89,13 +87,12 @@ async fn main() -> Result<(), Error> {
     let query_params = Rc::new(QueryParamsCell::new()?);
     let home = Rc::new(HomeTab::new()?);
     let connect = Rc::new(ConnectTab::new(query_params.clone())?);
-    let firmware = FirmwareTab::new()?;
     let setup = SetupTab::new()?;
     let mut default = 0;
     if !query_params.borrow().ws_url.is_empty() {
         default = 1;
     }
-    let tabs = TabContainer::new(vec![home, connect, setup, firmware], default, query_params)?;
+    let tabs = TabContainer::new(vec![home, connect, setup], default, query_params)?;
     document()?
         .body()
         .ok_or(Error::CannotFindElement)?

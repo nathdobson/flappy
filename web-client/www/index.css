@@ -89,10 +89,6 @@
     content: ":";
 }
 
-.status{
-    height:10vw
-}
-
 .tab-header {
     list-style: none;
     margin: 0;
@@ -138,11 +134,12 @@
     justify-content: center;
     flex-direction: column;
     width:100%;
+    font-size: 3vh;
 }
 
 .setup-tab button {
     margin: 10px;
-    font-size: 3vw;
+    font-size: 3vh;
 }
 
 .setup-section {
@@ -178,7 +175,7 @@
 }
 
 .struct-editor > div{
-    margin:1vw;
+    margin:1vh;
 }
 
 .struct-editor > *:nth-child(odd) {
@@ -193,8 +190,8 @@
 }
 
 .text-editor {
-    font-size: 3vw;
-    margin:0.5vw;
+    font-size: 3vh;
+    margin:0.5vh;
 }
 
 .editor-form {
@@ -205,11 +202,11 @@
 }
 
 .editor-form input[type=submit]{
-    font-size: 3vw;
-    margin:1vw;
+    font-size: 3vh;
+    margin:1vh;
 }
 
 .firmware-button{
-    margin:1vw;
-    font-size: 3vw;
+    margin:1vh;
+    font-size: 3vh;
 }

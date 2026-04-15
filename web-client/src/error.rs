@@ -50,6 +50,7 @@ pub enum Error {
     UsbError(nusb::Error),
     RequiresUsb,
     NotPicobootMode,
+    UsbNotSupported,
 }
 
 impl From<nusb::Error> for Error {
@@ -226,6 +227,7 @@ impl Display for Error {
             Error::UsbError(e) => write!(f, "{}", e),
             Error::RequiresUsb => write!(f, "flashing firmware requires a USB connection"),
             Error::NotPicobootMode => write!(f, "failed to reboot in Picoboot mode"),
+            Error::UsbNotSupported => write!(f, "USB not supported"),
         }
     }
 }

@@ -42,6 +42,7 @@ pub async fn connect_usb(status: Rc<Status>) -> Result<EitherClient, Error> {
     filter.set_vendor_id(VENDOR_ID);
     let device = usb
         .request_device(&UsbDeviceRequestOptions::new(&[filter]))
+        .map_err(|_| Error::UsbNotSupported)?
         .await?;
     status.set(
         StatusPriority::Info,
@@ -57,13 +58,19 @@ pub async fn connect_usb(status: Rc<Status>) -> Result<EitherClient, Error> {
         }
         BootSelect::Picoboot => {
             let client = EitherClient::Picoboot(client.connect_picoboot().await?);
-            status.set(StatusPriority::Info, "USB: connected (picoboot)!".to_string());
+            status.set(
+                StatusPriority::Info,
+                "USB: connected (picoboot)!".to_string(),
+            );
             Ok(client)
         }
     }
 }
 
-pub async fn connect(transport: ClientTransport, status: Rc<Status>) -> Result<EitherClient, Error> {
+pub async fn connect(
+    transport: ClientTransport,
+    status: Rc<Status>,
+) -> Result<EitherClient, Error> {
     match transport {
         ClientTransport::Usb => Ok(connect_usb(status).await?),
         ClientTransport::Ble => Ok(connect_ble(status).await?),
