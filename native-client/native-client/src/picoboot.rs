@@ -4,7 +4,7 @@ use itertools::Itertools;
 use nusb::list_devices;
 use nusb::transfer::TransferError;
 use picoboot::{Access, Picoboot};
-use setup_client_lib::usb::{BootSelect, UsbClientBuilder};
+use setup_client::usb::{BootSelect, UsbClientBuilder};
 use std::time::Duration;
 use tokio::fs;
 
@@ -20,7 +20,7 @@ pub async fn picoboot(command: &PicobootCommand) -> Result<(), Error> {
         eprintln!("Found device in Application mode. Rebooting in Picoboot mode.");
         if let Err(e) = builder.connect().await?.reset_picoboot().await {
             match e {
-                setup_client_lib::error::Error::NusbTransferError(TransferError::Unknown(
+                setup_client::error::Error::NusbTransferError(TransferError::Unknown(
                     0xe00002ed,
                 )) => {}
                 _ => eprintln!(

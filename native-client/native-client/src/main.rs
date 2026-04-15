@@ -19,9 +19,9 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE, WriteAppSettings,
 };
 use protocol::setup::{SetupRequest, SetupResponse};
-use setup_client_lib::ble::BleClientBuilder;
-use setup_client_lib::client::{Client, ClientTransport};
-use setup_client_lib::usb::UsbClientBuilder;
+use setup_client::ble::BleClientBuilder;
+use setup_client::client::{Client, ClientTransport};
+use setup_client::usb::UsbClientBuilder;
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;

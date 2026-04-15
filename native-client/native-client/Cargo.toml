@@ -1,5 +1,5 @@
 [package]
-name = "setup-client"
+name = "native-client"
 version = "0.1.0"
 edition = "2024"
 
@@ -19,7 +19,7 @@ uuid = "1.23.0"
 serde-string = {path="../../common/serde-string"}
 log = "0.4.29"
 picoboot = {path="../../submodules/picoboot", optional = true }
-setup-client-lib = {path="../../common/setup-client-lib",default-features = false,features = ["clap"]}
+setup-client = {path="../../common/setup-client",default-features = false,features = ["clap"]}
 thiserror= "2.0.18"
 
 
@@ -28,5 +28,5 @@ objc2={version="0.6.1",features=["disable-encoding-assertions"]}
 
 [features]
 usb = ["dep:nusb","dep:picoboot"]
-ble = ["dep:btleplug","setup-client-lib/ble"]
-default = ["ble","usb","setup-client-lib/usb"]
+ble = ["dep:btleplug","setup-client/ble"]
+default = ["ble","usb","setup-client/usb"]

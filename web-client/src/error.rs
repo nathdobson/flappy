@@ -46,7 +46,7 @@ pub enum Error {
     NotApplicationMode,
     Picoboot(picoboot::Error),
     BtleplugError(btleplug::Error),
-    SetupClientError(setup_client_lib::error::Error),
+    SetupClientError(setup_client::error::Error),
     UsbError(nusb::Error),
 }
 
@@ -56,8 +56,8 @@ impl From<nusb::Error> for Error {
     }
 }
 
-impl From<setup_client_lib::error::Error> for Error {
-    fn from(e: setup_client_lib::error::Error) -> Self {
+impl From<setup_client::error::Error> for Error {
+    fn from(e: setup_client::error::Error) -> Self {
         Error::SetupClientError(e)
     }
 }

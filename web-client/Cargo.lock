@@ -1404,7 +1404,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "setup-client-lib"
+name = "setup-client"
 version = "0.1.0"
 dependencies = [
  "btleplug",
@@ -1947,7 +1947,7 @@ dependencies = [
  "serde",
  "serde-json-core",
  "serde_qs",
- "setup-client-lib",
+ "setup-client",
  "tokio",
  "unicode-segmentation",
  "url",

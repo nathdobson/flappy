@@ -26,7 +26,7 @@ use protocol::setup::{
     AppSettings, AppStatus, MAX_SETUP_MESSAGE_SIZE, MqttSettings, SetupRequest, WifiSettings,
     WriteAppSettings,
 };
-use setup_client_lib::client::{Client, ClientTransport};
+use setup_client::client::{Client, ClientTransport};
 use std::cell::{Cell, OnceCell, Ref, RefCell};
 use std::future::IntoFuture;
 use std::iter::Once;

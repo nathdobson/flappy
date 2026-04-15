@@ -1334,7 +1334,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "setup-client-lib"
+name = "setup-client"
 version = "0.1.0"
 dependencies = [
  "btleplug",

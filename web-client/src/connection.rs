@@ -8,9 +8,9 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteAppSettings,
 };
 use protocol::usb::VENDOR_ID;
-use setup_client_lib::ble::{BleClient, BleClientBuilder};
-use setup_client_lib::client::{Client, ClientTransport};
-use setup_client_lib::usb::{UsbClient, UsbClientBuilder};
+use setup_client::ble::{BleClient, BleClientBuilder};
+use setup_client::client::{Client, ClientTransport};
+use setup_client::usb::{UsbClient, UsbClientBuilder};
 use std::rc::Rc;
 use web_sys::{Usb, UsbDeviceFilter, UsbDeviceRequestOptions};
 

@@ -1,5 +1,5 @@
 [workspace]
-members = ["setup-client"]
+members = ["native-client"]
 
 resolver = "3"
 

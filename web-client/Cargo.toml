@@ -83,7 +83,7 @@ empty-rc={path="../common/empty-rc"}
 picoboot = {path="../submodules/picoboot"}
 btleplug={path="../submodules/btleplug"}
 nusb ={path="../submodules/nusb"}
-setup-client-lib = {path="../common/setup-client-lib"}
+setup-client = {path="../common/setup-client"}
 
 
 [dev-dependencies]
