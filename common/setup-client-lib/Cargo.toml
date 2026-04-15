@@ -8,7 +8,9 @@ edition = "2024"
 btleplug = {path="../../submodules/btleplug-wasm",features = ["serde"],optional=true}
 
 serde-string = {path="../serde-string",optional=true}
-nusb = {path="../../submodules/nusb",optional = true,features = ["tokio"]}
+#nusb = {path="../../submodules/nusb",optional = true,features = ["tokio"]}
+#cross_usb = {path="../../submodules/cross-usb", optional = true}
+nusb-wasm = {path="../nusb-wasm",optional = true}
 
 protocol = {path="../protocol",features = ["uuid","serde"]}
 futures-util = "0.3.32"
@@ -27,5 +29,5 @@ tokio = {version="1.51.1",features = ["macros","rt"]}
 [features]
 default = ["ble","usb"]
 ble = ["dep:btleplug","dep:serde-string"]
-usb = ["dep:nusb","dep:picoboot-cross"]
+usb = ["dep:nusb-wasm","dep:picoboot-cross"]
 clap = ["dep:clap"]

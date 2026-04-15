@@ -1,0 +1,9 @@
+[package]
+name = "js-error"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+wasm-bindgen = {path="../../submodules/wasm-bindgen"}
+js-sys = {path="../../submodules/wasm-bindgen/crates/js-sys"}
+web-sys = {path="../../submodules/wasm-bindgen/crates/web-sys",features = ["DomException"]}

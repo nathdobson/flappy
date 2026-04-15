@@ -1,0 +1,18 @@
+[package]
+name = "nusb-wasm"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror = "2.0.18"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+nusb = "0.2.3"
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+web-sys = {path="../../submodules/wasm-bindgen/crates/web-sys",
+features = ["Usb","UsbDevice","UsbInterface","UsbConfiguration","UsbAlternateInterface","UsbEndpoint","UsbInTransferResult","UsbOutTransferResult","UsbTransferStatus"]}
+wasm-bindgen = {path="../../submodules/wasm-bindgen"}
+js-sys = {path="../../submodules/wasm-bindgen/crates/js-sys"}
+wasm-bindgen-futures = "0.4.68"
+js-error = {path="../js-error"}
