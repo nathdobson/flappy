@@ -33,6 +33,9 @@ mod tabs;
 //mod usb_connection;
 mod utils;
 mod value_editor;
+mod built_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
 
 use crate::connect_tab::ConnectTab;
 use crate::display::{Display, DisplayState};
@@ -45,13 +48,13 @@ use crate::setup_tab::SetupTab;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::{TabContainer, TabContent};
 use crate::utils::{create_element, create_text_node, document, get_element_by_id, sleep};
-use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
+use embassy_futures::select::{Either, Either4, Either5, select, select4, select5};
 use futures_util::AsyncWriteExt;
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
 use log::{error, info, warn};
 use protocol::display::{
-    DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS, MAX_GLYPH_BYTES,
+    DISPLAY_REQUEST_CAPACITY, DisplayRequest, DisplayResponse, MAX_GLYPH_BYTES, MAX_GLYPHS,
 };
 use protocol::setup::DeviceInfo;
 use serde::{Deserialize, Serialize};
@@ -64,13 +67,13 @@ use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc::{channel, Receiver};
+use tokio::sync::mpsc::{Receiver, channel};
 use tokio::try_join;
 use url::Url;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{
-    window, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, Node, Window,
+    HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, Node, Window, window,
 };
 use ws_stream_wasm::WsMeta;
 

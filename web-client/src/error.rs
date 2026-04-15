@@ -48,6 +48,8 @@ pub enum Error {
     BtleplugError(btleplug::Error),
     SetupClientError(setup_client::error::Error),
     UsbError(nusb::Error),
+    RequiresUsb,
+    NotPicobootMode,
 }
 
 impl From<nusb::Error> for Error {
@@ -222,6 +224,8 @@ impl Display for Error {
             Error::BtleplugError(e) => write!(f, "{}", e),
             Error::SetupClientError(e) => write!(f, "{}", e),
             Error::UsbError(e) => write!(f, "{}", e),
+            Error::RequiresUsb => write!(f, "flashing firmware requires a USB connection"),
+            Error::NotPicobootMode => write!(f, "failed to reboot in Picoboot mode"),
         }
     }
 }

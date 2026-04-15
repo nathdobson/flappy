@@ -85,6 +85,8 @@ btleplug={path="../submodules/btleplug"}
 nusb ={path="../submodules/nusb"}
 setup-client = {path="../common/setup-client"}
 
+[build-dependencies]
+built = {version="0.8.0",features = ["git2"]}
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.68"

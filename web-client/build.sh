@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+touch build.rs
 wasm-pack build --release --target web
 cp 404.html public
 mkdir -p public/www

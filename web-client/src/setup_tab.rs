@@ -1,5 +1,5 @@
 use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
-use crate::connection::connect;
+use crate::connection::{EitherClient, connect, connect_usb};
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::field;
@@ -21,16 +21,20 @@ use itertools::Itertools;
 use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
 use jsonformat::Indentation;
 use log::{error, info};
+use picoboot::{Access, Picoboot};
 use protocol::ble::{APP_STATUS_UUID, FLAPPY_SERVICE_UUID};
 use protocol::setup::{
     AppSettings, AppStatus, MAX_SETUP_MESSAGE_SIZE, MqttSettings, SetupRequest, WifiSettings,
     WriteAppSettings,
 };
+use setup_client::ble::BleClient;
 use setup_client::client::{Client, ClientTransport};
+use setup_client::usb::UsbClient;
 use std::cell::{Cell, OnceCell, Ref, RefCell};
 use std::future::IntoFuture;
 use std::iter::Once;
 use std::rc::Rc;
+use std::time::Duration;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
@@ -59,10 +63,14 @@ pub struct SetupTab {
     mqtt_status: HtmlDivElement,
     wifi_settings: Rc<ValueForm<WifiSettings>>,
     mqtt_settings: Rc<ValueForm<MqttSettings>>,
+
+    firmware_listener: EventListener<'static>,
+    firmware_status: Rc<Status>,
 }
 
 struct ConnectionTask {
     connection: Rc<OnceCell<Rc<Client>>>,
+    picoboot: Rc<Cell<Option<Picoboot>>>,
     task: JoinHandle<()>,
 }
 
@@ -171,6 +179,21 @@ impl SetupTab {
         ));
         mqtt_section.append_child(mqtt_settings.node())?;
 
+        let firmware_section = node.append_element::<"div">()?;
+        firmware_section.set_class_name("setup-section");
+        let firmware_button = firmware_section.append_element::<"button">()?;
+        firmware_button.set_text_content(Some(&format!(
+            "Flash firmware (version {})",
+            crate::built_info::GIT_VERSION.unwrap_or("<unknown>")
+        )));
+        let firmware_listener = EventListener::new(
+            &firmware_button,
+            EventType::Click,
+            Self::weak_callback(&this, Self::flash_firmware),
+        )?;
+        let firmware_status = Status::new()?;
+        firmware_section.append_child(firmware_status.node())?;
+
         let read_button = node.append_element::<"button">()?;
         read_button.append_text("Read settings file from display")?;
         let write_button = node.append_element::<"button">()?;
@@ -221,6 +244,8 @@ impl SetupTab {
             mqtt_status,
             wifi_settings,
             mqtt_settings,
+            firmware_listener,
+            firmware_status,
         });
         this.show_connection(false)?;
         Ok(this)
@@ -261,21 +286,26 @@ impl SetupTab {
     }
     fn spawn_connection(self: Rc<Self>, typ: ClientTransport) -> ConnectionTask {
         self.show_connection(true).ok();
-        let cell = Rc::new(OnceCell::new());
+        let client_cell = Rc::new(OnceCell::new());
+        let picoboot_cell = Rc::new(Cell::new(None));
         ConnectionTask {
             task: spawn_local_joinable({
-                let cell = cell.clone();
+                let client_cell = client_cell.clone();
+                let picoboot_cell = picoboot_cell.clone();
                 async move {
                     match connect(typ, self.connect_status.clone()).await {
-                        Ok(connection) => {
-                            let connection = Rc::new(connection);
-                            cell.set(connection.clone()).ok().unwrap();
-                            if let Err(e) = self.run_connection(connection).await {
+                        Ok(EitherClient::Application(client)) => {
+                            let client = Rc::new(client);
+                            client_cell.set(client.clone()).ok().unwrap();
+                            if let Err(e) = self.run_connection(client).await {
                                 self.connect_status.set(
                                     StatusPriority::Error,
                                     format!("Connection failed: {}", e),
                                 );
                             }
+                        }
+                        Ok(EitherClient::Picoboot(client)) => {
+                            picoboot_cell.set(Some(client));
                         }
                         Err(e) => self.connect_status.set(
                             StatusPriority::Error,
@@ -284,7 +314,8 @@ impl SetupTab {
                     }
                 }
             }),
-            connection: cell,
+            connection: client_cell,
+            picoboot: picoboot_cell,
         }
     }
     async fn run_connection(&self, connection: Rc<Client>) -> Result<(), Error> {
@@ -424,6 +455,107 @@ impl SetupTab {
     }
     async fn write_settings_partial(&self, settings: WriteAppSettings) -> Result<(), Error> {
         self.connection()?.write_settings(settings).await?;
+        Ok(())
+    }
+    fn flash_firmware(self: Rc<Self>, event: Event) {
+        spawn_local(async move {
+            self.firmware_status.reset();
+            if let Err(e) = self.try_flash_firmware().await {
+                self.firmware_status
+                    .set(StatusPriority::Error, format!("{}", e));
+            }
+        })
+    }
+    async fn try_flash_firmware(&self) -> Result<(), Error> {
+        self.firmware_status.set(
+            StatusPriority::Info,
+            "Retrieving firmware binary...".to_string(),
+        );
+        let binary: Response = try_window()?
+            .fetch_with_str("./firmware.bin")
+            .await?
+            .dyn_into()?;
+        let binary: ArrayBuffer = binary.array_buffer()?.into_future().await?.dyn_into()?;
+        let binary = Uint8Array::new(&binary).to_vec();
+
+        self.firmware_status.set(
+            StatusPriority::Info,
+            "Disconnecting from current device...".to_string(),
+        );
+        self.show_connection(false).ok();
+        self.connection.replace(None);
+        sleep(100).await;
+        self.firmware_status
+            .set(StatusPriority::Info, "Connecting...".to_string());
+
+        let client = match connect_usb(self.firmware_status.clone()).await? {
+            EitherClient::Application(Client::UsbClient(x)) => {
+                self.firmware_status.set(
+                    StatusPriority::Info,
+                    "Resetting in picoboot mode...".to_string(),
+                );
+                if let Err(e) = x.reset_picoboot().await {
+                    info!("error while resetting (this may be normal): {}", e);
+                }
+                self.firmware_status
+                    .set(StatusPriority::Info, "Reconnecting...".to_string());
+                sleep(100).await;
+                match connect_usb(self.firmware_status.clone()).await? {
+                    EitherClient::Application(_) => return Err(Error::NotPicobootMode),
+                    EitherClient::Picoboot(client) => client,
+                }
+            }
+            EitherClient::Picoboot(client) => client,
+            EitherClient::Application(_) => unreachable!(),
+        };
+        self.firmware_status
+            .set(StatusPriority::Info, "Connected to Picoboot...".to_string());
+
+        let mut picoboot = Picoboot::from_first(None).await?;
+        self.firmware_status.set(
+            StatusPriority::Info,
+            "Connecting to USB device...".to_string(),
+        );
+        let conn = picoboot.connect().await?;
+        self.firmware_status
+            .set(StatusPriority::Info, "Resetting interface...".to_string());
+        conn.reset_interface().await?;
+        self.firmware_status.set(
+            StatusPriority::Info,
+            "Disabling mass storage...".to_string(),
+        );
+        conn.set_exclusive_access(Access::ExclusiveAndEject).await?;
+        self.firmware_status
+            .set(StatusPriority::Info, "Disabling XIP...".to_string());
+        conn.exit_xip().await?;
+        self.firmware_status
+            .set(StatusPriority::Info, "Erasing flash...".to_string());
+        conn.flash_erase_start(binary.len()).await?;
+        self.firmware_status
+            .set(StatusPriority::Info, "Writing firmware...".to_string());
+        conn.flash_write_start(&binary).await?;
+        self.firmware_status
+            .set(StatusPriority::Info, "Verifying firmware...".to_string());
+        let verified = conn.flash_read_start(binary.len() as u32).await?;
+        if binary != verified {
+            self.firmware_status.set(
+                StatusPriority::Error,
+                format!(
+                    "firmware verification failed comparing {} bytes and {} bytes",
+                    binary.len(),
+                    verified.len()
+                ),
+            );
+            return Ok(());
+        }
+        self.firmware_status
+            .set(StatusPriority::Info, "Rebooting device...".to_string());
+        conn.reboot(Duration::from_millis(500)).await?;
+        self.firmware_status.set(
+            StatusPriority::Info,
+            "Firmware successfully updated!".to_string(),
+        );
+
         Ok(())
     }
 }
