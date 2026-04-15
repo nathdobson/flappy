@@ -1,5 +1,3 @@
-use crate::ble_connection::BleConnection;
-use crate::connection::ConnectionMode;
 use crate::error::Error;
 use crate::status::{Status, StatusPriority};
 use crate::utils::try_window;

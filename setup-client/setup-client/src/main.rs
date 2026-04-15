@@ -20,7 +20,7 @@ use protocol::setup::{
 };
 use protocol::setup::{SetupRequest, SetupResponse};
 use setup_client_lib::ble::BleClientBuilder;
-use setup_client_lib::client::{Client, Transport};
+use setup_client_lib::client::{Client, ClientTransport};
 use setup_client_lib::usb::UsbClientBuilder;
 use std::path::PathBuf;
 use tokio::fs;
@@ -33,7 +33,7 @@ use uuid::Uuid;
 #[command(version, about, long_about = None)]
 struct Args {
     #[clap(long)]
-    transport: Transport,
+    transport: ClientTransport,
     #[command(subcommand)]
     subcommand: Subcommand,
 }
@@ -84,10 +84,10 @@ struct PicobootCommand {
     bin_file: PathBuf,
 }
 
-async fn connect(transport: Transport, address: &str) -> Result<Client, Error> {
+async fn connect(transport: ClientTransport, address: &str) -> Result<Client, Error> {
     match transport {
         #[cfg(feature = "usb")]
-        Transport::Usb => Ok(Client::UsbClient(
+        ClientTransport::Usb => Ok(Client::UsbClient(
             UsbClientBuilder::list()
                 .await?
                 .into_iter()
@@ -97,7 +97,7 @@ async fn connect(transport: Transport, address: &str) -> Result<Client, Error> {
                 .await?,
         )),
         #[cfg(feature = "ble")]
-        Transport::Ble => {
+        ClientTransport::Ble => {
             let mut scan = BleClientBuilder::scan().await?;
             while let Some(next) = scan.next().await {
                 let next = next?;
@@ -127,7 +127,7 @@ async fn main_impl() -> Result<(), Error> {
     match &args.subcommand {
         Subcommand::List => match args.transport {
             #[cfg(feature = "usb")]
-            Transport::Usb => {
+            ClientTransport::Usb => {
                 for x in UsbClientBuilder::list().await? {
                     if let Some(sn) = x.serial_number() {
                         println!("{}", sn);
@@ -137,7 +137,7 @@ async fn main_impl() -> Result<(), Error> {
                 }
             }
             #[cfg(feature = "ble")]
-            Transport::Ble => {
+            ClientTransport::Ble => {
                 let mut scan = BleClientBuilder::scan().await?;
                 while let Some(next) = scan.next().await {
                     let next = next?;

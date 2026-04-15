@@ -1,12 +1,10 @@
 use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
-use crate::ble_connection::BleConnection;
-use crate::connection::{Connection, ConnectionMode, ConnectionType};
+use crate::connection::connect;
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::field;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
-use crate::usb_connection::UsbConnection;
 use crate::utils::{AppendChild, try_window};
 use crate::utils::{JoinHandle, bluetooth, create_element, sleep, spawn_local_joinable};
 use crate::value_editor::struct_editor::{Field, StructEditor};
@@ -28,6 +26,7 @@ use protocol::setup::{
     AppSettings, AppStatus, MAX_SETUP_MESSAGE_SIZE, MqttSettings, SetupRequest, WifiSettings,
     WriteAppSettings,
 };
+use setup_client_lib::client::{Client, ClientTransport};
 use std::cell::{Cell, OnceCell, Ref, RefCell};
 use std::future::IntoFuture;
 use std::iter::Once;
@@ -63,7 +62,7 @@ pub struct SetupTab {
 }
 
 struct ConnectionTask {
-    connection: Rc<OnceCell<Connection>>,
+    connection: Rc<OnceCell<Rc<Client>>>,
     task: JoinHandle<()>,
 }
 
@@ -260,15 +259,16 @@ impl SetupTab {
             false
         }
     }
-    fn spawn_connection(self: Rc<Self>, typ: ConnectionType) -> ConnectionTask {
+    fn spawn_connection(self: Rc<Self>, typ: ClientTransport) -> ConnectionTask {
         self.show_connection(true).ok();
         let cell = Rc::new(OnceCell::new());
         ConnectionTask {
             task: spawn_local_joinable({
                 let cell = cell.clone();
                 async move {
-                    match Connection::new(typ, self.connect_status.clone()).await {
+                    match connect(typ, self.connect_status.clone()).await {
                         Ok(connection) => {
+                            let connection = Rc::new(connection);
                             cell.set(connection.clone()).ok().unwrap();
                             if let Err(e) = self.run_connection(connection).await {
                                 self.connect_status.set(
@@ -287,10 +287,8 @@ impl SetupTab {
             connection: cell,
         }
     }
-    async fn run_connection(&self, connection: Connection) -> Result<(), Error> {
-        if connection.mode() != ConnectionMode::Application {
-            return Ok(());
-        }
+    async fn run_connection(&self, connection: Rc<Client>) -> Result<(), Error> {
+        info!("Requesting device info...");
         let device_info = connection.device_info().await?;
         info!("Device info: {:#?}", device_info);
         self.serial_number
@@ -314,7 +312,7 @@ impl SetupTab {
         connection.touch_app_status().await?;
         info!("Receiving status");
         loop {
-            let status = connection.next_status().await?;
+            let status = connection.receive_status().await?;
             self.wifi_status
                 .set_text_content(Some(&format!("{}", status.wifi_status)));
             self.mqtt_status
@@ -327,14 +325,14 @@ impl SetupTab {
         self.connect_status
             .set(StatusPriority::Info, "Bluetooth: connecting...".to_string());
         self.connection
-            .replace(Some(self.clone().spawn_connection(ConnectionType::Ble)));
+            .replace(Some(self.clone().spawn_connection(ClientTransport::Ble)));
     }
     fn connect_usb(self: Rc<Self>, event: Event) {
         self.connect_status.reset();
         self.connect_status
             .set(StatusPriority::Info, "USB: connecting...".to_string());
         self.connection
-            .replace(Some(self.clone().spawn_connection(ConnectionType::Usb)));
+            .replace(Some(self.clone().spawn_connection(ClientTransport::Usb)));
     }
     fn disconnect(self: Rc<Self>, event: Event) {
         self.show_connection(false).ok();
@@ -350,7 +348,7 @@ impl SetupTab {
             }
         });
     }
-    fn connection(&self) -> Result<Connection, Error> {
+    fn connection(&self) -> Result<Rc<Client>, Error> {
         Ok(self
             .connection
             .borrow()

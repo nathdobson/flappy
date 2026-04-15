@@ -1,14 +1,14 @@
 use itertools::ExactlyOneError;
 use serde_json_core::heapless::CapacityError;
 use serde_string::{StringDeserializerError, StringSerializerError};
-use setup_client_lib::client::Transport;
+use setup_client_lib::client::ClientTransport;
 use std::io;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("feature not enabled: {0}")]
-    FeatureNotEnabled(Transport),
+    FeatureNotEnabled(ClientTransport),
     #[error("setup client error: {0}")]
     SetupClientError(#[from] setup_client_lib::error::Error),
     #[error("json serialization error: {0}")]

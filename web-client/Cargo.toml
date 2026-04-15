@@ -8,10 +8,10 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-wasm-bindgen = {version = "0.2.118"}
+wasm-bindgen = {path = "../submodules/wasm-bindgen"}
 mqtt-client = { path = "../common/mqtt-client" }
 console_error_panic_hook = { version = "0.1.7" }
-web-sys = { version = "0.3.95", features = [
+web-sys = { path="../submodules/wasm-bindgen/crates/web-sys", features = [
   "console",
   "Window",
   "Location",
@@ -57,7 +57,7 @@ web-sys = { version = "0.3.95", features = [
   "UsbTransferStatus",
   "HtmlOListElement",
 ] }
-js-sys = {version = "0.3.95"}
+js-sys = {path="../submodules/wasm-bindgen/crates/js-sys"}
 wasm-logger = "0.2.0"
 log = "0.4.29"
 wasm-bindgen-futures = "0.4.68"
@@ -82,6 +82,9 @@ itertools = "0.14.0"
 empty-rc={path="../common/empty-rc"}
 picoboot-cross = {path="../submodules/picoboot-cross"}
 btleplug={path="../submodules/btleplug-wasm"}
+nusb ={path="../submodules/nusb"}
+setup-client-lib = {path="../common/setup-client-lib"}
+
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.68"

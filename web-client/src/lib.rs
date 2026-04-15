@@ -17,7 +17,6 @@
 #![deny(non_snake_case)]
 
 mod bind_weak;
-mod ble_connection;
 mod connect_tab;
 mod connection;
 mod display;
@@ -31,7 +30,7 @@ mod query_params;
 mod setup_tab;
 mod status;
 mod tabs;
-mod usb_connection;
+//mod usb_connection;
 mod utils;
 mod value_editor;
 

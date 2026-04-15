@@ -17,6 +17,7 @@ use std::pin::Pin;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc, watch};
+use log::info;
 
 #[derive(Debug)]
 pub struct BleClientBuilder {
@@ -151,12 +152,12 @@ impl BleClient {
         let mut receiver = self.serial_in_rx.lock().await;
         for chunk in request.chunks(SERIAL_MTU) {
             self.peripheral
-                .write(&self.serial_out, chunk, WriteType::WithoutResponse)
+                .write(&self.serial_out, chunk, WriteType::WithResponse)
                 .await?;
         }
         if request.len() % SERIAL_MTU == 0 {
             self.peripheral
-                .write(&self.serial_out, &[], WriteType::WithoutResponse)
+                .write(&self.serial_out, &[], WriteType::WithResponse)
                 .await?;
         }
         receiver

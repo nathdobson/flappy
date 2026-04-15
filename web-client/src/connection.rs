@@ -1,81 +1,57 @@
-use crate::ble_connection::BleConnection;
 use crate::error::Error;
-use crate::status::Status;
-use crate::usb_connection::UsbConnection;
+use crate::status::{Status, StatusPriority};
+use crate::utils::try_window;
+use futures_util::StreamExt;
+use log::info;
+use nusb::device_info_from_wasm;
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteAppSettings,
 };
+use protocol::usb::VENDOR_ID;
+use setup_client_lib::ble::{BleClient, BleClientBuilder};
+use setup_client_lib::client::{Client, ClientTransport};
+use setup_client_lib::usb::{UsbClient, UsbClientBuilder};
 use std::rc::Rc;
+use web_sys::{Usb, UsbDeviceFilter, UsbDeviceRequestOptions};
 
-#[derive(Clone)]
-pub enum Connection {
-    UsbConnection(Rc<UsbConnection>),
-    BleConnection(Rc<BleConnection>),
+pub async fn connect_ble(status: Rc<Status>) -> Result<Client, Error> {
+    status.set(StatusPriority::Info, "Starting BLE scan...".to_string());
+    let mut stream = BleClientBuilder::scan().await?;
+    status.set(StatusPriority::Info, "Scanning...".to_string());
+    let client = stream.next().await.ok_or(Error::BluetoothNotSupported)??;
+    status.set(StatusPriority::Info, "Connecting to device...".to_string());
+    let client = client.connect().await?;
+    status.set(
+        StatusPriority::Info,
+        "Press white button on microcontroller.".to_string(),
+    );
+    let client = Client::BleClient(client);
+    client.ping().await?;
+    status.set(StatusPriority::Info, "Connected!".to_string());
+    Ok(client)
 }
 
-pub enum ConnectionType {
-    Usb,
-    Ble,
+pub async fn connect_usb(status: Rc<Status>) -> Result<Client, Error> {
+    let usb: Usb = try_window()?.navigator().usb();
+    let mut filter = UsbDeviceFilter::new();
+    filter.set_vendor_id(VENDOR_ID);
+    let device = usb
+        .request_device(&UsbDeviceRequestOptions::new(&[filter]))
+        .await?;
+    status.set(
+        StatusPriority::Info,
+        "USB: Opening connection...".to_string(),
+    );
+    Ok(Client::UsbClient(
+        UsbClientBuilder::from_device_info(device_info_from_wasm(device).await?)
+            .connect()
+            .await?,
+    ))
 }
 
-#[derive(Eq, Ord, PartialEq, PartialOrd, Debug, Hash, Copy, Clone)]
-pub enum ConnectionMode {
-    Application,
-    Picoboot,
-}
-
-impl Connection {
-    pub async fn new(typ: ConnectionType, connect_status: Rc<Status>) -> Result<Connection, Error> {
-        match typ {
-            ConnectionType::Usb => Ok(Connection::UsbConnection(
-                UsbConnection::new(connect_status).await?,
-            )),
-            ConnectionType::Ble => Ok(Connection::BleConnection(
-                BleConnection::new(connect_status).await?,
-            )),
-        }
-    }
-    pub async fn device_info(&self) -> Result<DeviceInfo, Error> {
-        match self.invoke(SetupRequest::DeviceInfo).await? {
-            SetupResponse::DeviceInfo(device_info) => Ok(device_info),
-            _ => Err(Error::BadResponse),
-        }
-    }
-    pub async fn touch_app_status(&self) -> Result<(), Error> {
-        match self.invoke(SetupRequest::TouchAppStatus).await? {
-            SetupResponse::TouchAppStatus => Ok(()),
-            _ => Err(Error::BadResponse),
-        }
-    }
-    pub async fn read_settings(&self) -> Result<AppSettings, Error> {
-        match self.invoke(SetupRequest::ReadSettings).await? {
-            SetupResponse::ReadSettings(settings) => Ok(settings),
-            _ => Err(Error::BadResponse),
-        }
-    }
-    pub async fn write_settings(&self, settings: WriteAppSettings) -> Result<(), Error> {
-        match self.invoke(SetupRequest::WriteSettings(settings)).await? {
-            SetupResponse::WriteSettings(settings) => Ok(settings?),
-            _ => Err(Error::BadResponse),
-        }
-    }
-
-    async fn invoke(&self, request: SetupRequest) -> Result<SetupResponse, Error> {
-        match self {
-            Connection::UsbConnection(connection) => connection.invoke(request).await,
-            Connection::BleConnection(connection) => connection.invoke(request).await,
-        }
-    }
-    pub async fn next_status(&self) -> Result<AppStatus, Error> {
-        match self {
-            Connection::UsbConnection(connection) => connection.next_status().await,
-            Connection::BleConnection(connection) => connection.next_status().await,
-        }
-    }
-    pub fn mode(&self) -> ConnectionMode {
-        match self {
-            Connection::UsbConnection(x) => x.mode(),
-            Connection::BleConnection(_) => ConnectionMode::Application,
-        }
+pub async fn connect(transport: ClientTransport, status: Rc<Status>) -> Result<Client, Error> {
+    match transport {
+        ClientTransport::Usb => Ok(connect_usb(status).await?),
+        ClientTransport::Ble => Ok(connect_ble(status).await?),
     }
 }

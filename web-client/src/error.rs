@@ -46,6 +46,20 @@ pub enum Error {
     NotApplicationMode,
     Picoboot(picoboot::Error),
     BtleplugError(btleplug::Error),
+    SetupClientError(setup_client_lib::error::Error),
+    UsbError(nusb::Error),
+}
+
+impl From<nusb::Error> for Error {
+    fn from(e: nusb::Error) -> Self {
+        Error::UsbError(e)
+    }
+}
+
+impl From<setup_client_lib::error::Error> for Error {
+    fn from(e: setup_client_lib::error::Error) -> Self {
+        Error::SetupClientError(e)
+    }
 }
 
 impl From<JsValue> for Error {
@@ -144,7 +158,7 @@ impl From<std::num::ParseIntError> for Error {
     }
 }
 
-impl From<picoboot::Error> for Error{
+impl From<picoboot::Error> for Error {
     fn from(value: picoboot::Error) -> Self {
         Error::Picoboot(value)
     }
@@ -200,9 +214,14 @@ impl Display for Error {
             Error::UsbTransferError(x) => write!(f, "USB transfer error: {:?}", x),
             Error::UsbMissingData => write!(f, "USB missing data"),
             Error::ParseIntError(e) => write!(f, "parse int error: {}", e),
-            Error::NotApplicationMode => write!(f, "Device not in application mode. Restart device with no buttons pressed."),
+            Error::NotApplicationMode => write!(
+                f,
+                "Device not in application mode. Restart device with no buttons pressed."
+            ),
             Error::Picoboot(e) => write!(f, "{}", e),
             Error::BtleplugError(e) => write!(f, "{}", e),
+            Error::SetupClientError(e) => write!(f, "{}", e),
+            Error::UsbError(e) => write!(f, "{}", e),
         }
     }
 }

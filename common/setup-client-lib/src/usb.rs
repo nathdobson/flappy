@@ -1,4 +1,5 @@
 use crate::error::Error;
+use log::info;
 use nusb::io::{EndpointRead, EndpointWrite};
 use nusb::transfer::{Bulk, ControlOut, ControlType, In, Out, Recipient};
 use nusb::{DeviceInfo, Interface, list_devices};
@@ -129,13 +130,18 @@ impl UsbClient {
         let mut request_response = self.request_response.lock().await;
         request_response.request.write_all(req).await?;
         request_response.request.flush().await?;
-        let mut response = vec![];
-        request_response
-            .response
-            .until_short_packet()
-            .read_to_end(&mut response)
-            .await?;
-        Ok(response)
+        loop {
+            let mut response = vec![];
+            request_response
+                .response
+                .until_short_packet()
+                .read_to_end(&mut response)
+                .await?;
+            info!("raw response ={:?}", response);
+            if response.len() != 0 {
+                return Ok(response);
+            }
+        }
     }
 
     pub async fn receive_status_raw(&self) -> Result<Vec<u8>, Error> {
@@ -146,6 +152,7 @@ impl UsbClient {
             .until_short_packet()
             .read_to_end(&mut response)
             .await?;
+        info!("raw status ={:?}", response);
         Ok(response)
     }
 

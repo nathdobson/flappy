@@ -9,16 +9,16 @@ use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "clap", derive(clap::ValueEnum))]
-pub enum Transport {
+pub enum ClientTransport {
     Usb,
     Ble,
 }
 
-impl Display for Transport {
+impl Display for ClientTransport {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Transport::Usb => write!(f, "usb"),
-            Transport::Ble => write!(f, "ble"),
+            ClientTransport::Usb => write!(f, "usb"),
+            ClientTransport::Ble => write!(f, "ble"),
         }
     }
 }

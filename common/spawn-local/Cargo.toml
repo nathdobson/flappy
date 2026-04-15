@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 
-[target.'cfg(not(target_arch="wasm"))'.dependencies]
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 tokio ={version = "1.51.1",features = ["rt"]}
 
-[target.'cfg(target_arch="wasm")'.dependencies]
+[target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen-futures = "0.4.68"

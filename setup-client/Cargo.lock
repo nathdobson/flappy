@@ -1084,6 +1084,7 @@ dependencies = [
  "clap",
  "futures-util",
  "heapless 0.9.2",
+ "log",
  "nusb",
  "picoboot-cross",
  "protocol",
