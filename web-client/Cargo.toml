@@ -80,8 +80,8 @@ unicode-segmentation = "1.13.2"
 jsonformat = "2.1.0"
 itertools = "0.14.0"
 empty-rc={path="../common/empty-rc"}
-picoboot-cross = {path="../submodules/picoboot-cross"}
-btleplug={path="../submodules/btleplug-wasm"}
+picoboot = {path="../submodules/picoboot"}
+btleplug={path="../submodules/btleplug"}
 nusb ={path="../submodules/nusb"}
 setup-client-lib = {path="../common/setup-client-lib"}
 

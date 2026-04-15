@@ -1081,7 +1081,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "picoboot-cross"
+name = "picoboot"
 version = "0.2.3"
 dependencies = [
  "deku",
@@ -1343,7 +1343,7 @@ dependencies = [
  "heapless 0.9.2",
  "log",
  "nusb",
- "picoboot-cross",
+ "picoboot",
  "protocol",
  "serde-json-core 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde-string",
