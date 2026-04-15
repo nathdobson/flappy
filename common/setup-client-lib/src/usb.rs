@@ -1,8 +1,9 @@
 use crate::error::Error;
 use log::info;
-use nusb_wasm::{
-    ControlOut, ControlType, DeviceInfo, EndpointIn, EndpointOut, Interface, Recipient,
-};
+use nusb::io::{EndpointRead, EndpointWrite};
+use nusb::transfer::Buffer;
+use nusb::transfer::{Bulk, ControlOut, ControlType, In, Out, Recipient};
+use nusb::{DeviceInfo, Endpoint, Interface, list_devices};
 use picoboot::Picoboot;
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
 use protocol::usb::{
@@ -22,13 +23,13 @@ pub struct UsbClientBuilder {
 }
 
 struct RequestResponse {
-    request: EndpointOut,
-    response: EndpointIn,
+    request: EndpointWrite<Bulk>,
+    response: Endpoint<Bulk, In>,
 }
 
 pub struct UsbClient {
     request_response: Mutex<RequestResponse>,
-    status: Mutex<EndpointIn>,
+    status: Mutex<Endpoint<Bulk, In>>,
     reset_int: Mutex<Interface>,
 }
 
@@ -51,15 +52,19 @@ pub enum UsbError {
 const BUFFER_SIZE: usize = 64;
 
 impl UsbClientBuilder {
-    pub fn from_device_info(device: DeviceInfo) -> Option<UsbClientBuilder> {
-        if device.vendor_id() == VENDOR_ID
-            && (device.product_id() == APPLICATION_PRODUCT_ID
-                || device.product_id() == PICOBOOT_PRODUCT_ID)
-        {
-            Some(UsbClientBuilder { device })
-        } else {
-            None
-        }
+    pub fn from_device_info(device: DeviceInfo) -> UsbClientBuilder {
+        UsbClientBuilder { device }
+    }
+    pub async fn list() -> Result<Vec<UsbClientBuilder>, Error> {
+        Ok(list_devices()
+            .await?
+            .filter(|device| {
+                device.vendor_id() == VENDOR_ID
+                    && (device.product_id() == APPLICATION_PRODUCT_ID
+                        || device.product_id() == PICOBOOT_PRODUCT_ID)
+            })
+            .map(Self::from_device_info)
+            .collect())
     }
     pub fn serial_number(&self) -> Option<&str> {
         self.device.serial_number()
@@ -77,36 +82,33 @@ impl UsbClientBuilder {
         }
         let dev = self.device.open().await?;
         let config = dev.active_configuration()?;
-        let mut app_int = None;
-        let mut reset_int = None;
-        for interface in config.interfaces()? {
-            let alternate = interface.alternate();
-            match (alternate.class(), alternate.subclass()) {
-                (CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID) => {
-                    app_int = Some(alternate.claim().await?);
-                }
-                (CUSTOM_CLASS_ID, PICOBOOT_SUBCLASS_ID) => {
-                    reset_int = Some(alternate.claim().await?);
-                }
-                _ => {}
-            }
-        }
-        let app_int = app_int.ok_or(UsbError::MissingInterface)?;
-        let reset_int = reset_int.ok_or(UsbError::MissingInterface)?;
 
-        let mut endpoints = app_int.endpoints().await?.into_iter();
-        let response = endpoints
-            .next()
-            .ok_or(UsbError::MissingEndpoint)?
-            .endpoint_in()?;
-        let request = endpoints
-            .next()
-            .ok_or(UsbError::MissingEndpoint)?
-            .endpoint_out()?;
-        let status = endpoints
-            .next()
-            .ok_or(UsbError::MissingEndpoint)?
-            .endpoint_in()?;
+        let app_int = config
+            .interfaces()
+            .find(|int| {
+                int.first_alt_setting().class() == CUSTOM_CLASS_ID
+                    && int.first_alt_setting().subclass() == CUSTOM_SUBCLASS_ID
+            })
+            .ok_or(UsbError::MissingInterface)?;
+        let app_int = dev.claim_interface(app_int.interface_number()).await?;
+        let desc = app_int.descriptor().ok_or(UsbError::MissingDescriptor)?;
+        let mut ep = desc.endpoints();
+        let response =
+            app_int.endpoint::<Bulk, In>(ep.next().ok_or(UsbError::MissingEndpoint)?.address())?;
+        let request = app_int
+            .endpoint::<Bulk, Out>(ep.next().ok_or(UsbError::MissingEndpoint)?.address())?
+            .writer(BUFFER_SIZE);
+        let status =
+            app_int.endpoint::<Bulk, In>(ep.next().ok_or(UsbError::MissingEndpoint)?.address())?;
+
+        let reset_int = config
+            .interfaces()
+            .find(|int| {
+                int.first_alt_setting().class() == CUSTOM_CLASS_ID
+                    && int.first_alt_setting().subclass() == PICOBOOT_SUBCLASS_ID
+            })
+            .ok_or(UsbError::MissingInterface)?;
+        let reset_int = dev.claim_interface(reset_int.interface_number()).await?;
 
         Ok(UsbClient {
             request_response: Mutex::new(RequestResponse { request, response }),
@@ -127,30 +129,33 @@ impl UsbClient {
         let mut request_response = self.request_response.lock().await;
         request_response.request.write_all(req).await?;
         request_response.request.flush().await?;
+        let mut response = vec![];
         loop {
-            let mut response = vec![];
-            request_response
+            info!("Beginning read");
+            let packet_size = request_response.response.max_packet_size();
+            request_response.response.submit(Buffer::new(packet_size));
+            let buffer = request_response
                 .response
-                .until_short_packet()
-                .read_to_end(&mut response)
-                .await?;
-            info!("raw response ={:?}", response);
-            if response.len() != 0 {
-                return Ok(response);
+                .next_complete()
+                .await
+                .into_result()?
+                .into_vec();
+            info!("packet ={:?}", buffer);
+            response.extend_from_slice(&buffer);
+            if buffer.len() < packet_size {
+                info!("short packet.");
+                break;
             }
         }
+        Ok(response)
     }
 
     pub async fn receive_status_raw(&self) -> Result<Vec<u8>, Error> {
         let mut status = self.status.lock().await;
-        let mut response = vec![];
-        assert!(!status.fill_buf().await?.is_empty());
-        status
-            .until_short_packet()
-            .read_to_end(&mut response)
-            .await?;
-        info!("raw status ={:?}", response);
-        Ok(response)
+        let packet_size = status.max_packet_size();
+        status.submit(Buffer::new(packet_size));
+        let buffer = status.next_complete().await.into_result()?.into_vec();
+        Ok(buffer)
     }
 
     pub async fn reset_picoboot(&self) -> Result<(), Error> {

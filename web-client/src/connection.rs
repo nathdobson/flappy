@@ -27,7 +27,7 @@ pub async fn connect_ble(status: Rc<Status>) -> Result<Client, Error> {
     );
     let client = Client::BleClient(client);
     client.ping().await?;
-    status.set(StatusPriority::Info, "Connected!".to_string());
+    status.set(StatusPriority::Info, "Bluetooth: connected!".to_string());
     Ok(client)
 }
 
@@ -42,11 +42,10 @@ pub async fn connect_usb(status: Rc<Status>) -> Result<Client, Error> {
         StatusPriority::Info,
         "USB: Opening connection...".to_string(),
     );
-    Ok(Client::UsbClient(
-        UsbClientBuilder::from_device_info(device_info_from_wasm(device).await?)
-            .connect()
-            .await?,
-    ))
+    let device = device_info_from_wasm(device).await?;
+    let client = UsbClientBuilder::from_device_info(device).connect().await?;
+    status.set(StatusPriority::Info, "USB: connected!".to_string());
+    Ok(Client::UsbClient(client))
 }
 
 pub async fn connect(transport: ClientTransport, status: Rc<Status>) -> Result<Client, Error> {

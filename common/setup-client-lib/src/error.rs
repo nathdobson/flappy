@@ -16,7 +16,15 @@ pub enum Error {
 
     #[cfg(feature = "usb")]
     #[error("usb driver error: {0}")]
-    NusbError(#[from] nusb_wasm::error::Error),
+    NusbError(#[from] nusb::Error),
+
+    #[cfg(feature = "usb")]
+    #[error("usb configuration error: {0}")]
+    NusbConfigurationError(#[from] nusb::ActiveConfigurationError),
+
+    #[cfg(feature = "usb")]
+    #[error("usb transfer error: {0}")]
+    NusbTransferError(#[from] nusb::transfer::TransferError),
 
     #[cfg(feature = "usb")]
     #[error("picoboot error: {0}")]
