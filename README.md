@@ -205,12 +205,10 @@ When the display stops spinning the flaps, it sends an equivalent `Stop` message
 
 The stop message is retained, so clients may determine the current contents of the display.
 
-[^2]
-The provided 3MF files are configured for use with BambuStudio and tuned for PLA with PETG support on the Bambu A1 Mini
+[^2]: The provided 3MF files are configured for use with BambuStudio and tuned for PLA with PETG support on the Bambu A1 Mini
 with AMS. The files will likely work on other slicers and printers, but may require additional tuning.
 
-[^1]
-The KY-003 board contains an A3144 digital hall sensor chip. The A3144 has a minimum Vcc of 4.5V and open-collector
+[^1]: The KY-003 board contains an A3144 digital hall sensor chip. The A3144 has a minimum Vcc of 4.5V and open-collector
 active-low digital output. The KY-003 includes a resistor and LED in series to pull-up the output signal to Vcc. This
 pull-up means the minimum logic output voltage for the KY-003 is also 4.5V. The
 Pico's maximum logic voltage is 3.3V, so it cannot connect to a KY-003 without some extra work. Also, the LED introduces
