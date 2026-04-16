@@ -5,6 +5,7 @@ use mqtt_core::protocol::ReasonCode;
 use protocol::setup::WriteSettingsError;
 use std::any::Any;
 use std::fmt::{Display, Formatter};
+use std::str::ParseBoolError;
 use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
@@ -51,6 +52,7 @@ pub enum Error {
     RequiresUsb,
     NotPicobootMode,
     UsbNotSupported,
+    ParseBoolError,
 }
 
 impl From<nusb::Error> for Error {
@@ -228,6 +230,7 @@ impl Display for Error {
             Error::RequiresUsb => write!(f, "flashing firmware requires a USB connection"),
             Error::NotPicobootMode => write!(f, "failed to reboot in Picoboot mode"),
             Error::UsbNotSupported => write!(f, "USB not supported"),
+            Error::ParseBoolError => write!(f, "failed to parse boolean"),
         }
     }
 }
@@ -235,5 +238,11 @@ impl Display for Error {
 impl From<btleplug::Error> for Error {
     fn from(value: btleplug::Error) -> Self {
         Error::BtleplugError(value)
+    }
+}
+
+impl From<ParseBoolError> for Error {
+    fn from(value: ParseBoolError) -> Self {
+        Error::ParseBoolError
     }
 }

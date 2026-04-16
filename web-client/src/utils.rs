@@ -10,7 +10,11 @@ use tokio::select;
 use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{Bluetooth, Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, HtmlLabelElement, HtmlLiElement, HtmlOListElement, HtmlUListElement, Node, Text, Window};
+use web_sys::{
+    Bluetooth, Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement,
+    HtmlFormElement, HtmlInputElement, HtmlLabelElement, HtmlLiElement, HtmlOListElement,
+    HtmlOptionElement, HtmlSelectElement, HtmlUListElement, Node, Text, Window,
+};
 
 pub fn try_window() -> Result<Window, Error> {
     web_sys::window().ok_or(Error::CannotFindElement)
@@ -42,8 +46,8 @@ pub fn create_text_node(text: &str) -> Result<Text, Error> {
     Ok(document()?.create_text_node(text))
 }
 
-pub fn create_element<const TAG: &'static str>(
-) -> Result<<Tag<TAG> as HasElementType>::ElementType, Error>
+pub fn create_element<const TAG: &'static str>()
+-> Result<<Tag<TAG> as HasElementType>::ElementType, Error>
 where
     Tag<TAG>: HasElementType,
 {
@@ -129,6 +133,14 @@ impl HasElementType for Tag<"label"> {
 
 impl HasElementType for Tag<"ol"> {
     type ElementType = HtmlOListElement;
+}
+
+impl HasElementType for Tag<"option"> {
+    type ElementType = HtmlOptionElement;
+}
+
+impl HasElementType for Tag<"select"> {
+    type ElementType = HtmlSelectElement;
 }
 
 pub async fn sleep(millis: i32) {

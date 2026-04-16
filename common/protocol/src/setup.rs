@@ -1,7 +1,7 @@
-use core::error::Error;
 use crate::display::MAX_GLYPH_BYTES;
 use crate::display::MAX_GLYPHS;
 use crate::error::MqttServiceError;
+use core::error::Error;
 use core::fmt::{Display, Formatter};
 use heapless::{String, Vec};
 
@@ -62,6 +62,15 @@ pub enum DriverVersion {
     V1_0,
     #[cfg_attr(feature = "serde", serde(rename = "2.0"))]
     V2_0,
+}
+
+impl Display for DriverVersion {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DriverVersion::V1_0 => write!(f, "1.0"),
+            DriverVersion::V2_0 => write!(f, "2.0"),
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, Eq, PartialEq)]

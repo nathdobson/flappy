@@ -56,6 +56,8 @@ web-sys = { path="../submodules/wasm-bindgen/crates/web-sys", features = [
   "UsbInTransferResult",
   "UsbTransferStatus",
   "HtmlOListElement",
+  "HtmlOptionElement",
+  "HtmlSelectElement",
 ] }
 js-sys = {path="../submodules/wasm-bindgen/crates/js-sys"}
 wasm-logger = "0.2.0"

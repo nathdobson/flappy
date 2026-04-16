@@ -1,6 +1,7 @@
 pub mod struct_editor;
 pub mod text_editor;
 pub mod value_form;
+pub mod select_editor;
 
 use crate::error::Error;
 use std::marker::PhantomData;

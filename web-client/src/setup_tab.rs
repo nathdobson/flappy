@@ -7,6 +7,7 @@ use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
 use crate::utils::{AppendChild, try_window};
 use crate::utils::{JoinHandle, bluetooth, create_element, sleep, spawn_local_joinable};
+use crate::value_editor::select_editor::SelectEditor;
 use crate::value_editor::struct_editor::{Field, StructEditor};
 use crate::value_editor::text_editor::TextEditor;
 use crate::value_editor::value_form::ValueForm;
@@ -24,16 +25,18 @@ use log::{error, info};
 use picoboot::{Access, Picoboot};
 use protocol::ble::{APP_STATUS_UUID, FLAPPY_SERVICE_UUID};
 use protocol::setup::{
-    AppSettings, AppStatus, MAX_SETUP_MESSAGE_SIZE, MqttSettings, SetupRequest, WifiSettings,
-    WriteAppSettings,
+    AppSettings, AppStatus, DisplaySettings, DriverVersion, MAX_SETUP_MESSAGE_SIZE, MqttSettings,
+    SetupRequest, WifiSettings, WriteAppSettings,
 };
 use setup_client::ble::BleClient;
 use setup_client::client::{Client, ClientTransport};
 use setup_client::usb::UsbClient;
 use std::cell::{Cell, OnceCell, Ref, RefCell};
+use std::fmt::Display;
 use std::future::IntoFuture;
 use std::iter::Once;
 use std::rc::Rc;
+use std::str::FromStr;
 use std::time::Duration;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::{JsFuture, spawn_local};
@@ -61,6 +64,7 @@ pub struct SetupTab {
     mqtt_status: HtmlDivElement,
     wifi_settings: Rc<ValueForm<WifiSettings>>,
     mqtt_settings: Rc<ValueForm<MqttSettings>>,
+    display_settings: Rc<ValueForm<DisplaySettings>>,
 
     firmware_listener: EventListener<'static>,
     firmware_status: Rc<Status>,
@@ -177,6 +181,41 @@ impl SetupTab {
         ));
         mqtt_section.append_child(mqtt_settings.node())?;
 
+        let display_section = node.append_element::<"div">()?;
+        display_section.set_class_name("setup-section");
+        display_section
+            .append_element::<"div">()?
+            .set_text_content(Some("Display Settings"));
+        let mut display_struct = StructEditor::<DisplaySettings>::new()?;
+        display_struct.add(field!(calibration), TextEditor::new_json()?)?;
+        display_struct.add(field!(glyphs), TextEditor::new_json()?)?;
+        display_struct.add(field!(background), TextEditor::new()?)?;
+        display_struct.add(field!(foreground), TextEditor::new()?)?;
+        display_struct.add(
+            field!(driver_version),
+            SelectEditor::new(vec![DriverVersion::V1_0, DriverVersion::V2_0])?,
+        )?;
+
+        display_struct.add(field!(micros_per_tick), TextEditor::new_optional()?)?;
+        display_struct.add(field!(slow_ticks_per_step), TextEditor::new_optional()?)?;
+        display_struct.add(field!(slow_steps_per_stage), TextEditor::new_optional()?)?;
+        display_struct.add(field!(fast_ticks_per_step), TextEditor::new_optional()?)?;
+        display_struct.add(field!(rehome_after_stopping), TextEditor::new()?)?;
+        let display_settings = ValueForm::new(display_struct)?;
+        display_settings.set_submit_name("Save Display Settings");
+        display_settings.set_on_submit(bind_weak_try_async_fn1(
+            this.downgrade(),
+            async move |this, settings| {
+                this.write_settings_partial(WriteAppSettings {
+                    display: Some(settings),
+                    ..WriteAppSettings::default()
+                })
+                .await?;
+                Ok(())
+            },
+        ));
+        display_section.append_child(display_settings.node())?;
+
         let firmware_section = node.append_element::<"div">()?;
         firmware_section.set_class_name("setup-section");
         let firmware_button = firmware_section.append_element::<"button">()?;
@@ -225,6 +264,8 @@ impl SetupTab {
             mqtt_status,
             wifi_settings,
             mqtt_settings,
+            display_settings,
+
             firmware_listener,
             firmware_status,
         });
@@ -317,6 +358,7 @@ impl SetupTab {
         let settings = connection.read_settings().await?;
         self.wifi_settings.set_value(&settings.wifi);
         self.mqtt_settings.set_value(&settings.mqtt);
+        self.display_settings.set_value(&settings.display);
         // There's probably a bug in chrome's WebUSB implementation that drops packets, so we
         // need to run touch_app_status twice.
         connection.touch_app_status().await?;
