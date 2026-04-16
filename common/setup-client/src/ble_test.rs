@@ -4,6 +4,7 @@ use protocol::setup::SetupRequest;
 use std::time::Duration;
 use tokio::time::timeout;
 
+#[ignore]
 #[tokio::test]
 async fn test() {
     timeout(Duration::from_secs(30), async {

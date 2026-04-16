@@ -1,6 +1,8 @@
 #![deny(unused_must_use)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#![allow(unused)]
+
 pub mod error;
 
 #[cfg(feature = "ble")]

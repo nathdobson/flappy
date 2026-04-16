@@ -91,7 +91,7 @@ The repository is divided into several hardware and software components:
 * [driver/](driver/) A KiCad PCB design for the motor driver attached to each character.
 * [firmware/](firmware/) A cargo workspace with the firmware for the Raspberry Pi Pico 2 W.
 * [models/](models/) A cargo crate with binaries that generate .3mf files for each 3D-printed part.
-* [setup-client/](setup-client/) A cargo workspace with a binary for configuring the display over USB or Bluetooth.
+* [native-client/](native-client/) A cargo workspace with a binary for configuring the display over USB or Bluetooth.
 * [spindle/](spindle/) A cargo workspace with a simple scripting language for controlling the display.
 * [submodules/](submodules/) A set of git submodules with forked dependencies.
 * [submodules/patina-rs](submodules/patina-rs/) A CAD library for generating 3D meshes from SDFs (signed distance
@@ -139,9 +139,9 @@ The repository is divided into several hardware and software components:
    `picotool load -f -u -v -x -t elf firmware.elf`
 2. (Optional) Access debug logs from the Pico via a serial port. These logs can be accessed with a tool
    like [tio](https://github.com/tio/tio).
-1. Create a `setup.json` file based on [blank.json](setup-client/blank.json). The schema for this file is defined by the
+1. Create a `setup.json` file based on [blank.json](native-client/blank.json). The schema for this file is defined by the
    `AppSettings` struct in [common/protocol/src/setup.rs](common/protocol/src/setup.rs).
-1. Configure the display by executing the appropriate `setup-client-*` binary.
+1. Configure the display by executing the appropriate `native-client-*` binary.
 1. Navigate to https://flappy-7d77d.web.app/www/ or set up custom web hosting by unzipping `web-client.zip` and
    uploading to a web host.
 1. Connect to the display by specifying the parameters for the MQTT broker.

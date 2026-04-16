@@ -31,6 +31,6 @@ pub fn run_program<T>(runtime: impl FnOnce(SendSpawner) -> T, app: impl FnOnce(S
 
 #[cfg(not(feature = "preemption"))]
 pub fn run_program<T>(runtime: impl FnOnce(SendSpawner) -> T, app: impl FnOnce(Spawner, T)) -> ! {
-    let application_executor = make_static!(Executor::new());
+    let application_executor = make_static!(Executor, Executor::new());
     application_executor.run(|s| app(s, runtime(s.make_send())));
 }

@@ -16,22 +16,22 @@ cp models/simplified/right-cap.3mf release/artifacts/model-right-cap.3mf
 cp firmware/target/thumbv8m.main-none-eabihf/release/controller release/artifacts/firmware.elf
 cp firmware/target/firmware.bin release/artifacts/firmware.bin
 
-cp setup-client/target/aarch64-apple-darwin/release/setup-client release/artifacts/setup-client-aarch64-apple-darwin
-cp setup-client/target/x86_64-apple-darwin/release/setup-client release/artifacts/setup-client-x86_64-apple-darwin
+cp native-client/target/aarch64-apple-darwin/release/native-client release/artifacts/native-client-aarch64-apple-darwin
+cp native-client/target/x86_64-apple-darwin/release/native-client release/artifacts/native-client-x86_64-apple-darwin
 
-#cp setup-client/target/i686-pc-windows-gnu/release/setup-client.exe release/artifacts/setup-client-i686-pc-windows-gnu.exe
-cp setup-client/target/x86_64-pc-windows-gnu/release/setup-client.exe release/artifacts/setup-client-x86_64-pc-windows-gnu.exe
+#cp native-client/target/i686-pc-windows-gnu/release/native-client.exe release/artifacts/native-client-i686-pc-windows-gnu.exe
+cp native-client/target/x86_64-pc-windows-gnu/release/native-client.exe release/artifacts/native-client-x86_64-pc-windows-gnu.exe
 
-cp setup-client/target/aarch64-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-aarch64-unknown-linux-gnu
-cp setup-client/target/i686-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-i686-unknown-linux-gnu
-cp setup-client/target/armv7-unknown-linux-gnueabihf/release/setup-client release/artifacts/setup-client-armv7-unknown-linux-gnueabihf
-#cp setup-client/target/x86_64-unknown-linux-gnu/release/setup-client release/artifacts/setup-client-x86_64-unknown-linux-gnu
+cp native-client/target/aarch64-unknown-linux-gnu/release/native-client release/artifacts/native-client-aarch64-unknown-linux-gnu
+cp native-client/target/i686-unknown-linux-gnu/release/native-client release/artifacts/native-client-i686-unknown-linux-gnu
+cp native-client/target/armv7-unknown-linux-gnueabihf/release/native-client release/artifacts/native-client-armv7-unknown-linux-gnueabihf
+#cp native-client/target/x86_64-unknown-linux-gnu/release/native-client release/artifacts/native-client-x86_64-unknown-linux-gnu
 
-cp setup-client/target/aarch64-unknown-linux-musl/release/setup-client release/artifacts/setup-client-aarch64-unknown-linux-musl
-cp setup-client/target/x86_64-unknown-linux-musl/release/setup-client release/artifacts/setup-client-x86_64-unknown-linux-musl
-cp setup-client/target/i686-unknown-linux-musl/release/setup-client release/artifacts/setup-client-i686-unknown-linux-musl
-cp setup-client/target/armv7-unknown-linux-musleabihf/release/setup-client release/artifacts/setup-client-armv7-unknown-linux-musleabihf
-cp setup-client/target/arm-unknown-linux-musleabihf/release/setup-client release/artifacts/setup-client-arm-unknown-linux-musleabihf
+cp native-client/target/aarch64-unknown-linux-musl/release/native-client release/artifacts/native-client-aarch64-unknown-linux-musl
+cp native-client/target/x86_64-unknown-linux-musl/release/native-client release/artifacts/native-client-x86_64-unknown-linux-musl
+cp native-client/target/i686-unknown-linux-musl/release/native-client release/artifacts/native-client-i686-unknown-linux-musl
+cp native-client/target/armv7-unknown-linux-musleabihf/release/native-client release/artifacts/native-client-armv7-unknown-linux-musleabihf
+cp native-client/target/arm-unknown-linux-musleabihf/release/native-client release/artifacts/native-client-arm-unknown-linux-musleabihf
 
 cp web-client/web-client.zip release/artifacts/
 # The order of assets listed of the website depends on upload order, so upload one file at a time

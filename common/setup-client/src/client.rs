@@ -1,6 +1,4 @@
-use crate::ble::BleClient;
 use crate::error::Error;
-use crate::usb::UsbClient;
 use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse,
     WriteAppSettings,
@@ -24,15 +22,21 @@ impl Display for ClientTransport {
 }
 
 pub enum Client {
-    BleClient(BleClient),
-    UsbClient(UsbClient),
+    #[cfg(feature = "ble")]
+    BleClient(crate::ble::BleClient),
+    #[cfg(feature = "usb")]
+    UsbClient(crate::usb::UsbClient),
 }
 
 impl Client {
     async fn invoke_raw(&self, req: &[u8]) -> Result<Vec<u8>, Error> {
         match self {
+            #[cfg(feature = "ble")]
             Client::BleClient(client) => client.invoke_raw(req).await,
+            #[cfg(feature = "usb")]
             Client::UsbClient(client) => client.invoke_raw(req).await,
+            #[allow(unreachable_patterns)]
+            _ => unreachable!(),
         }
     }
     async fn invoke(&self, req: &SetupRequest) -> Result<SetupResponse, Error> {
@@ -44,8 +48,12 @@ impl Client {
     }
     async fn receive_status_raw(&self) -> Result<Vec<u8>, Error> {
         match self {
+            #[cfg(feature = "ble")]
             Client::BleClient(client) => client.receive_status_raw().await,
+            #[cfg(feature = "usb")]
             Client::UsbClient(client) => client.receive_status_raw().await,
+            #[allow(unreachable_patterns)]
+            _ => unreachable!(),
         }
     }
     pub async fn receive_status(&self) -> Result<AppStatus, Error> {

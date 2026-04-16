@@ -1,7 +1,5 @@
-use crate::usb::UsbError;
 use heapless::CapacityError;
 use protocol::setup::WriteSettingsError;
-use serde_string::StringSerializerError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -32,10 +30,11 @@ pub enum Error {
 
     #[cfg(feature = "usb")]
     #[error("usb application error: {0}")]
-    UsbError(#[from] UsbError),
+    UsbError(#[from] crate::usb::UsbError),
 
+    #[cfg(feature = "ble")]
     #[error("string serialization error: {0}")]
-    StringSerializerError(#[from] StringSerializerError),
+    StringSerializerError(#[from] serde_string::StringSerializerError),
 
     #[error("json serialization error: {0}")]
     JsonSerializationError(#[from] serde_json_core::ser::Error),

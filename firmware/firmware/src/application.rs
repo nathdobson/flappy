@@ -447,6 +447,7 @@ impl Application {
         let mut mqtt_status = self.mqtt.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
             let mqtt_status = mqtt_status.changed().await;
+            #[cfg(feature = "usb")]
             self.runtime.usb.usb_setup.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
             });
@@ -461,6 +462,7 @@ impl Application {
         let mut wifi_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
             let wifi_status = wifi_status.changed().await;
+            #[cfg(feature = "usb")]
             self.runtime.usb.usb_setup.update_status(|status| {
                 status.wifi_status = wifi_status.clone();
             });

@@ -27,6 +27,6 @@ thiserror= "2.0.18"
 objc2={version="0.6.1",features=["disable-encoding-assertions"]}
 
 [features]
-usb = ["dep:nusb","dep:picoboot"]
+usb = ["dep:nusb","dep:picoboot","setup-client/usb"]
 ble = ["dep:btleplug","setup-client/ble"]
-default = ["ble","usb","setup-client/usb"]
+default = ["ble","usb"]

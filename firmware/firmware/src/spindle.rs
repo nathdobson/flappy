@@ -121,6 +121,7 @@ impl NativeFn for DisplayFn {
                         }
                     }
                 }
+                #[cfg(feature = "display")]
                 self.display.display_once(&text).await;
                 Ok(Value::Null)
             })?

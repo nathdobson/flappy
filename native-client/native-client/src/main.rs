@@ -10,7 +10,6 @@ mod picoboot;
 
 // use btleplug::api::Peripheral;
 use crate::error::Error;
-use crate::picoboot::picoboot;
 use clap::{Parser, ValueEnum};
 use futures_util::stream::StreamExt;
 use itertools::Itertools;
@@ -19,9 +18,7 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, MAX_SETUP_MESSAGE_SIZE, WriteAppSettings,
 };
 use protocol::setup::{SetupRequest, SetupResponse};
-use setup_client::ble::BleClientBuilder;
 use setup_client::client::{Client, ClientTransport};
-use setup_client::usb::UsbClientBuilder;
 use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
@@ -88,7 +85,7 @@ async fn connect(transport: ClientTransport, address: &str) -> Result<Client, Er
     match transport {
         #[cfg(feature = "usb")]
         ClientTransport::Usb => Ok(Client::UsbClient(
-            UsbClientBuilder::list()
+            setup_client::usb::UsbClientBuilder::list()
                 .await?
                 .into_iter()
                 .find(|x| x.serial_number() == Some(address))
@@ -98,7 +95,7 @@ async fn connect(transport: ClientTransport, address: &str) -> Result<Client, Er
         )),
         #[cfg(feature = "ble")]
         ClientTransport::Ble => {
-            let mut scan = BleClientBuilder::scan().await?;
+            let mut scan = setup_client::ble::BleClientBuilder::scan().await?;
             while let Some(next) = scan.next().await {
                 let next = next?;
                 if next.address() == address {
@@ -128,7 +125,7 @@ async fn main_impl() -> Result<(), Error> {
         Subcommand::List => match args.transport {
             #[cfg(feature = "usb")]
             ClientTransport::Usb => {
-                for x in UsbClientBuilder::list().await? {
+                for x in setup_client::usb::UsbClientBuilder::list().await? {
                     if let Some(sn) = x.serial_number() {
                         println!("{}", sn);
                     } else {
@@ -138,7 +135,7 @@ async fn main_impl() -> Result<(), Error> {
             }
             #[cfg(feature = "ble")]
             ClientTransport::Ble => {
-                let mut scan = BleClientBuilder::scan().await?;
+                let mut scan = setup_client::ble::BleClientBuilder::scan().await?;
                 while let Some(next) = scan.next().await {
                     let next = next?;
                     println!("{}", next.address());
@@ -208,7 +205,7 @@ async fn main_impl() -> Result<(), Error> {
         }
         Subcommand::Picoboot(command) => {
             #[cfg(feature = "usb")]
-            picoboot(command).await?;
+            crate::picoboot::picoboot(command).await?;
         }
     }
     Ok(())

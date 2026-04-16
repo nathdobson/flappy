@@ -27,6 +27,7 @@ const KEEPALIVE: u16 = 60;
 
 type MyError = Error<TokioErrorAdapter>;
 
+#[ignore]
 #[tokio::test]
 async fn test() -> Result<(), MyError> {
     let host = env::var("MQTT_HOST").unwrap();
