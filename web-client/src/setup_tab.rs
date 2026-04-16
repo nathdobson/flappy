@@ -51,8 +51,6 @@ pub struct SetupTab {
     connect_ble_button: HtmlButtonElement,
     disconnect_listener: EventListener<'static>,
     disconnect_button: HtmlButtonElement,
-    read_listener: EventListener<'static>,
-    write_listener: EventListener<'static>,
     connection: RefCell<Option<ConnectionTask>>,
     connect_status: Rc<Status>,
 
@@ -194,11 +192,6 @@ impl SetupTab {
         let firmware_status = Status::new()?;
         firmware_section.append_child(firmware_status.node())?;
 
-        let read_button = node.append_element::<"button">()?;
-        read_button.append_text("Read settings file from display")?;
-        let write_button = node.append_element::<"button">()?;
-        write_button.append_text("Write settings file to display")?;
-
         let connect_ble_listener = EventListener::new(
             &connect_ble_button,
             EventType::Click,
@@ -214,16 +207,6 @@ impl SetupTab {
             EventType::Click,
             Self::weak_callback(&this, Self::disconnect),
         )?;
-        let read_listener = EventListener::new(
-            &read_button,
-            EventType::Click,
-            Self::weak_callback(&this, Self::read_settings),
-        )?;
-        let write_listener = EventListener::new(
-            &write_button,
-            EventType::Click,
-            Self::weak_callback(&this, Self::write_settings),
-        )?;
         let this = this.into_rc(SetupTab {
             node,
             connect_usb_button,
@@ -232,8 +215,6 @@ impl SetupTab {
             connect_ble_listener,
             disconnect_listener,
             disconnect_button,
-            read_listener,
-            write_listener,
             connection: RefCell::new(None),
             connect_status,
 
@@ -369,16 +350,6 @@ impl SetupTab {
         self.show_connection(false).ok();
         self.connection.replace(None);
     }
-    fn read_settings(self: Rc<Self>, event: Event) {
-        spawn_local(async move {
-            if let Err(e) = self.try_read_settings().await {
-                self.connect_status.set(
-                    StatusPriority::Error,
-                    format!("Failed to read settings via bluetooth: {}", e),
-                );
-            }
-        });
-    }
     fn connection(&self) -> Result<Rc<Client>, Error> {
         Ok(self
             .connection
@@ -389,69 +360,6 @@ impl SetupTab {
             .get()
             .ok_or(Error::NotConnected)?
             .clone())
-    }
-    async fn try_read_settings(&self) -> Result<(), Error> {
-        self.connect_status
-            .set(StatusPriority::Info, "Reading settings...".to_string());
-        let connection = self.connection()?;
-        let settings = connection.read_settings().await?;
-        let settings = serde_json_core::to_string::<_, MAX_SETUP_MESSAGE_SIZE>(&settings)?;
-        let settings = jsonformat::format(&settings, Indentation::FourSpace);
-        let link = create_element::<"a">()?;
-        let parts = js_sys::Array::new();
-        parts.push(&Uint8Array::from(&*settings.as_bytes()));
-        let props = BlobPropertyBag::new();
-        props.set_type("text/plain");
-        let file = Blob::new_with_u8_array_sequence_and_options(&parts, &props)?;
-        let url = Url::create_object_url_with_blob(&file)?;
-        link.set_href(&url);
-        link.set_download("setup.json");
-        link.click();
-        Url::revoke_object_url(&link.href())?;
-        self.connect_status.set(
-            StatusPriority::Info,
-            "Finished reading settings.".to_string(),
-        );
-        Ok(())
-    }
-    fn write_settings(self: Rc<Self>, event: Event) {
-        spawn_local(async move {
-            if let Err(e) = self.try_write_settings().await {
-                self.connect_status.set(
-                    StatusPriority::Error,
-                    format!("Failed to write settings via bluetooth: {}", e),
-                );
-            }
-        });
-    }
-    async fn try_write_settings(&self) -> Result<(), Error> {
-        let connection = self.connection()?;
-        let x: Array<FileSystemFileHandle> =
-            try_window()?.show_open_file_picker()?.into_future().await?;
-        let file: FileSystemFileHandle = x
-            .into_iter()
-            .exactly_one()
-            .ok()
-            .ok_or(Error::ExpectedSingleFile)?;
-        let file = file.get_file().await?.dyn_into::<File>()?;
-        let file = file.text().await?.dyn_into::<JsString>()?;
-        let file: String = file.into();
-        let mut temp = vec![0; MAX_SETUP_MESSAGE_SIZE];
-        let app_settings: AppSettings = serde_json_core::from_str_escaped(&file, &mut temp)?.0;
-        self.connect_status
-            .set(StatusPriority::Info, "Writing settings...".to_string());
-        connection
-            .write_settings(WriteAppSettings {
-                wifi: Some(app_settings.wifi),
-                mqtt: Some(app_settings.mqtt),
-                display: Some(app_settings.display),
-            })
-            .await?;
-        self.connect_status.set(
-            StatusPriority::Info,
-            "Finished writing settings.".to_string(),
-        );
-        Ok(())
     }
     async fn write_settings_partial(&self, settings: WriteAppSettings) -> Result<(), Error> {
         self.connection()?.write_settings(settings).await?;
