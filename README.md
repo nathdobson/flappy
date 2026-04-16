@@ -28,7 +28,7 @@ Building this project from scratch requires a specific set of equipment and skil
 * Required
 
     * 3D printer with multi-material support (e.g. Bambu Labs A1 mini with AMS [^2]).
-    * Computer with USB ports running Linux, OSX, or Windows.
+    * Device with a USB port capable of running Chrome.
     * [Soldering iron with temperature adjustment](https://www.amazon.com/Soldering-Digital-Welding-Portable-Electric/dp/B08R3515SF?th=1)
       for assembling boards and pushing Ruthex inserts into 3D printed parts.
     * Wire cutters
@@ -63,14 +63,13 @@ Building this project from scratch requires a specific set of equipment and skil
 | Name of Part                                                                                                                                                                        | Quantity per display | Quantity per letter | 
 |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|---------------------|
 | [Raspberry Pi Pico 2 W MCU with headers](https://www.adafruit.com/product/6328)                                                                                                     | 1                    |                     |
-| USB micro power supply for MCU                                                                                                                                                      | 1                    |                     |
 | 12v power supply (at least 250mA per character)                                                                                                                                     | 1                    |                     |
 | [Adafruit 12v to 5v converter](https://www.adafruit.com/product/5882)                                                                                                               | 1                    |                     |
 | [Custom motor driver circuit board](https://github.com/nathdobson/flappy/tree/main/driver)                                                                                          |                      | 1                   |
 | [28BYJ-48 12v motor](https://www.amazon.com/Podazz-4-Phase-5-Line-Stepper-28BYJ-48/dp/B0DCFV3C2C)                                                                                   |                      | 1                   |
 | [KY-003 hall sensor module](https://www.amazon.com/Ransanx-Magnetic-KY-003-3-3V-5V-Pressure/dp/B0F32N1LHX?th=1)                                                                     |                      | 1                   |
 | [PLA (background color)](https://us.store.bambulab.com/products/pla-basic-filament)                                                                                                 | ~132 g               | ~217 g              |
-| [PLA (foreground color)](https://us.store.bambulab.com/products/pla-basic-filament)                                                                                                 |                      | ~18 g               |
+| [PLA (foreground/text color)](https://us.store.bambulab.com/products/pla-basic-filament)                                                                                            |                      | ~18 g               |
 | [PETG](https://us.store.bambulab.com/products/petg-hf) for stacked prints (optional)                                                                                                |                      | ~30 g               |
 | Ruthex M2 inserts                                                                                                                                                                   | 4                    | 8                   |
 | Ruthex M3 inserts                                                                                                                                                                   | 4                    | 6 - 8               |
@@ -93,10 +92,10 @@ The repository is divided into several hardware and software components:
 * [models/](models/) A cargo crate with binaries that generate .3mf files for each 3D-printed part.
 * [native-client/](native-client/) A cargo workspace with a binary for configuring the display over USB or Bluetooth.
 * [spindle/](spindle/) A cargo workspace with a simple scripting language for controlling the display.
-* [submodules/](submodules/) A set of git submodules with forked dependencies.
+* [submodules/](submodules/) A set of git submodules with forks of dependencies.
 * [submodules/patina-rs](submodules/patina-rs/) A CAD library for generating 3D meshes from SDFs (signed distance
   functions).
-* [web-client](web-client/) A WASM web application for activating the display over MQTT.
+* [web-client](web-client/) A WASM web application for interacting with the display.
 
 ## Instructions
 
@@ -133,19 +132,11 @@ The repository is divided into several hardware and software components:
 
 ### Software
 
-1. Install [picotool](https://github.com/raspberrypi/picotool).
 1. Set up an MQTT broker (e.g. with https://www.emqx.com/).
-1. Connect the Pico to a computer with a USB cable. Flash the firmware with:
-   `picotool load -f -u -v -x -t elf firmware.elf`
-2. (Optional) Access debug logs from the Pico via a serial port. These logs can be accessed with a tool
-   like [tio](https://github.com/tio/tio).
-1. Create a `setup.json` file based on [blank.json](native-client/blank.json). The schema for this file is defined by the
-   `AppSettings` struct in [common/protocol/src/setup.rs](common/protocol/src/setup.rs).
-1. Configure the display by executing the appropriate `native-client-*` binary.
-1. Navigate to https://flappy-7d77d.web.app/www/ or set up custom web hosting by unzipping `web-client.zip` and
-   uploading to a web host.
-1. Connect to the display by specifying the parameters for the MQTT broker.
-2. Adjust calibration values in the `setup.json` file until the expected letters appear consistently.
+1. Install the firmware by loading the [setup tool](https://flappy-7d77d.web.app/www/?tab=setup) in Chrome.
+1. Fill out the settings in the setup tool. See [blank.json](native-client/blank.json) for defaults.
+1. Enter the MQTT broker details in the [connect tool](https://flappy-7d77d.web.app/www/?tab=setup). You can use the resulting URL to connect to the display.
+1. Adjust calibration values until the expected letters appear consistently.
 
 ## Controlling the display
 
