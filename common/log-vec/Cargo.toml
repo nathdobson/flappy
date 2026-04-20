@@ -1,0 +1,13 @@
+[package]
+name = "log-vec"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+heapless = {path= "../../submodules/heapless",features = ["embedded-io-v0.7"]}
+embassy-sync = {path="../../submodules/embassy/embassy-sync"}
+embedded-io = "0.7.1"
+
+[dev-dependencies]
+rand_xorshift = "0.5.0"
+rand = "0.10.1"

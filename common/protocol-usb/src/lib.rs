@@ -1,0 +1,11 @@
+#![no_std]
+
+pub const PI_VENDOR_ID: u16 = 0x2E8A;
+pub const PI_SERIAL_PRODUCT_ID: u16 = 0x000A;
+pub const PI_PICOBOOT_PRODUCT_ID: u16 = 0x000f;
+pub const CUSTOM_CLASS_ID: u8 = 0xFF;
+pub const CUSTOM_SUBCLASS_ID: u8 = 0xF1;
+pub const PICOBOOT_SUBCLASS_ID: u8 = 0;
+
+pub const PICOBOOT_RESET_INTERFACE_PROTOCOL: u8 = 0x01;
+pub const PICOBOOT_RESET_REQUEST_BOOTSEL: u8 = 0x01;

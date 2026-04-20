@@ -1,6 +1,6 @@
+use crate::display_proto;
 use crate::driver::DriverModule;
 use crate::error::Error;
-use crate::{display_proto, make_static};
 use core::cell::RefCell;
 use core::default::Default;
 use core::ops::Index;
@@ -10,6 +10,7 @@ use embassy_sync::mutex::{Mutex, MutexGuard};
 use embassy_time::{Instant, Timer};
 use heapless::{CapacityError, String, Vec};
 use log::{error, info};
+use make_static::make_static;
 use protocol::display::MAX_GLYPHS;
 use protocol::setup::{DisplaySettings, DriverVersion};
 

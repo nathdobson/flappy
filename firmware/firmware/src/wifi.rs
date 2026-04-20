@@ -16,7 +16,7 @@ use log::{error, info, warn};
 use protocol::setup::{WifiSettings, WifiStatus};
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
-use crate::make_static;
+use make_static::make_static;
 
 const MODULE: &'static str = "[WiFi ]";
 

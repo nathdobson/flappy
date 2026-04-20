@@ -1,0 +1,7 @@
+[package]
+name = "reboot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embassy-rp = {path="../../submodules/embassy/embassy-rp"}

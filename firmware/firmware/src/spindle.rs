@@ -1,7 +1,6 @@
 use crate::application::Application;
 use crate::display::DisplayModule;
 use crate::error::Error;
-use crate::make_static;
 use core::alloc::AllocError;
 use core::cell::RefCell;
 use core::fmt::Display;
@@ -23,6 +22,7 @@ use spindle::interp::value::Value;
 use spindle::native::{NativeError, NativeFn, PrintFn};
 use spindle::{Spindle, SpindleOptions};
 use static_cell::StaticCell;
+use ::make_static::make_static;
 
 type MySpindle = Spindle<16384, 16384, 256, 256, 16384>;
 

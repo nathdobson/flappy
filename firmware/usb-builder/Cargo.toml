@@ -1,0 +1,25 @@
+[package]
+name = "usb-builder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+make-static = {path= "../../common/make-static" }
+embassy-rp = {path="../../submodules/embassy/embassy-rp"}
+embassy-executor = {path= "../../submodules/embassy/embassy-executor"}
+embassy-usb = {path = "../../submodules/embassy/embassy-usb"}
+embassy-usb-driver = {path = "../../submodules/embassy/embassy-usb-driver"}
+log = "0.4.29"
+thiserror = {version="2.0.18",default-features = false}
+board-info = {path="../board-info"}
+protocol-usb = {path="../../common/protocol-usb"}
+embassy-futures = {path="../../submodules/embassy/embassy-futures"}
+embassy-sync = {path="../../submodules/embassy/embassy-sync"}
+embassy-time = {path="../../submodules/embassy/embassy-time"}
+heapless = {path="../../submodules/heapless"}
+reboot = {path="../reboot"}
+log-vec  = {path="../../common/log-vec"}
+rp-pac = "7.0.0"
+embedded-io = "0.7.1"
+embedded-hal = "1.0.0"
+embedded-hal-async = "1.0.0"

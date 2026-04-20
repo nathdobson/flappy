@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::make_static;
 use core::cell::RefCell;
 use cortex_m::prelude::_embedded_hal_blocking_spi_Write;
 use embassy_executor::Spawner;
@@ -10,6 +9,7 @@ use embassy_rp::{Peri, bind_interrupts};
 use log::{error, info};
 use protocol::setup::{AppSettings, WriteSettingsError};
 use serde::{Deserialize, Serialize};
+use make_static::make_static;
 use crate::interrupts::Irqs;
 
 const MODULE: &'static str = "[FLASH]";

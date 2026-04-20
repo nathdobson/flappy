@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::make_static;
 use core::cell::Cell;
 use embassy_executor::Spawner;
 use embassy_rp::Peri;
@@ -8,6 +7,7 @@ use embassy_time::Delay;
 use embassy_time::Instant;
 use embedded_hal_async::delay::DelayNs;
 use log::info;
+use ::make_static::make_static;
 pub struct BootselPeripherals {
     pub bootsel: Peri<'static, BOOTSEL>,
 }

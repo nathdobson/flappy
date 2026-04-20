@@ -16,6 +16,7 @@
 #![feature(allocator_api)]
 #![allow(unreachable_code)]
 #![allow(unused_features)]
+#![feature(macro_derive)]
 
 use core::future::pending;
 use crate::application::main_task;
@@ -46,22 +47,23 @@ mod product;
 mod radio;
 mod runtime;
 mod settings_channel;
-#[cfg(feature = "usb")]
-mod usb;
-#[cfg(feature = "usb")]
-mod usb_reset;
-#[cfg(feature = "usb")]
-mod usb_serial;
-#[cfg(all(feature="usb",feature = "setup"))]
-mod usb_setup;
+// #[cfg(feature = "usb")]
+// mod usb;
+// #[cfg(feature = "usb")]
+// mod usb_reset;
+// #[cfg(feature = "usb")]
+// mod usb_serial;
+// #[cfg(all(feature="usb",feature = "setup"))]
+// mod usb_setup;
 #[cfg(feature = "wifi")]
 mod wifi;
-mod make_static;
 #[cfg(feature = "spindle")]
 mod spindle;
 mod display;
 mod interrupts;
 mod bootsel;
+#[cfg(feature = "usb")]
+mod usb;
 
 extern crate alloc;
 

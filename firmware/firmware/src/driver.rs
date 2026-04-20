@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::make_static;
 use core::cell::RefCell;
 use cortex_m::asm::delay;
 use embassy_futures::yield_now;
@@ -12,6 +11,7 @@ use embassy_time::{Delay, Timer};
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
 use log::{error, info};
+use make_static::make_static;
 
 const MODULE: &str = "[DRIVE]";
 

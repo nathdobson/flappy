@@ -1,10 +1,10 @@
-use crate::make_static;
 use crate::radio::RadioModule;
 use core::cell::RefCell;
 use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
+use make_static::make_static;
 
 const MODULE: &str = "[LED  ]";
 const INCREMENTS: u64 = 20;

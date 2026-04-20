@@ -1,0 +1,9 @@
+[package]
+name = "board-info"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embassy-sync = {path="../../submodules/embassy/embassy-sync"}
+heapless = "0.9.2"
+embassy-rp = {path="../../submodules/embassy/embassy-rp"}

@@ -1,7 +1,6 @@
 use crate::bootsel::BootselModule;
 use crate::error::Error;
-use crate::product::serial_number;
-use crate::{make_static, product};
+use crate::product;
 use core::cell::{Cell, RefCell};
 use core::future::{join, pending};
 use core::mem;
@@ -37,6 +36,8 @@ use trouble_host::prelude::{
     HeaplessString, Peripheral, Runner, appearance, descriptors, gatt_server, gatt_service, uuid,
 };
 use trouble_host::{Address, HostResources, IoCapabilities, PacketPool, Stack};
+use make_static::make_static;
+use board_info::serial_number;
 
 const MODULE: &'static str = "[BLE  ]";
 /// Max number of connections

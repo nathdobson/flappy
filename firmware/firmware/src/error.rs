@@ -45,6 +45,7 @@ pub enum Error {
     FromGattError(trouble_host::types::gatt_traits::FromGattError),
     NoCertificateListSha256,
     BootselButtonTimeout,
+    UsbBuilderError(usb_builder::error::Error),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -89,7 +90,10 @@ impl Display for Error {
             #[cfg(feature = "ble")]
             Error::FromGattError(e) => write!(f, "Error converting GATT data: {:?}", e),
             Error::NoCertificateListSha256 => write!(f, "Missing certificate list sha256"),
-            Error::BootselButtonTimeout => write!(f, "Timeout waiting for the user to press bootsel."),
+            Error::BootselButtonTimeout => {
+                write!(f, "Timeout waiting for the user to press bootsel.")
+            }
+            Error::UsbBuilderError(error) => write!(f, "USB builder error: {:?}", error),
         }
     }
 }
@@ -237,5 +241,12 @@ impl From<TimeoutError> for Error {
 impl From<trouble_host::types::gatt_traits::FromGattError> for Error {
     fn from(value: trouble_host::types::gatt_traits::FromGattError) -> Self {
         Error::FromGattError(value)
+    }
+}
+
+#[cfg(feature = "usb")]
+impl From<usb_builder::error::Error> for Error {
+    fn from(value: usb_builder::error::Error) -> Self {
+        Error::UsbBuilderError(value)
     }
 }

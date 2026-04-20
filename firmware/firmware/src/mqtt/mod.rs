@@ -38,6 +38,8 @@ use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use mqtt_core::protocol::{Packet, PublishPacket, Qos};
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
+use board_info::serial_number;
+use make_static::make_static;
 // use rust_mqtt::client::client::MqttClient;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
@@ -50,11 +52,9 @@ const PACKET_SIZE: usize = 1024;
 const RECORD_SIZE: usize = 16384;
 
 use crate::application::DisplayResponseContainer;
-use crate::make_static;
 use crate::mqtt::merge_socket::MergeSocket;
 use crate::mqtt::tls::TlsConnectionBuilder;
 use crate::mqtt::webpki_provider::WebPkiProvider;
-use crate::product::serial_number;
 use protocol::display::DisplayRequest;
 use protocol::error::{
     DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel,

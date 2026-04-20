@@ -1,6 +1,6 @@
 use crate::error::Error;
-use crate::product::serial_number;
-use crate::{make_static, product};
+use crate::product;
+use crate::usb::FlappyUsbServer;
 use core::fmt::Arguments;
 use core::intrinsics::abort;
 use core::{fmt, mem};
@@ -19,6 +19,7 @@ use embassy_sync::signal::Signal;
 use embassy_time::{Duration, Instant, Timer, block_for};
 use heapless::{String, Vec};
 use log::{Level, Log, Metadata, Record, error, info, set_logger, set_max_level};
+use make_static::make_static;
 
 const MODULE: &'static str = "[RUN  ]";
 
@@ -28,8 +29,7 @@ pub struct RuntimePeripherals {
 }
 
 pub struct RuntimeModule {
-    #[cfg(feature = "usb")]
-    pub usb: &'static crate::usb::UsbModule,
+    usb: FlappyUsbServer,
 }
 
 #[panic_handler]
@@ -40,15 +40,13 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 impl RuntimeModule {
     pub fn new(spawner: SendSpawner, peri: RuntimePeripherals) -> &'static Self {
-        #[cfg(feature = "usb")]
-        let usb = crate::usb::UsbModule::new();
         let module: &'static RuntimeModule = make_static!(
             RuntimeModule,
             RuntimeModule {
-                #[cfg(feature = "usb")]
-                usb
+                usb: FlappyUsbServer::new()
             }
         );
+        module.usb.init();
 
         spawner.spawn({
             #[embassy_executor::task]
@@ -61,7 +59,7 @@ impl RuntimeModule {
         });
         module
     }
-    async fn start(&self, peri: RuntimePeripherals) -> Result<(), Error> {
+    async fn start(&'static self, peri: RuntimePeripherals) -> Result<(), Error> {
         let spawner = unsafe { Spawner::for_current_executor().await };
         #[cfg(feature = "usb")]
         self.usb.start(spawner, peri.USB).await?;
@@ -70,6 +68,6 @@ impl RuntimeModule {
 }
 
 pub fn reboot_to_bootsel() -> ! {
-    rom_data::reboot(0x0002, 500, 0, 0);
+    rom_data::reboot(0x0002, 10, 0, 0);
     unreachable!()
 }

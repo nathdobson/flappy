@@ -2,9 +2,10 @@ use crate::bootsel::BootselModule;
 use crate::cli::{Adjustment, Command, MqttField, TestType, WifiField};
 use crate::error::Error;
 use crate::peripherals::AppPeripherals;
-use crate::product::{built_info, serial_number};
+use crate::product;
+use crate::product::built_info;
 use crate::runtime::RuntimeModule;
-use crate::{make_static, product};
+use board_info::serial_number;
 use core::cell::RefCell;
 use core::future::pending;
 use core::mem;
@@ -22,6 +23,7 @@ use embassy_time::{Delay, Duration};
 use embedded_hal_async::delay::DelayNs;
 use heapless::{CapacityError, String, Vec, format};
 use log::{error, info};
+use make_static::make_static;
 use protocol::display::MAX_GLYPH_BYTES;
 use protocol::display::MAX_GLYPHS;
 use protocol::display::{DisplayRequest, DisplayResponse};
@@ -217,13 +219,14 @@ impl Application {
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_setup(application: &'static Application) {
-                application
-                    .handle_setup(
-                        application.runtime.usb.usb_setup.requests(),
-                        application.runtime.usb.usb_setup.responses(),
-                        true,
-                    )
-                    .await;
+                // TODO
+                // application
+                //     .handle_setup(
+                //         application.runtime.usb.usb_setup.requests(),
+                //         application.runtime.usb.usb_setup.responses(),
+                //         true,
+                //     )
+                //     .await;
             }
             handle_setup(self)?
         });
@@ -327,61 +330,63 @@ impl Application {
 
     #[cfg(feature = "usb")]
     async fn handle_commands(&'static self) {
-        let usb_serial = self.runtime.usb.usb_serial;
-        loop {
-            let command = usb_serial.commands().receive().await;
-            let Ok(command) = str::from_utf8(&command) else {
-                usb_serial
-                    .write_feedback_line(format_args!("Command is not valid utf-8"))
-                    .await;
-                continue;
-            };
-            usb_serial
-                .write_feedback_line(format_args!(">{}", command))
-                .await;
-            let command = Command::parse(command);
-            let command = match command {
-                Ok(command) => command,
-                Err(e) => {
-                    usb_serial
-                        .write_feedback_line(format_args!("Bad command: {}", e))
-                        .await;
-                    continue;
-                }
-            };
-            self.handle_command(command).await;
-        }
+        // TODO
+        // let usb_serial = self.runtime.usb.usb_serial;
+        // loop {
+        //     let command = usb_serial.commands().receive().await;
+        //     let Ok(command) = str::from_utf8(&command) else {
+        //         usb_serial
+        //             .write_feedback_line(format_args!("Command is not valid utf-8"))
+        //             .await;
+        //         continue;
+        //     };
+        //     usb_serial
+        //         .write_feedback_line(format_args!(">{}", command))
+        //         .await;
+        //     let command = Command::parse(command);
+        //     let command = match command {
+        //         Ok(command) => command,
+        //         Err(e) => {
+        //             usb_serial
+        //                 .write_feedback_line(format_args!("Bad command: {}", e))
+        //                 .await;
+        //             continue;
+        //         }
+        //     };
+        //     self.handle_command(command).await;
+        // }
     }
     #[cfg(feature = "usb")]
     async fn handle_command(&'static self, command: Command<'_>) {
-        let usb_serial = self.runtime.usb.usb_serial;
-        match command {
-            Command::Help => {
-                usb_serial
-                    .write_feedback_line(format_args!("commands: help, display"))
-                    .await;
-            }
-            Command::Display(msg) => {
-                self.display_request
-                    .signal(DisplayRequest::Run(msg.try_into().unwrap_or_default()));
-            }
-            Command::Test(typ) => match typ {
-                TestType::Spin => {
-                    self.display_request.signal(DisplayRequest::Test);
-                }
-                TestType::Enable => {
-                    #[cfg(feature = "display")]
-                    self.driver.set_enabled(true);
-                    Delay.delay_ms(100_000).await;
-                    #[cfg(feature = "display")]
-                    self.driver.set_enabled(false);
-                }
-                TestType::Read => {
-                    #[cfg(feature = "display")]
-                    self.driver.run_read_test().await;
-                }
-            },
-        }
+        // TODO
+        // let usb_serial = self.runtime.usb.usb_serial;
+        // match command {
+        //     Command::Help => {
+        //         usb_serial
+        //             .write_feedback_line(format_args!("commands: help, display"))
+        //             .await;
+        //     }
+        //     Command::Display(msg) => {
+        //         self.display_request
+        //             .signal(DisplayRequest::Run(msg.try_into().unwrap_or_default()));
+        //     }
+        //     Command::Test(typ) => match typ {
+        //         TestType::Spin => {
+        //             self.display_request.signal(DisplayRequest::Test);
+        //         }
+        //         TestType::Enable => {
+        //             #[cfg(feature = "display")]
+        //             self.driver.set_enabled(true);
+        //             Delay.delay_ms(100_000).await;
+        //             #[cfg(feature = "display")]
+        //             self.driver.set_enabled(false);
+        //         }
+        //         TestType::Read => {
+        //             #[cfg(feature = "display")]
+        //             self.driver.run_read_test().await;
+        //         }
+        //     },
+        // }
     }
     #[cfg(feature = "setup")]
     async fn handle_setup(
@@ -406,8 +411,9 @@ impl Application {
                     response = SetupResponse::WriteSettings(self.set_settings(&settings));
                 }
                 SetupRequest::TouchAppStatus => {
-                    #[cfg(all(feature = "usb", feature = "setup"))]
-                    self.runtime.usb.usb_setup.update_status(|x| {});
+                    // TODO
+                    // #[cfg(all(feature = "usb", feature = "setup"))]
+                    // self.runtime.usb.usb_setup.update_status(|x| {});
                     #[cfg(feature = "ble")]
                     self.ble.update_status(|x| {});
                     response = SetupResponse::TouchAppStatus;
@@ -447,10 +453,11 @@ impl Application {
         let mut mqtt_status = self.mqtt.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
             let mqtt_status = mqtt_status.changed().await;
-            #[cfg(feature = "usb")]
-            self.runtime.usb.usb_setup.update_status(|status| {
-                status.mqtt_status = mqtt_status.clone();
-            });
+            // TODO
+            // #[cfg(feature = "usb")]
+            // self.runtime.usb.usb_setup.update_status(|status| {
+            //     status.mqtt_status = mqtt_status.clone();
+            // });
             #[cfg(feature = "ble")]
             self.ble.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
@@ -462,10 +469,11 @@ impl Application {
         let mut wifi_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
             let wifi_status = wifi_status.changed().await;
-            #[cfg(feature = "usb")]
-            self.runtime.usb.usb_setup.update_status(|status| {
-                status.wifi_status = wifi_status.clone();
-            });
+            // TODO
+            // #[cfg(feature = "usb")]
+            // self.runtime.usb.usb_setup.update_status(|status| {
+            //     status.wifi_status = wifi_status.clone();
+            // });
             #[cfg(feature = "ble")]
             self.ble.update_status(|status| {
                 status.wifi_status = wifi_status.clone();
