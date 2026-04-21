@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::product;
-use crate::usb::FlappyUsbServer;
+use crate::usb::{FlappyUsbServer, UsbModule};
 use core::fmt::Arguments;
 use core::intrinsics::abort;
 use core::{fmt, mem};
@@ -29,7 +29,7 @@ pub struct RuntimePeripherals {
 }
 
 pub struct RuntimeModule {
-    usb: FlappyUsbServer,
+    pub usb: &'static FlappyUsbServer,
 }
 
 #[panic_handler]
@@ -46,7 +46,6 @@ impl RuntimeModule {
                 usb: FlappyUsbServer::new()
             }
         );
-        module.usb.init();
 
         spawner.spawn({
             #[embassy_executor::task]

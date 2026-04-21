@@ -7,6 +7,7 @@ use embassy_usb::Builder;
 pub trait Buffer: Sized + AsMut<[u8]> {
     fn zeroed() -> Self;
 }
+
 impl<const N: usize> Buffer for [u8; N] {
     fn zeroed() -> Self {
         [0; N]
@@ -43,6 +44,7 @@ macro_rules! UsbServer {
     derive() (
         $vis:vis struct $name:ident {
             $(
+                $(#[$($meta:meta)*])?
                 $field:ident: $typ:ty,
             )*
         }

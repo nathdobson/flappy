@@ -3,7 +3,6 @@ use crate::error::Error;
 use embassy_executor::Spawner;
 use embassy_rp::peripherals::USB;
 use embassy_usb::Builder;
-use embassy_usb_driver::Driver;
 
 struct S1;
 struct S2;

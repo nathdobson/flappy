@@ -5,6 +5,7 @@ use crate::peripherals::AppPeripherals;
 use crate::product;
 use crate::product::built_info;
 use crate::runtime::RuntimeModule;
+use crate::usb::UsbModule;
 use board_info::serial_number;
 use core::cell::RefCell;
 use core::future::pending;
@@ -37,10 +38,16 @@ pub enum DisplayResponseContainer {
     DeviceInfo(DeviceInfo),
 }
 
+// No more than half of stack space should be used when serializing/deserializing.
+const _: [u8; 1] = [0; (size_of::<SetupRequest>() < 2048) as usize];
+const _: [u8; 1] = [0; (size_of::<SetupResponse>() < 2048) as usize];
+
 pub const MODULE: &'static str = "[APP  ]";
 pub struct Application {
     spawner: Spawner,
     runtime: &'static RuntimeModule,
+    #[cfg(feature = "usb")]
+    usb: &'static UsbModule,
     #[cfg(feature = "flash")]
     flash: &'static crate::flash::FlashModule,
     #[cfg(feature = "ble")]
@@ -77,6 +84,8 @@ impl Application {
         runtime: &'static RuntimeModule,
         peri: AppPeripherals,
     ) -> Result<&'static Self, Error> {
+        #[cfg(feature = "usb")]
+        let usb = UsbModule::new(spawner, runtime.usb);
         let bootsel = BootselModule::new(spawner, peri.bootsel)?;
         #[cfg(feature = "display")]
         let driver = crate::driver::DriverModule::new(peri.driver_peri).await?;
@@ -127,6 +136,8 @@ impl Application {
             Application {
                 spawner,
                 runtime,
+                #[cfg(feature = "usb")]
+                usb,
                 #[cfg(feature = "flash")]
                 flash,
                 #[cfg(feature = "ble")]
@@ -219,14 +230,11 @@ impl Application {
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_setup(application: &'static Application) {
-                // TODO
-                // application
-                //     .handle_setup(
-                //         application.runtime.usb.usb_setup.requests(),
-                //         application.runtime.usb.usb_setup.responses(),
-                //         true,
-                //     )
-                //     .await;
+                loop {
+                    let request = application.usb.receive_request().await;
+                    let response = application.handle_setup(&request, true).await;
+                    application.usb.send_response(&response).await;
+                }
             }
             handle_setup(self)?
         });
@@ -234,13 +242,13 @@ impl Application {
         self.spawner.spawn({
             #[embassy_executor::task]
             async fn handle_setup(application: &'static Application) {
-                application
-                    .handle_setup(
-                        application.ble.requests(),
-                        application.ble.responses(),
-                        false,
-                    )
-                    .await;
+                let requests = application.ble.requests();
+                let responses = application.ble.responses();
+                loop {
+                    let request = requests.receive().await;
+                    let response = application.handle_setup(&request, false).await;
+                    responses.send(response).await;
+                }
             }
             handle_setup(self)?
         });
@@ -330,102 +338,85 @@ impl Application {
 
     #[cfg(feature = "usb")]
     async fn handle_commands(&'static self) {
-        // TODO
-        // let usb_serial = self.runtime.usb.usb_serial;
-        // loop {
-        //     let command = usb_serial.commands().receive().await;
-        //     let Ok(command) = str::from_utf8(&command) else {
-        //         usb_serial
-        //             .write_feedback_line(format_args!("Command is not valid utf-8"))
-        //             .await;
-        //         continue;
-        //     };
-        //     usb_serial
-        //         .write_feedback_line(format_args!(">{}", command))
-        //         .await;
-        //     let command = Command::parse(command);
-        //     let command = match command {
-        //         Ok(command) => command,
-        //         Err(e) => {
-        //             usb_serial
-        //                 .write_feedback_line(format_args!("Bad command: {}", e))
-        //                 .await;
-        //             continue;
-        //         }
-        //     };
-        //     self.handle_command(command).await;
-        // }
+        let usb_terminal = self.usb.terminal();
+        loop {
+            let command = usb_terminal.commands().receive().await;
+            let Ok(command) = str::from_utf8(&command) else {
+                usb_terminal
+                    .write_feedback_line(format_args!("Command is not valid utf-8"))
+                    .await;
+                continue;
+            };
+            usb_terminal
+                .write_feedback_line(format_args!(">{}", command))
+                .await;
+            let command = Command::parse(command);
+            let command = match command {
+                Ok(command) => command,
+                Err(e) => {
+                    usb_terminal
+                        .write_feedback_line(format_args!("Bad command: {}", e))
+                        .await;
+                    continue;
+                }
+            };
+            self.handle_command(command).await;
+        }
     }
     #[cfg(feature = "usb")]
     async fn handle_command(&'static self, command: Command<'_>) {
-        // TODO
-        // let usb_serial = self.runtime.usb.usb_serial;
-        // match command {
-        //     Command::Help => {
-        //         usb_serial
-        //             .write_feedback_line(format_args!("commands: help, display"))
-        //             .await;
-        //     }
-        //     Command::Display(msg) => {
-        //         self.display_request
-        //             .signal(DisplayRequest::Run(msg.try_into().unwrap_or_default()));
-        //     }
-        //     Command::Test(typ) => match typ {
-        //         TestType::Spin => {
-        //             self.display_request.signal(DisplayRequest::Test);
-        //         }
-        //         TestType::Enable => {
-        //             #[cfg(feature = "display")]
-        //             self.driver.set_enabled(true);
-        //             Delay.delay_ms(100_000).await;
-        //             #[cfg(feature = "display")]
-        //             self.driver.set_enabled(false);
-        //         }
-        //         TestType::Read => {
-        //             #[cfg(feature = "display")]
-        //             self.driver.run_read_test().await;
-        //         }
-        //     },
-        // }
+        let usb_terminal = self.usb.terminal();
+        match command {
+            Command::Help => {
+                usb_terminal
+                    .write_feedback_line(format_args!("commands: help, display"))
+                    .await;
+            }
+            Command::Display(msg) => {
+                self.display_request
+                    .signal(DisplayRequest::Run(msg.try_into().unwrap_or_default()));
+            }
+            Command::Test(typ) => match typ {
+                TestType::Spin => {
+                    self.display_request.signal(DisplayRequest::Test);
+                }
+                TestType::Enable => {
+                    #[cfg(feature = "display")]
+                    self.driver.set_enabled(true);
+                    Delay.delay_ms(100_000).await;
+                    #[cfg(feature = "display")]
+                    self.driver.set_enabled(false);
+                }
+                TestType::Read => {
+                    #[cfg(feature = "display")]
+                    self.driver.run_read_test().await;
+                }
+            },
+        }
     }
     #[cfg(feature = "setup")]
-    async fn handle_setup(
-        &'static self,
-        requests: DynamicReceiver<'static, SetupRequest>,
-        responses: DynamicSender<'static, SetupResponse>,
-        secure: bool,
-    ) {
-        loop {
-            let request = requests.receive().await;
-            let response;
-            match request {
-                SetupRequest::ReadSettings => {
-                    let mut settings = self.settings.borrow().clone();
-                    if !secure {
-                        settings.wifi.password.clear();
-                        settings.mqtt.password.clear();
-                    }
-                    response = SetupResponse::ReadSettings(settings);
+    async fn handle_setup(&'static self, request: &SetupRequest, secure: bool) -> SetupResponse {
+        match request {
+            SetupRequest::ReadSettings => {
+                let mut settings = self.settings.borrow().clone();
+                if !secure {
+                    settings.wifi.password.clear();
+                    settings.mqtt.password.clear();
                 }
-                SetupRequest::WriteSettings(settings) => {
-                    response = SetupResponse::WriteSettings(self.set_settings(&settings));
-                }
-                SetupRequest::TouchAppStatus => {
-                    // TODO
-                    // #[cfg(all(feature = "usb", feature = "setup"))]
-                    // self.runtime.usb.usb_setup.update_status(|x| {});
-                    #[cfg(feature = "ble")]
-                    self.ble.update_status(|x| {});
-                    response = SetupResponse::TouchAppStatus;
-                }
-                SetupRequest::DeviceInfo => {
-                    response = SetupResponse::DeviceInfo(self.device_info())
-                }
-                SetupRequest::Ping => {
-                    response = SetupResponse::Pong;
-                }
+                SetupResponse::ReadSettings(settings)
             }
-            responses.send(response).await;
+            SetupRequest::WriteSettings(settings) => {
+                SetupResponse::WriteSettings(self.set_settings(&settings))
+            }
+            SetupRequest::TouchAppStatus => {
+                #[cfg(all(feature = "usb", feature = "setup"))]
+                self.usb.update_status(|x| {});
+                #[cfg(feature = "ble")]
+                self.ble.update_status(|x| {});
+                SetupResponse::TouchAppStatus
+            }
+            SetupRequest::DeviceInfo => SetupResponse::DeviceInfo(self.device_info()),
+            SetupRequest::Ping => SetupResponse::Pong,
         }
     }
     fn device_info(&self) -> DeviceInfo {
@@ -453,11 +444,10 @@ impl Application {
         let mut mqtt_status = self.mqtt.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
             let mqtt_status = mqtt_status.changed().await;
-            // TODO
-            // #[cfg(feature = "usb")]
-            // self.runtime.usb.usb_setup.update_status(|status| {
-            //     status.mqtt_status = mqtt_status.clone();
-            // });
+            #[cfg(feature = "usb")]
+            self.usb.update_status(|status| {
+                status.mqtt_status = mqtt_status.clone();
+            });
             #[cfg(feature = "ble")]
             self.ble.update_status(|status| {
                 status.mqtt_status = mqtt_status.clone();
@@ -469,11 +459,10 @@ impl Application {
         let mut wifi_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
         loop {
             let wifi_status = wifi_status.changed().await;
-            // TODO
-            // #[cfg(feature = "usb")]
-            // self.runtime.usb.usb_setup.update_status(|status| {
-            //     status.wifi_status = wifi_status.clone();
-            // });
+            #[cfg(feature = "usb")]
+            self.usb.update_status(|status| {
+                status.wifi_status = wifi_status.clone();
+            });
             #[cfg(feature = "ble")]
             self.ble.update_status(|status| {
                 status.wifi_status = wifi_status.clone();
@@ -522,7 +511,6 @@ pub async fn main_task(spawner: Spawner, runtime: &'static RuntimeModule, peri: 
         if let Some(sn) = serial_number() {
             info!("{MODULE} MCU Serial Number: {}", sn);
         }
-
         let app = Application::new(spawner, runtime, peri).await?;
         app.initialize_settings()?;
         app.spawn_tasks()?;

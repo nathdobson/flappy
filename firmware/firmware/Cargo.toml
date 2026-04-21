@@ -75,6 +75,7 @@ p256={version="0.13.2",default-features = false,optional = true}
 usb-builder = {path="../usb-builder",optional = true}
 make-static = {path="../../common/make-static"}
 board-info = {path="../board-info"}
+fixed-freelist = {path="../../common/fixed-freelist"}
 
 [target.'cfg(target_arch="arm")'.dependencies]
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }

@@ -1,9 +1,9 @@
 use crate::error::Error;
 use crate::watch::Watch;
-use crate::{MAX_PACKET_SIZE, UsbBuilder, UsbServer};
-use core::fmt;
+use crate::{MAX_PACKET_SIZE, UsbServer};
 use core::fmt::Arguments;
 use embassy_executor::Spawner;
+use embassy_executor::raw::TaskPool;
 use embassy_futures::select::{Either, select};
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
@@ -11,17 +11,16 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::channel::{Channel, DynamicReceiver};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::pipe::Pipe;
-use embassy_time::{Delay, Instant, Timer};
+use embassy_time::{Instant, Timer};
 use embassy_usb::Builder;
-use embassy_usb::class::cdc_acm::{CdcAcmClass, ControlChanged, Receiver, Sender, State};
+use embassy_usb::class::cdc_acm;
 use embassy_usb::driver::EndpointError;
-use embedded_hal_async::delay::DelayNs;
-use embedded_io::{ErrorType, Write, WriteFmtError};
+use embedded_io::Write;
 use heapless::{Vec, VecView};
 use log::{Level, Log, Metadata, Record, info, set_logger, set_max_level};
 use log_vec::{LogVec, SlicePair};
-use make_static::make_static;
 use reboot::reboot_bootsel_after;
+use static_cell::StaticCell;
 
 const LOG_BUFFER_BYTES: usize = 4096;
 const RENDER_BYTES: usize = 4096;
@@ -56,20 +55,37 @@ enum LogLine {
 }
 type UsbLogVec = LogVec<LogLine, LOG_BUFFER_PACKETS, LOG_BUFFER_BYTES>;
 type UsbLogWatch = Watch<CriticalSectionRawMutex, UsbLogVec>;
-type UsbSender = Mutex<NoopRawMutex, Sender<'static, Driver<'static, USB>>>;
-type UsbReceiver = Receiver<'static, Driver<'static, USB>>;
+type UsbSender = Mutex<NoopRawMutex, cdc_acm::Sender<'static, Driver<'static, USB>>>;
+type UsbReceiver = cdc_acm::Receiver<'static, Driver<'static, USB>>;
 
 pub struct UsbTerminalServer {
     log: UsbLogWatch,
     receive_buffer: Pipe<CriticalSectionRawMutex, RECEIVE_BUFFER>,
     command_buffer: Channel<CriticalSectionRawMutex, Vec<u8, MAX_COMMAND_LEN>, MAX_COMMAND_QUEUE>,
+    render_buffer: StaticCell<Vec<u8, RENDER_BYTES>>,
+    cdc_acm_state: StaticCell<cdc_acm::State<'static>>,
+    sender: StaticCell<UsbSender>,
+    control_task: StaticCell<TaskPool<ControlTask, 1>>,
+    parse_task: StaticCell<TaskPool<ParseTask, 1>>,
+    transfer_task: StaticCell<TaskPool<TransferTask, 1>>,
 }
+
+type ControlTask = impl Future<Output = !>;
+type ParseTask = impl Future<Output = !>;
+type TransferTask = impl Future<Output = !>;
+
 impl UsbTerminalServer {
     pub fn new() -> Self {
         UsbTerminalServer {
             log: Watch::new(LogVec::new()),
             receive_buffer: Pipe::new(),
             command_buffer: Channel::new(),
+            render_buffer: StaticCell::new(),
+            cdc_acm_state: StaticCell::new(),
+            sender: StaticCell::new(),
+            control_task: StaticCell::new(),
+            parse_task: StaticCell::new(),
+            transfer_task: StaticCell::new(),
         }
     }
     pub fn set_logger(&'static self) {
@@ -77,6 +93,23 @@ impl UsbTerminalServer {
             .map(|()| set_max_level(log::LevelFilter::Info))
             .ok();
     }
+    #[define_opaque(ControlTask)]
+    fn control_task(&'static self, control: cdc_acm::ControlChanged<'static>) -> ControlTask {
+        self.control(control)
+    }
+    #[define_opaque(ParseTask)]
+    fn parse_task(&'static self, sender: &'static UsbSender) -> ParseTask {
+        self.parse(sender)
+    }
+    #[define_opaque(TransferTask)]
+    fn transfer_task(
+        &'static self,
+        sender: &'static UsbSender,
+        receiver: UsbReceiver,
+    ) -> TransferTask {
+        self.transfer(sender, receiver)
+    }
+
     async fn read_u8(&'static self) -> u8 {
         loop {
             let mut b = [0u8];
@@ -86,7 +119,7 @@ impl UsbTerminalServer {
             return b[0];
         }
     }
-    async fn parse(&'static self, sender: &UsbSender) {
+    async fn parse(&'static self, sender: &UsbSender) -> ! {
         let mut command = Vec::<u8, MAX_COMMAND_LEN>::new();
         loop {
             let b = self.read_u8().await;
@@ -130,7 +163,8 @@ impl UsbTerminalServer {
             }
         }
     }
-    async fn control(&'static self, control: ControlChanged<'static>) {
+
+    async fn control(&'static self, control: cdc_acm::ControlChanged<'static>) -> ! {
         loop {
             control.control_changed().await;
             // Allow out-of-band reset of the device
@@ -161,7 +195,8 @@ impl UsbTerminalServer {
     pub fn commands(&'static self) -> DynamicReceiver<'static, Vec<u8, MAX_COMMAND_LEN>> {
         self.command_buffer.dyn_receiver()
     }
-    pub fn write_feedback_line(mut self: &'static Self, args: Arguments<'_>) {
+    pub async fn write_feedback_line(mut self: &'static Self, args: Arguments<'_>) {
+        // TODO: guarantee write success?
         self.log.modify(|log| {
             let mut line = log.push_back();
             write!(line, "{}", args).ok();
@@ -289,8 +324,8 @@ impl UsbTerminalServer {
             self.receive_buffer.write_all(&buf[..len]).await;
         }
     }
-    async fn do_packets(&'static self, sender: &'static UsbSender, mut receiver: UsbReceiver) {
-        let mut render_buffer = make_static! {Vec<u8, RENDER_BYTES>, Vec::new()};
+    async fn transfer(&'static self, sender: &'static UsbSender, mut receiver: UsbReceiver) -> ! {
+        let mut render_buffer = self.render_buffer.init_with(|| Vec::new());
         loop {
             sender.lock().await.wait_connection().await;
             receiver.wait_connection().await;
@@ -333,40 +368,18 @@ impl UsbServer for UsbTerminalServer {
         spawner: Spawner,
         builder: &mut Builder<'static, Driver<'static, USB>>,
     ) -> Result<(), Error> {
-        let state = make_static!(State, State::new());
-        let class = CdcAcmClass::new(builder, state, MAX_PACKET_SIZE as u16);
+        let state = self.cdc_acm_state.init_with(cdc_acm::State::new);
+        let class = cdc_acm::CdcAcmClass::new(builder, state, MAX_PACKET_SIZE as u16);
 
         let (sender, receiver, control) = class.split_with_control();
-        let sender = make_static!(UsbSender, Mutex::new(sender));
+        let sender = self.sender.init_with(|| Mutex::new(sender));
 
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn control_task(
-                module: &'static UsbTerminalServer,
-                sender: ControlChanged<'static>,
-            ) {
-                module.control(sender).await;
-            }
-            control_task(self, control)?
-        });
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn parse_task(module: &'static UsbTerminalServer, sender: &'static UsbSender) {
-                module.parse(sender).await;
-            }
-            parse_task(self, sender)?
-        });
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn do_packets_task(
-                server: &'static UsbTerminalServer,
-                sender: &'static UsbSender,
-                receiver: UsbReceiver,
-            ) {
-                server.do_packets(sender, receiver).await
-            }
-            do_packets_task(self, sender, receiver)?
-        });
+        let control_task = self.control_task.init_with(TaskPool::new);
+        spawner.spawn(control_task.spawn(|| self.control_task(control))?);
+        let spawn_task = self.parse_task.init_with(TaskPool::new);
+        spawner.spawn(spawn_task.spawn(|| self.parse_task(sender))?);
+        let transfer_task = self.transfer_task.init_with(TaskPool::new);
+        spawner.spawn(transfer_task.spawn(|| self.transfer_task(sender, receiver))?);
         Ok(())
     }
 }

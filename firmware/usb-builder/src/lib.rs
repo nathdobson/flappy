@@ -10,6 +10,9 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 #![allow(unused_mut)]
+#![feature(allocator_api)]
+#![feature(unwrap_infallible)]
+extern crate alloc;
 
 pub mod error;
 mod test;
@@ -17,6 +20,8 @@ pub mod usb_reset;
 mod usb_server;
 pub mod usb_terminal;
 mod watch;
+pub mod usb_rpc;
+mod boxed_channel;
 
 use embassy_executor::Spawner;
 use embassy_executor::raw::TaskPool;
