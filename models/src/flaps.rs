@@ -1,4 +1,3 @@
-#![feature(exit_status_error)]
 #![deny(unused_must_use)]
 #![allow(unused_mut)]
 #![allow(unused_imports)]
