@@ -14,7 +14,7 @@ use make_static::make_static;
 use protocol::setup::{AppStatus, SetupRequest};
 use protocol::setup::{MAX_SETUP_MESSAGE_SIZE, SetupResponse};
 use protocol::{PRODUCT_MANUFACTURER, PRODUCT_NAME};
-use runtime::RemoteSpawner;
+use runtime::{LocalSpawn, RemoteSpawn};
 use usb_builder::usb_reset::UsbResetServer;
 use usb_builder::usb_rpc::UsbRpcServer;
 use usb_builder::usb_terminal::UsbTerminalServer;
@@ -44,7 +44,7 @@ impl FlappyUsbServer {
             }
         );
         server.usb_terminal.set_logger();
-        make_static!(RemoteSpawner::new()).spawn(spawner, move |spawner| async move {
+        make_static!(_, RemoteSpawn::new(spawner)).spawn(move |spawner| async move {
             if let Err(e) = server.start(spawner, peri).await {
                 info!("uncaught runtime error: {:?}", e);
             }
@@ -68,7 +68,7 @@ impl FlappyUsbServer {
 
 impl UsbModule {
     pub fn new(spawner: Spawner, server: &'static FlappyUsbServer) -> &'static Self {
-        let module = make_static!(
+        let module: &_ = make_static!(
             UsbModule,
             UsbModule {
                 server,
@@ -77,23 +77,19 @@ impl UsbModule {
         );
         module.server.usb_terminal.set_logger();
         #[cfg(feature = "setup")]
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn send_status(module: &'static UsbModule) {
-                let mut receiver = module.status.receiver().unwrap();
-                loop {
-                    let status = receiver.changed().await;
-                    match serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(&status) {
-                        Ok(buffer) => {
-                            module.server.usb_rpc.send_status(&buffer).await;
-                        }
-                        Err(e) => {
-                            error!("Failed to serialize status: {}", e);
-                        }
+        make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move {
+            let mut receiver = module.status.receiver().unwrap();
+            loop {
+                let status = receiver.changed().await;
+                match serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(&status) {
+                    Ok(buffer) => {
+                        module.server.usb_rpc.send_status(&buffer).await;
+                    }
+                    Err(e) => {
+                        error!("Failed to serialize status: {}", e);
                     }
                 }
             }
-            send_status(module).unwrap()
         });
         module
     }

@@ -22,7 +22,7 @@
 use crate::application::main_task;
 use crate::kernel::KernelModule;
 use crate::peripherals::build_peripherals;
-use ::runtime::RemoteSpawner;
+use ::runtime::RemoteSpawn;
 use core::future::pending;
 use cortex_m_rt::entry;
 use embassy_executor::Executor;

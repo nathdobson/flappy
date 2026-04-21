@@ -5,6 +5,7 @@ use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
 use make_static::make_static;
+use runtime::LocalSpawn;
 
 const MODULE: &str = "[LED  ]";
 const INCREMENTS: u64 = 20;
@@ -15,19 +16,15 @@ pub struct LedModule {
 }
 
 impl LedModule {
-    pub async fn new(
+    pub fn new(
         spawner: Spawner,
         radio: &'static RadioModule,
     ) -> Result<&'static LedModule, SpawnError> {
         let delay = Duration::from_millis(250);
         info!("{MODULE} starting");
-        let module = make_static!(LedModule, LedModule { radio });
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn blink_task(module: &'static LedModule) {
-                module.blink().await;
-            }
-            blink_task(module)?
+        let module: &_ = make_static!(LedModule, LedModule { radio });
+        make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move {
+            module.blink().await;
         });
         info!("{MODULE} started");
         Ok(module)

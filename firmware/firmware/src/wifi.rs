@@ -13,10 +13,11 @@ use embassy_sync::watch::{DynReceiver, Watch};
 use embassy_time::{Delay, Duration, Timer};
 use embedded_hal_async::delay::DelayNs;
 use log::{error, info, warn};
+use make_static::make_static;
 use protocol::setup::{WifiSettings, WifiStatus};
 use rand_core::RngCore;
+use runtime::LocalSpawn;
 use serde::{Deserialize, Serialize};
-use make_static::make_static;
 
 const MODULE: &'static str = "[WiFi ]";
 
@@ -29,40 +30,30 @@ pub struct WifiModule {
 }
 
 impl WifiModule {
-    pub async fn new(
+    pub fn new(
         spawner: Spawner,
         radio: &'static RadioModule,
         net_device: NetDriver<'static>,
-        rng: &mut impl RngCore,
+        rng: &mut dyn RngCore,
     ) -> Result<&'static WifiModule> {
         info!("{MODULE} Starting WiFi");
         let config = Config::dhcpv4(Default::default());
         let seed = rng.next_u64();
         let resources = make_static!(StackResources::<5>, StackResources::new());
-        let (stack, runner) = embassy_net::new(net_device, config, resources, seed);
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn run_runner(
-                mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>,
-            ) -> ! {
-                runner.run().await
+        let (stack, mut runner) = embassy_net::new(net_device, config, resources, seed);
+        let module: &_ = make_static!(
+            WifiModule,
+            WifiModule {
+                spawner,
+                stack,
+                radio,
+                settings: Signal::new(),
+                status: Watch::new(),
             }
-            run_runner(runner)?
-        });
-        let module = make_static!(WifiModule, WifiModule {
-            spawner,
-            stack,
-            radio,
-            settings: Signal::new(),
-            status: Watch::new(),
-        });
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn connect_to_wifi(module: &'static WifiModule) {
-                module.connect_to_wifi().await
-            }
-            connect_to_wifi(module)?
-        });
+        );
+        make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move { runner.run().await });
+        make_static!(_, LocalSpawn::new(spawner))
+            .spawn(move || async move { module.connect_to_wifi().await });
         info!("{MODULE} Started");
         Ok(module)
     }

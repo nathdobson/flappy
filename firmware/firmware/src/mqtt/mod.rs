@@ -1,10 +1,11 @@
+mod error;
 mod merge_socket;
 mod tls;
 mod webpki_provider;
-mod error;
 
 use crate::error::Error;
 use arena::Arena;
+use board_info::serial_number;
 use core::cell::Cell;
 use core::fmt;
 use core::fmt::{Display, Formatter, write};
@@ -33,13 +34,12 @@ use embedded_tls::{
 };
 use heapless::{String, format};
 use log::{error, info, trace, warn};
+use make_static::make_static;
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
 use mqtt_core::protocol::{Packet, PublishPacket, Qos};
 use serde::{Deserialize, Serialize};
 use smoltcp::wire::IpEndpoint;
-use board_info::serial_number;
-use make_static::make_static;
 // use rust_mqtt::client::client::MqttClient;
 // use rust_mqtt::client::client_config::ClientConfig;
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
@@ -52,6 +52,7 @@ const PACKET_SIZE: usize = 1024;
 const RECORD_SIZE: usize = 16384;
 
 use crate::application::DisplayResponseContainer;
+use crate::mqtt::error::convert_mqtt_error;
 use crate::mqtt::merge_socket::MergeSocket;
 use crate::mqtt::tls::TlsConnectionBuilder;
 use crate::mqtt::webpki_provider::WebPkiProvider;
@@ -62,7 +63,7 @@ use protocol::error::{
 };
 use protocol::setup::{AppSettings, DeviceInfo, MqttServiceStatus, MqttSettings};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
-use crate::mqtt::error::convert_mqtt_error;
+use runtime::LocalSpawn;
 
 pub struct MqttModule {
     spawner: Spawner,
@@ -74,13 +75,13 @@ pub struct MqttModule {
 }
 
 impl MqttModule {
-    pub async fn new(
+    pub fn new(
         spawner: Spawner,
         stack: &'static embassy_net::Stack<'static>,
         display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
         display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     ) -> Result<&'static MqttModule, Error> {
-        let module = make_static!(
+        let module: &_ = make_static!(
             MqttModule,
             MqttModule {
                 spawner,
@@ -91,12 +92,8 @@ impl MqttModule {
                 status: Watch::new(),
             }
         );
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn run_task(this: &'static MqttModule) {
-                this.run().await;
-            }
-            run_task(module)?
+        make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move {
+            module.run().await;
         });
 
         Ok(module)

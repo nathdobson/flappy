@@ -1,10 +1,10 @@
 use crate::bootsel::BootselModule;
 use crate::cli::{Adjustment, Command, MqttField, TestType, WifiField};
 use crate::error::Error;
+use crate::kernel::KernelModule;
 use crate::peripherals::AppPeripherals;
 use crate::product;
 use crate::product::built_info;
-use crate::kernel::KernelModule;
 use crate::usb::UsbModule;
 use board_info::serial_number;
 use core::cell::RefCell;
@@ -12,6 +12,7 @@ use core::future::pending;
 use core::mem;
 use core::num::ParseIntError;
 use embassy_executor::Spawner;
+use embassy_executor::raw::TaskPool;
 use embassy_futures::select::{Either, select};
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::otp::get_chipid;
@@ -32,6 +33,7 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
 use protocol::setup::{FLAP_COUNT, WriteAppSettings};
+use runtime::LocalSpawn;
 
 pub enum DisplayResponseContainer {
     DisplayResponse(DisplayResponse),
@@ -99,30 +101,31 @@ impl Application {
         #[cfg(feature = "radio")]
         let radio_drivers = crate::radio::RadioModule::new(spawner, peri.radio_peri).await?;
         #[cfg(feature = "radio")]
-        let led = crate::led::LedModule::new(spawner, radio_drivers.module).await?;
+        let led = crate::led::LedModule::new(spawner, radio_drivers.module)?;
         #[cfg(feature = "ble")]
         let ble = crate::ble::BleModule::new(
             spawner,
             radio_drivers.ble,
             radio_drivers.mac_address,
             bootsel,
-        )
-        .await?;
+        )?;
         #[cfg(feature = "wifi")]
         let wifi = crate::wifi::WifiModule::new(
             spawner,
             radio_drivers.module,
             radio_drivers.net,
             &mut rng,
-        )
-        .await?;
+        )?;
         let display_request = make_static!(Signal<NoopRawMutex, DisplayRequest>, Signal::new());
         let display_response =
             make_static!(Channel<NoopRawMutex, DisplayResponseContainer, 1>, Channel::new());
         #[cfg(feature = "mqtt")]
-        let mqtt =
-            crate::mqtt::MqttModule::new(spawner, &wifi.stack(), display_request, display_response)
-                .await?;
+        let mqtt = crate::mqtt::MqttModule::new(
+            spawner,
+            &wifi.stack(),
+            display_request,
+            display_response,
+        )?;
         #[cfg(feature = "flash")]
         let state = flash.load().await?;
         #[cfg(not(feature = "flash"))]
@@ -209,78 +212,54 @@ impl Application {
         Ok(())
     }
     fn spawn_tasks(&'static self) -> Result<(), Error> {
-        #[cfg(feature = "ble")]
-        self.ble.start()?;
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn display_message(application: &'static Application) {
-                application.handle_requests().await;
-            }
-            display_message(self)?
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            self.handle_requests().await;
         });
+
         #[cfg(feature = "usb")]
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn handle_commands(application: &'static Application) {
-                application.handle_commands().await;
-            }
-            handle_commands(self)?
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            self.handle_commands().await;
         });
+
         #[cfg(all(feature = "usb", feature = "setup"))]
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn handle_setup(application: &'static Application) {
-                loop {
-                    let request = application.usb.receive_request().await;
-                    let response = application.handle_setup(&request, true).await;
-                    application.usb.send_response(&response).await;
-                }
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            loop {
+                let request = self.usb.receive_request().await;
+                let response = self.handle_setup(&request, true).await;
+                self.usb.send_response(&response).await;
             }
-            handle_setup(self)?
         });
+
         #[cfg(all(feature = "setup", feature = "radio", feature = "ble"))]
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn handle_setup(application: &'static Application) {
-                let requests = application.ble.requests();
-                let responses = application.ble.responses();
-                loop {
-                    let request = requests.receive().await;
-                    let response = application.handle_setup(&request, false).await;
-                    responses.send(response).await;
-                }
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            let requests = self.ble.requests();
+            let responses = self.ble.responses();
+            loop {
+                let request = requests.receive().await;
+                let response = self.handle_setup(&request, false).await;
+                responses.send(response).await;
             }
-            handle_setup(self)?
         });
+
         #[cfg(all(feature = "setup", feature = "mqtt"))]
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn update_mqtt_status(application: &'static Application) {
-                if let Err(e) = application.update_mqtt_status().await {
-                    error!("{:?}", e);
-                }
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            if let Err(e) = self.update_mqtt_status().await {
+                error!("{:?}", e);
             }
-            update_mqtt_status(self)?
         });
+
         #[cfg(all(feature = "setup", feature = "radio", feature = "wifi"))]
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn update_wifi_status(application: &'static Application) {
-                if let Err(e) = application.update_wifi_status().await {
-                    error!("{:?}", e);
-                }
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            if let Err(e) = self.update_wifi_status().await {
+                error!("{:?}", e);
             }
-            update_wifi_status(self)?
         });
+
         #[cfg(all(feature = "mqtt"))]
-        self.spawner.spawn({
-            #[embassy_executor::task]
-            async fn update_mqtt_device_info(application: &'static Application) {
-                if let Err(e) = application.update_mqtt_device_info().await {
-                    error!("{:?}", e);
-                }
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            if let Err(e) = self.update_mqtt_device_info().await {
+                error!("{:?}", e);
             }
-            update_mqtt_device_info(self)?
         });
         Ok(())
     }

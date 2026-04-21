@@ -31,39 +31,58 @@ pub fn start_runtime(runner: impl FnOnce(Runtime)) -> ! {
     thread.run(|thread| runner(Runtime { interrupt, thread }))
 }
 
-impl<F: 'static + Send + FnOnce(Spawner) -> Fu, Fu: 'static + Future<Output = ()>>
-    RemoteSpawner<F, Fu>
+pub struct RemoteSpawn<F: 'static + Send + FnOnce(Spawner) -> Fu, Fu: 'static + Future<Output = ()>>
 {
-    pub fn new() -> Self {
-        RemoteSpawner {
+    spawner: SendSpawner,
+    runner_pool: TaskPool<RemoteRunner<F, Fu>, 1>,
+    future_pool: TaskPool<Fu, 1>,
+}
+
+impl<F: 'static + Send + FnOnce(Spawner) -> Fu, Fu: 'static + Future<Output = ()>>
+    RemoteSpawn<F, Fu>
+{
+    pub fn new(spawner: SendSpawner) -> Self {
+        RemoteSpawn {
+            spawner,
             runner_pool: TaskPool::new(),
             future_pool: TaskPool::new(),
         }
     }
 
-    pub fn spawn(&'static self, spawner: SendSpawner, inner: F) {
-        spawner.spawn(self.runner_pool.spawn(|| runner(self, inner)).unwrap());
+    pub fn spawn(&'static self, inner: F) {
+        self.spawner
+            .spawn(self.runner_pool.spawn(|| runner(self, inner)).unwrap());
     }
 }
 
-type Runner<F: 'static + Send + FnOnce(Spawner) -> Fu, Fu: 'static + Future<Output = ()>> =
+type RemoteRunner<F: 'static + Send + FnOnce(Spawner) -> Fu, Fu: 'static + Future<Output = ()>> =
     impl Send + Future<Output = ()>;
 
-#[define_opaque(Runner)]
+#[define_opaque(RemoteRunner)]
 fn runner<F: 'static + Send + FnOnce(Spawner) -> Fu, Fu: 'static + Future<Output = ()>>(
-    this: &'static RemoteSpawner<F, Fu>,
+    this: &'static RemoteSpawn<F, Fu>,
     inner: F,
-) -> Runner<F, Fu> {
+) -> RemoteRunner<F, Fu> {
     async move {
         let spawner = unsafe { Spawner::for_current_executor().await };
         spawner.spawn(this.future_pool.spawn(|| inner(spawner)).unwrap())
     }
 }
 
-pub struct RemoteSpawner<
-    F: 'static + Send + FnOnce(Spawner) -> Fu,
-    Fu: 'static + Future<Output = ()>,
-> {
-    runner_pool: TaskPool<Runner<F, Fu>, 1>,
+pub struct LocalSpawn<Fu: 'static + Future<Output = ()>> {
+    spawner: Spawner,
     future_pool: TaskPool<Fu, 1>,
+}
+
+impl<Fu: 'static + Future<Output = ()>> LocalSpawn<Fu> {
+    pub fn new(spawner: Spawner) -> Self {
+        LocalSpawn {
+            spawner,
+            future_pool: TaskPool::new(),
+        }
+    }
+
+    pub fn spawn(&'static self, inner: impl FnOnce() -> Fu) {
+        self.spawner.spawn(self.future_pool.spawn(inner).unwrap());
+    }
 }

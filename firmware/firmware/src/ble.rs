@@ -1,6 +1,7 @@
 use crate::bootsel::BootselModule;
 use crate::error::Error;
 use crate::product;
+use board_info::serial_number;
 use core::cell::{Cell, RefCell};
 use core::future::{join, pending};
 use core::mem;
@@ -19,9 +20,11 @@ use embassy_time::{Delay, Duration, Timer, WithTimeout};
 use embedded_hal_async::delay::DelayNs;
 use heapless::{String, Vec, format};
 use log::{error, info, warn};
+use make_static::make_static;
 use protocol::ble::SERIAL_MTU;
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
+use runtime::LocalSpawn;
 use trouble_host::advertise::{
     AdStructure, Advertisement, AdvertisementParameters, BR_EDR_NOT_SUPPORTED,
     LE_GENERAL_DISCOVERABLE, PhyKind, TxPower,
@@ -36,8 +39,6 @@ use trouble_host::prelude::{
     HeaplessString, Peripheral, Runner, appearance, descriptors, gatt_server, gatt_service, uuid,
 };
 use trouble_host::{Address, HostResources, IoCapabilities, PacketPool, Stack};
-use make_static::make_static;
-use board_info::serial_number;
 
 const MODULE: &'static str = "[BLE  ]";
 /// Max number of connections
@@ -86,7 +87,6 @@ pub struct BleModule {
     spawner: Spawner,
     stack: &'static MyStack,
     conn: RefCell<Option<MyConnection>>,
-    peri: Cell<Option<MyPeripheral>>,
     server: MyServer,
     setup_request: Channel<NoopRawMutex, SetupRequest, 1>,
     setup_response: Channel<NoopRawMutex, SetupResponse, 1>,
@@ -107,7 +107,7 @@ type MyConnection = GattConnection<'static, 'static, MyPacketPool>;
 type MyServer = Server<'static>;
 
 impl BleModule {
-    pub async fn new(
+    pub fn new(
         spawner: Spawner,
         driver: MyDriver,
         mac_address: [u8; 6],
@@ -126,7 +126,7 @@ impl BleModule {
                 .build()
         );
         let central = stack.central();
-        let runner = stack.runner();
+        let mut runner = stack.runner();
         let peri = stack.peripheral();
         let name: String<28> = format!("FLAP {}", serial_number().unwrap_or("<noid>"))?;
         let name = make_static!(String<28>, name);
@@ -140,7 +140,6 @@ impl BleModule {
                 spawner,
                 stack,
                 conn: RefCell::new(None),
-                peri: Cell::new(Some(peri)),
                 server,
                 setup_request: Channel::new(),
                 setup_response: Channel::new(),
@@ -148,43 +147,25 @@ impl BleModule {
                 bootsel,
             }
         );
-        spawner.clone().spawn({
-            #[embassy_executor::task]
-            async fn ble_task(mut runner: MyRunner) {
-                if let Err(e) = runner.run().await {
-                    error!("{MODULE} system error: {:?}", e);
-                }
+        make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move {
+            if let Err(e) = runner.run().await {
+                error!("{MODULE} system error: {:?}", e);
             }
-            ble_task(runner)?
         });
-        spawner.clone().spawn({
-            #[embassy_executor::task]
-            async fn notify_status(module: &'static BleModule) {
-                if let Err(e) = module.notify_status().await {
-                    error!("{MODULE} error: {:?}", e);
-                }
+        make_static!(_, LocalSpawn::new(spawner)).spawn(|| async move {
+            module.advertise_loop(peri).await;
+        });
+        make_static!(_, LocalSpawn::new(spawner)).spawn(|| async move {
+            if let Err(e) = module.notify_status().await {
+                error!("{MODULE} error: {:?}", e);
             }
-            notify_status(module)?
         });
-
         info!("{MODULE} Started");
 
         Ok(module)
     }
-    pub fn start(&'static self) -> Result<(), Error> {
-        self.spawner.clone().spawn({
-            #[embassy_executor::task]
-            async fn advertise_task(module: &'static BleModule) {
-                module.advertise_loop().await;
-            }
-            advertise_task(self)?
-        });
-        Ok(())
-    }
-    async fn advertise_loop(&'static self) {
-        let Some(mut peripheral) = self.peri.take() else {
-            return;
-        };
+    fn spawn_tasks(&'static self, spawner: Spawner, mut runner: MyRunner, peri: MyPeripheral) {}
+    async fn advertise_loop(&'static self, mut peripheral: MyPeripheral) {
         loop {
             match self.advertise(&mut peripheral).await {
                 Ok(conn) => {
