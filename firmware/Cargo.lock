@@ -610,6 +610,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dummy-alloc"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fadb95bab5cf4a3b4d608255efdb2493a7755ba6e602bd88c95a6912609d2550"
+
+[[package]]
 name = "ecdsa"
 version = "0.16.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1049,6 +1055,7 @@ dependencies = [
  "critical-section",
  "cyw43",
  "cyw43-pio",
+ "dummy-alloc",
  "embassy-executor",
  "embassy-futures",
  "embassy-net",

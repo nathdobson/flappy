@@ -1,4 +1,3 @@
-use crate::interrupts::Irqs;
 use core::mem;
 use cyw43::{A4, Aligned, Control, NetDriver, aligned_bytes};
 use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
@@ -14,6 +13,7 @@ use embassy_time::{Duration, Timer};
 use fixed::FixedU32;
 use log::info;
 use make_static::make_static;
+use crate::Irqs;
 
 const MODULE: &'static str = "[Radio]";
 

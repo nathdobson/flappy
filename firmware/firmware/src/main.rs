@@ -25,10 +25,12 @@ use crate::peripherals::build_peripherals;
 use ::runtime::RemoteSpawn;
 use core::future::pending;
 use cortex_m_rt::entry;
+use dummy_alloc::DummyAllocator;
 use embassy_executor::Executor;
+use embassy_rp::bind_interrupts;
+use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, PIO0};
 use log::error;
 use make_static::make_static;
-use crate::global_alloc::EmptyAllocator;
 
 mod application;
 #[cfg(feature = "ble")]
@@ -63,7 +65,6 @@ mod settings_channel;
 // mod usb_setup;
 mod bootsel;
 mod display;
-mod interrupts;
 #[cfg(feature = "spindle")]
 mod spindle;
 #[cfg(feature = "usb")]
@@ -91,4 +92,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 }
 
 #[global_allocator]
-pub static EMPTY_ALLOCATOR: EmptyAllocator = EmptyAllocator;
+pub static EMPTY_ALLOCATOR: DummyAllocator = DummyAllocator;
+
+bind_interrupts!(pub struct Irqs {
+    DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>, embassy_rp::dma::InterruptHandler<DMA_CH1>;
+    PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
+});

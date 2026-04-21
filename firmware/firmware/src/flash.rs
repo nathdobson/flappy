@@ -10,7 +10,7 @@ use log::{error, info};
 use protocol::setup::{AppSettings, WriteSettingsError};
 use serde::{Deserialize, Serialize};
 use make_static::make_static;
-use crate::interrupts::Irqs;
+use crate::Irqs;
 
 const MODULE: &'static str = "[FLASH]";
 const ADDR_OFFSET: u32 = 0x3E0000;
