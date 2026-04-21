@@ -4,7 +4,7 @@ use crate::error::Error;
 use crate::peripherals::AppPeripherals;
 use crate::product;
 use crate::product::built_info;
-use crate::runtime::RuntimeModule;
+use crate::kernel::KernelModule;
 use crate::usb::UsbModule;
 use board_info::serial_number;
 use core::cell::RefCell;
@@ -45,7 +45,7 @@ const _: [u8; 1] = [0; (size_of::<SetupResponse>() < 2048) as usize];
 pub const MODULE: &'static str = "[APP  ]";
 pub struct Application {
     spawner: Spawner,
-    runtime: &'static RuntimeModule,
+    runtime: &'static KernelModule,
     #[cfg(feature = "usb")]
     usb: &'static UsbModule,
     #[cfg(feature = "flash")]
@@ -81,7 +81,7 @@ fn trim_null<const N: usize>(mut x: String<N>) -> String<N> {
 impl Application {
     async fn new(
         spawner: Spawner,
-        runtime: &'static RuntimeModule,
+        runtime: &'static KernelModule,
         peri: AppPeripherals,
     ) -> Result<&'static Self, Error> {
         #[cfg(feature = "usb")]
@@ -489,7 +489,7 @@ impl Application {
 }
 
 #[embassy_executor::task]
-pub async fn main_task(spawner: Spawner, runtime: &'static RuntimeModule, peri: AppPeripherals) {
+pub async fn main_task(spawner: Spawner, runtime: &'static KernelModule, peri: AppPeripherals) {
     if let Result::<(), Error>::Err(e) = try {
         info!("{MODULE} Welcome to the 3D printed Split Flap Display!");
         info!(

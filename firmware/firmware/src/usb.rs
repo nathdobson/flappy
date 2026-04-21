@@ -1,7 +1,7 @@
 use crate::error::Error;
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
-use embassy_executor::Spawner;
+use embassy_executor::{SendSpawner, Spawner};
 use embassy_rp::Peri;
 use embassy_rp::peripherals::USB;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
@@ -14,6 +14,7 @@ use make_static::make_static;
 use protocol::setup::{AppStatus, SetupRequest};
 use protocol::setup::{MAX_SETUP_MESSAGE_SIZE, SetupResponse};
 use protocol::{PRODUCT_MANUFACTURER, PRODUCT_NAME};
+use runtime::RemoteSpawner;
 use usb_builder::usb_reset::UsbResetServer;
 use usb_builder::usb_rpc::UsbRpcServer;
 use usb_builder::usb_terminal::UsbTerminalServer;
@@ -32,8 +33,8 @@ pub struct FlappyUsbServer {
 }
 
 impl FlappyUsbServer {
-    pub fn new() -> &'static Self {
-        let server = make_static!(
+    pub fn new(spawner: SendSpawner, peri: Peri<'static, USB>) -> &'static Self {
+        let server: &FlappyUsbServer = make_static!(
             FlappyUsbServer,
             FlappyUsbServer {
                 usb_terminal: UsbTerminalServer::new(),
@@ -43,13 +44,14 @@ impl FlappyUsbServer {
             }
         );
         server.usb_terminal.set_logger();
+        make_static!(RemoteSpawner::new()).spawn(spawner, move |spawner| async move {
+            if let Err(e) = server.start(spawner, peri).await {
+                info!("uncaught runtime error: {:?}", e);
+            }
+        });
         server
     }
-    pub async fn start(
-        &'static self,
-        spawner: Spawner,
-        peri: Peri<'static, USB>,
-    ) -> Result<(), Error> {
+    async fn start(&'static self, spawner: Spawner, peri: Peri<'static, USB>) -> Result<(), Error> {
         let stack = make_static!(UsbStack<FlappyUsbServer>, UsbStack::new());
         UsbBuilder {
             server: self,

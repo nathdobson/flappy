@@ -1,0 +1,9 @@
+[package]
+name = "runtime"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embassy-executor = {path="../../submodules/embassy/embassy-executor"}
+embassy-rp  = {path="../../submodules/embassy/embassy-rp"}
+make-static = {path="../../common/make-static"}

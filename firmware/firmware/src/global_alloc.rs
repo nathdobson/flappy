@@ -10,6 +10,3 @@ unsafe impl GlobalAlloc for EmptyAllocator {
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {}
 }
-
-#[global_allocator]
-pub static EMPTY_ALLOCATOR: EmptyAllocator = EmptyAllocator;

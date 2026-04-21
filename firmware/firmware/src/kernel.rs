@@ -25,38 +25,22 @@ use make_static::make_static;
 const MODULE: &'static str = "[RUN  ]";
 
 #[allow(non_snake_case)]
-pub struct RuntimePeripherals {
+pub struct KernelPeripherals {
     pub USB: Peri<'static, USB>,
 }
 
-pub struct RuntimeModule {
+pub struct KernelModule {
     pub usb: &'static FlappyUsbServer,
 }
 
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    error!("{}", info);
-    loop {}
-}
-
-impl RuntimeModule {
-    pub fn new(spawner: SendSpawner, peri: RuntimePeripherals) -> &'static Self {
-        let module: &'static RuntimeModule = make_static!(
-            RuntimeModule,
-            RuntimeModule {
-                usb: FlappyUsbServer::new()
+impl KernelModule {
+    pub fn new(spawner: SendSpawner, peri: KernelPeripherals) -> &'static Self {
+        let module: &'static KernelModule = make_static!(
+            KernelModule,
+            KernelModule {
+                usb: FlappyUsbServer::new(spawner, peri.USB),
             }
         );
-        make_static!(RemoteSpawner::new()).spawn(spawner, move |spawner| async move {
-            if let Err(e) = module.start(spawner, peri).await {
-                info!("uncaught runtime error: {:?}", e);
-            }
-        });
         module
-    }
-    async fn start(&'static self, spawner: Spawner, peri: RuntimePeripherals) -> Result<(), Error> {
-        #[cfg(feature = "usb")]
-        self.usb.start(spawner, peri.USB).await?;
-        Ok(())
     }
 }

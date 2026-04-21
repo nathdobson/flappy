@@ -1,5 +1,5 @@
 use crate::bootsel::BootselPeripherals;
-use crate::runtime::RuntimePeripherals;
+use crate::kernel::KernelPeripherals;
 use embassy_rp::Peri;
 use embassy_rp::peripherals::USB;
 
@@ -13,10 +13,10 @@ pub struct AppPeripherals {
     pub bootsel: BootselPeripherals,
 }
 
-pub fn build_peripherals() -> (RuntimePeripherals, AppPeripherals) {
+pub fn build_peripherals() -> (KernelPeripherals, AppPeripherals) {
     let p = embassy_rp::init(Default::default());
     (
-        RuntimePeripherals { USB: p.USB },
+        KernelPeripherals { USB: p.USB },
         AppPeripherals {
             #[cfg(feature = "flash")]
             flash_peri: crate::flash::FlashPeripherals {
