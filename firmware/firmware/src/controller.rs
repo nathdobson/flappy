@@ -1,4 +1,3 @@
-use crate::display_proto;
 use crate::driver::DriverModule;
 use crate::error::Error;
 use core::cell::RefCell;

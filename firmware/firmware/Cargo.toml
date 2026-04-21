@@ -76,6 +76,7 @@ usb-builder = {path="../usb-builder",optional = true}
 make-static = {path="../../common/make-static"}
 board-info = {path="../board-info"}
 fixed-freelist = {path="../../common/fixed-freelist"}
+runtime = {path="../runtime"}
 
 [target.'cfg(target_arch="arm")'.dependencies]
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }
@@ -85,7 +86,7 @@ cortex-m-rt = { version = "0.7.0", features = [] }
 built = { version = "0.8.0", features = ["git2"] }
 
 [features]
-default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","preemption","usb","spindle"]
+default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","usb","spindle"]
 serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","protocol/serde"]
 radio = [
   "dep:cyw43",
@@ -102,11 +103,8 @@ setup = ["serde"]
 ble = [
   "radio",
   "cyw43/bluetooth",
-#  "cyw43-firmware/bluetooth",
   "dep:trouble-host",
   "dep:uuid",
-  # There's a bug somewhere that corrupts BLE data without this
-  "preemption"
 ]
 wifi = ["radio","dep:smoltcp","embassy-net"]
 mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena",  "dep:mozilla-root-ca","dep:p256"]

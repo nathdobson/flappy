@@ -17,23 +17,27 @@
 #![allow(unreachable_code)]
 #![allow(unused_features)]
 #![feature(macro_derive)]
+#![feature(type_alias_impl_trait)]
 
-use core::future::pending;
 use crate::application::main_task;
 use crate::peripherals::build_peripherals;
 use crate::runtime::RuntimeModule;
+use ::runtime::RemoteSpawner;
+use core::future::pending;
 use cortex_m_rt::entry;
+use embassy_executor::Executor;
+use make_static::make_static;
+
 mod application;
 #[cfg(feature = "ble")]
 mod ble;
 mod cli;
 #[cfg(feature = "display")]
 mod controller;
-mod display_proto;
 #[cfg(feature = "display")]
 mod driver;
 mod error;
-mod executor;
+// mod executor;
 #[cfg(feature = "flash")]
 mod flash;
 mod global_alloc;
@@ -55,24 +59,25 @@ mod settings_channel;
 // mod usb_serial;
 // #[cfg(all(feature="usb",feature = "setup"))]
 // mod usb_setup;
-#[cfg(feature = "wifi")]
-mod wifi;
-#[cfg(feature = "spindle")]
-mod spindle;
+mod bootsel;
 mod display;
 mod interrupts;
-mod bootsel;
+#[cfg(feature = "spindle")]
+mod spindle;
 #[cfg(feature = "usb")]
 mod usb;
+#[cfg(feature = "wifi")]
+mod wifi;
 
 extern crate alloc;
 
 #[entry]
 unsafe fn main() -> ! {
-    let (rp, ap) = build_peripherals();
-    executor::run_program(
-        move |spawner| RuntimeModule::new(spawner, rp),
-        move |spawner, runtime| spawner.spawn(main_task(spawner, runtime, ap).unwrap()),
-    );
+    ::runtime::start_runtime(|runtime| {
+        let (rp, ap) = build_peripherals();
+        let runtime_module = RuntimeModule::new(runtime.interrupt, rp);
+        runtime
+            .thread
+            .spawn(main_task(runtime.thread, runtime_module, ap).unwrap());
+    })
 }
-

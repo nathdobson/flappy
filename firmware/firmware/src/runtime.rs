@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::product;
 use crate::usb::{FlappyUsbServer, UsbModule};
+use ::runtime::RemoteSpawner;
 use core::fmt::Arguments;
 use core::intrinsics::abort;
 use core::{fmt, mem};
@@ -46,27 +47,16 @@ impl RuntimeModule {
                 usb: FlappyUsbServer::new()
             }
         );
-
-        spawner.spawn({
-            #[embassy_executor::task]
-            async fn start_task(module: &'static RuntimeModule, peri: RuntimePeripherals) {
-                if let Err(e) = module.start(peri).await {
-                    info!("uncaught runtime error: {:?}", e);
-                }
+        make_static!(RemoteSpawner::new()).spawn(spawner, move |spawner| async move {
+            if let Err(e) = module.start(spawner, peri).await {
+                info!("uncaught runtime error: {:?}", e);
             }
-            start_task(module, peri).unwrap()
         });
         module
     }
-    async fn start(&'static self, peri: RuntimePeripherals) -> Result<(), Error> {
-        let spawner = unsafe { Spawner::for_current_executor().await };
+    async fn start(&'static self, spawner: Spawner, peri: RuntimePeripherals) -> Result<(), Error> {
         #[cfg(feature = "usb")]
         self.usb.start(spawner, peri.USB).await?;
         Ok(())
     }
-}
-
-pub fn reboot_to_bootsel() -> ! {
-    rom_data::reboot(0x0002, 10, 0, 0);
-    unreachable!()
 }

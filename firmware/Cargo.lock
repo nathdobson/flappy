@@ -1073,6 +1073,7 @@ dependencies = [
  "p256",
  "protocol",
  "rand_core 0.9.5",
+ "runtime",
  "serde",
  "serde-json-core",
  "smoltcp",
@@ -2271,6 +2272,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c92f344f63f950ee36cf4080050e4dce850839b9175da38f9d2ffb69b4dbb21"
 dependencies = [
  "crc-any",
+]
+
+[[package]]
+name = "runtime"
+version = "0.1.0"
+dependencies = [
+ "embassy-executor",
+ "embassy-rp",
+ "make-static",
 ]
 
 [[package]]
