@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::product;
 use crate::usb::{FlappyUsbServer, UsbModule};
 use ::runtime::RemoteSpawn;
 use core::fmt::Arguments;

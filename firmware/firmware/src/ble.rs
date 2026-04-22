@@ -1,6 +1,5 @@
 use crate::bootsel::BootselModule;
 use crate::error::Error;
-use crate::product;
 use board_info::serial_number;
 use core::cell::{Cell, RefCell};
 use core::future::{join, pending};

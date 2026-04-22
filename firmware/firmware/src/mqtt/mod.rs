@@ -1,7 +1,4 @@
 mod error;
-mod merge_socket;
-mod tls;
-mod webpki_provider;
 
 use crate::error::Error;
 use arena::Arena;
@@ -49,13 +46,10 @@ use protocol::display::DisplayResponse;
 const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
 const PACKET_SIZE: usize = 1024;
-const RECORD_SIZE: usize = 16384;
+const RECORD_SIZE: usize = 16640;
 
 use crate::application::DisplayResponseContainer;
-use crate::mqtt::error::convert_mqtt_error;
-use crate::mqtt::merge_socket::MergeSocket;
-use crate::mqtt::tls::TlsConnectionBuilder;
-use crate::mqtt::webpki_provider::WebPkiProvider;
+use crate::mqtt::error::{convert_dns_error, convert_mqtt_error, convert_tcp_error, convert_tls_error};
 use protocol::display::DisplayRequest;
 use protocol::error::{
     DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel,
@@ -64,6 +58,7 @@ use protocol::error::{
 use protocol::setup::{AppSettings, DeviceInfo, MqttServiceStatus, MqttSettings};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
 use runtime::LocalSpawn;
+use tls_builder::TlsConnectionBuilder;
 
 pub struct MqttModule {
     spawner: Spawner,
@@ -200,12 +195,12 @@ impl MqttModule {
             stack: self.stack,
         };
         self.status.sender().send(MqttServiceStatus::DnsQuery);
-        let mut tls = tls.resolve_dns().await?;
+        let mut tls = tls.resolve_dns().await.map_err(convert_dns_error)?;
         self.status.sender().send(MqttServiceStatus::TcpConnect);
-        let mut tls = tls.connect_tcp().await?;
+        let mut tls = tls.connect_tcp().await.map_err(convert_tcp_error)?;
         self.status.sender().send(MqttServiceStatus::TlsConnect);
         let mut tls = tls.merge_socket();
-        let mut tls = tls.connect_tls().await?;
+        let mut tls = tls.connect_tls().await.map_err(convert_tls_error)?;
 
         let (read, write): (_, TlsWriter<_, _>) = tls.split();
         let sender = MqttSender::<_, 1024, 1, 1>::new(write);

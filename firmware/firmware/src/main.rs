@@ -44,14 +44,12 @@ mod error;
 // mod executor;
 #[cfg(feature = "flash")]
 mod flash;
-mod global_alloc;
 mod kernel;
 #[cfg(feature = "radio")]
 mod led;
 #[cfg(feature = "mqtt")]
 mod mqtt;
 mod peripherals;
-mod product;
 #[cfg(feature = "radio")]
 mod radio;
 mod settings_channel;
@@ -71,6 +69,11 @@ mod spindle;
 mod usb;
 #[cfg(feature = "wifi")]
 mod wifi;
+
+mod built_info {
+    // The file has been placed there by the build script.
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
 
 extern crate alloc;
 
@@ -98,3 +101,4 @@ bind_interrupts!(pub struct Irqs {
     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>, embassy_rp::dma::InterruptHandler<DMA_CH1>;
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
 });
+

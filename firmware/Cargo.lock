@@ -990,6 +990,7 @@ dependencies = [
  "heapless 0.9.2",
  "hkdf",
  "hmac",
+ "log",
  "p256",
  "p384",
  "portable-atomic",
@@ -1074,7 +1075,6 @@ dependencies = [
  "heapless 0.9.2",
  "log",
  "make-static",
- "mozilla-root-ca",
  "mqtt-client",
  "mqtt-core",
  "p256",
@@ -1086,6 +1086,7 @@ dependencies = [
  "smoltcp",
  "spindle",
  "static_cell",
+ "tls-builder",
  "trouble-host",
  "usb-builder",
  "uuid",
@@ -2694,6 +2695,23 @@ checksum = "c8323304221c2a851516f22236c5722a72eaa19749016521d6dff0824447d96d"
 dependencies = [
  "displaydoc",
  "zerovec",
+]
+
+[[package]]
+name = "tls-builder"
+version = "0.1.0"
+dependencies = [
+ "embassy-net",
+ "embassy-rp",
+ "embassy-sync 0.8.0",
+ "embassy-time",
+ "embedded-io 0.7.1",
+ "embedded-io-async 0.7.0",
+ "embedded-tls",
+ "log",
+ "mozilla-root-ca",
+ "p256",
+ "smoltcp",
 ]
 
 [[package]]

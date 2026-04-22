@@ -1,5 +1,5 @@
 [workspace]
-members = ["board-info","firmware", "reboot", "runtime", "usb-builder"]
+members = ["board-info","firmware", "reboot", "runtime", "tls-builder", "usb-builder"]
 resolver = "3"
 
 [profile.release]

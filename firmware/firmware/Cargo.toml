@@ -70,7 +70,6 @@ glyph-render = {path ="../../common/glyph-render", default-features = false}
 mqtt-core = {path="../../common/mqtt-core"}
 fixed = {version="1.29.0",optional=true}
 spindle={path="../../spindle/spindle",optional = true}
-mozilla-root-ca = {version="2025.6.7",features = ["pem"],optional = true}
 p256={version="0.13.2",default-features = false,optional = true}
 usb-builder = {path="../usb-builder",optional = true}
 make-static = {path="../../common/make-static"}
@@ -78,6 +77,7 @@ board-info = {path="../board-info"}
 fixed-freelist = {path="../../common/fixed-freelist"}
 runtime = {path="../runtime"}
 dummy-alloc="1.0.0"
+tls-builder = {path="../tls-builder"}
 
 [target.'cfg(target_arch="arm")'.dependencies]
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }
@@ -108,7 +108,7 @@ ble = [
   "dep:uuid",
 ]
 wifi = ["radio","dep:smoltcp","embassy-net"]
-mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena",  "dep:mozilla-root-ca","dep:p256"]
+mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena", "dep:p256"]
 preemption = []
 usb = ["dep:embassy-usb","dep:usb-builder"]
 spindle = ["dep:spindle"]

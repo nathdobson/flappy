@@ -1,5 +1,3 @@
-use cortex_m::prelude::_embedded_hal_blocking_spi_Write;
-use embassy_net::tcp::{TcpReader, TcpWriter};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embedded_io::ErrorType;

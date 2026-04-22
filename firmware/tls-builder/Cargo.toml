@@ -1,0 +1,17 @@
+[package]
+name = "tls-builder"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+embedded-tls = {version = "0.18.0",default-features = false,features = ["webpki","log"]}
+p256={version="0.13.2",default-features = false}
+embassy-net = {path="../../submodules/embassy/embassy-net"}
+embassy-sync = {path="../../submodules/embassy/embassy-sync"}
+embedded-io = "0.7.1"
+embedded-io-async = "0.7.0"
+embassy-rp = {path="../../submodules/embassy/embassy-rp"}
+embassy-time = {path="../../submodules/embassy/embassy-time"}
+smoltcp = {version="0.13.0",default-features = false,features=["proto-ipv4","proto-ipv6"]}
+log = "0.4.29"
+mozilla-root-ca = {version="2025.6.7",features = ["pem"]}

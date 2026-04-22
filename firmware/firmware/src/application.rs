@@ -3,8 +3,6 @@ use crate::cli::{Adjustment, Command, MqttField, TestType, WifiField};
 use crate::error::Error;
 use crate::kernel::KernelModule;
 use crate::peripherals::AppPeripherals;
-use crate::product;
-use crate::product::built_info;
 use crate::usb::UsbModule;
 use board_info::serial_number;
 use core::cell::RefCell;
@@ -34,6 +32,7 @@ use protocol::setup::{
 };
 use protocol::setup::{FLAP_COUNT, WriteAppSettings};
 use runtime::LocalSpawn;
+use crate::built_info;
 
 pub enum DisplayResponseContainer {
     DisplayResponse(DisplayResponse),
