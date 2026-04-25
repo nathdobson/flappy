@@ -22,7 +22,7 @@ use log_vec::{LogVec, SlicePair};
 use reboot::reboot_bootsel_after;
 use static_cell::StaticCell;
 
-const LOG_BUFFER_BYTES: usize = 4096;
+const LOG_BUFFER_BYTES: usize = 2048;
 const RENDER_BYTES: usize = 4096;
 const LOG_BUFFER_PACKETS: usize = 128;
 const RECEIVE_BUFFER: usize = 4096;

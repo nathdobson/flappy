@@ -2,6 +2,7 @@
 
 mod merge_socket;
 mod webpki_provider;
+// mod fixed_provider;
 
 use crate::merge_socket::MergeSocket;
 use crate::webpki_provider::WebPkiProvider;
@@ -10,7 +11,10 @@ use embassy_net::Stack;
 use embassy_net::tcp::{TcpReader, TcpSocket, TcpWriter};
 use embassy_rp::clocks::RoscRng;
 use embassy_time::Duration;
-use embedded_tls::{Aes128GcmSha256, Certificate, TlsConfig, TlsConnection, TlsContext, TlsError};
+use embedded_tls::{
+    Aes128GcmSha256, Aes256GcmSha384, Certificate, TlsConfig, TlsConnection, TlsContext, TlsError,
+    UnsecureProvider,
+};
 use log::info;
 use smoltcp::wire::{DnsQueryType, IpEndpoint};
 
@@ -118,28 +122,32 @@ impl<'a> TlsConnectionBuilderWithTcp<'a> {
     }
 }
 
+// type FlappyCipherSuite = Aes128GcmSha256;
+type FlappyCipherSuite = Aes256GcmSha384;
+
 impl<'a> TlsConnectionBuilderWithMergeSocket<'a> {
     pub async fn connect_tls<'b>(
         &'b mut self,
     ) -> Result<
-        TlsConnection<'b, &'b MergeSocket<TcpWriter<'a>, TcpReader<'a>>, Aes128GcmSha256>,
+        TlsConnection<'b, &'b MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>,
         TlsError,
     > {
         info!(" [TLS] Starting handshake");
         let config = TlsConfig::new()
             .with_server_name(self.hostname)
-            .enable_rsa_signatures()
-            .with_ca(Certificate::X509(
-                mozilla_root_ca::pem::PEM_BUNDLE.as_bytes(),
-            ));
-        let mut tls = TlsConnection::<_, Aes128GcmSha256>::new(
+            .enable_rsa_signatures();
+
+        let mut tls = TlsConnection::<_, FlappyCipherSuite>::new(
             &self.merge_socket,
             &mut self.read_record_buffer,
             &mut self.write_record_buffer,
         );
-
-        tls.open::<_>(TlsContext::new(&config, WebPkiProvider::new(RoscRng)))
-            .await?;
+        // let provider = FixedProvider::new(RoscRng);
+        // let provider = UnsecureProvider::new(RoscRng).with_cert(Certificate::X509(
+        //     include_bytes!("/Users/nathan/Downloads/emqxsl-ca.crt"),
+        // ));
+        let provider = WebPkiProvider::new(RoscRng);
+        tls.open::<_>(TlsContext::new(&config, provider)).await?;
         info!("[TLS] Handshake complete");
         Ok(tls)
     }

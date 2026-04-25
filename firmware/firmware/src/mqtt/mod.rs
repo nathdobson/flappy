@@ -24,7 +24,6 @@ use embassy_time::{Duration, TimeoutError, Timer, with_timeout};
 use embedded_io::ErrorKind;
 use embedded_io_async::{ErrorType, Read, Write};
 use embedded_tls::alert::{AlertDescription, AlertLevel};
-use embedded_tls::webpki::CertVerifier;
 use embedded_tls::{
     Aes128GcmSha256, Certificate, NoClock, NoVerify, TlsCipherSuite, TlsConfig, TlsConnection,
     TlsContext, TlsError, TlsVerifier, TlsWriter, UnsecureProvider,

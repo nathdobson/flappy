@@ -79,6 +79,10 @@ extern crate alloc;
 
 #[entry]
 unsafe fn main() -> ! {
+    #[cfg(feature = "heap")]
+    unsafe {
+        embedded_alloc::init!(HEAP, 16384);
+    }
     ::runtime::start_runtime(|runtime| {
         let (kernel_peri, app_peri) = build_peripherals();
         let kernel = KernelModule::new(runtime.interrupt, kernel_peri);
@@ -94,11 +98,15 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
+#[cfg(not(feature = "heap"))]
 #[global_allocator]
 pub static EMPTY_ALLOCATOR: DummyAllocator = DummyAllocator;
+
+#[cfg(feature = "heap")]
+#[global_allocator]
+static HEAP: embedded_alloc::LlffHeap = embedded_alloc::LlffHeap::empty();
 
 bind_interrupts!(pub struct Irqs {
     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>, embassy_rp::dma::InterruptHandler<DMA_CH1>;
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
 });
-

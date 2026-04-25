@@ -50,3 +50,9 @@
 [submodule "submodules/wasm-bindgen"]
 	path = submodules/wasm-bindgen
 	url = https://github.com/nathdobson/wasm-bindgen.git
+[submodule "submodules/webpki"]
+	path = submodules/webpki
+	url = https://github.com/nathdobson/webpki.git
+[submodule "submodules/RSA"]
+	path = submodules/RSA
+	url = https://github.com/nathdobson/RSA.git
