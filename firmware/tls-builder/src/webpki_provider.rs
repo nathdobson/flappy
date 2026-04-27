@@ -1,3 +1,4 @@
+use embassy_sync::once_lock::OnceLock;
 use embedded_tls::pki::CertVerifier;
 use embedded_tls::{
     Certificate, CryptoProvider, CryptoRngCore, TlsCipherSuite, TlsClock, TlsError, TlsVerifier,
@@ -16,17 +17,18 @@ impl TlsClock for VeryGoodClock {
     }
 }
 
+const CERT_COUNT: usize = 143;
+static CERTS: OnceLock<[Certificate<&'static [u8]>; CERT_COUNT]> = OnceLock::new();
+
 impl<C: TlsCipherSuite, R> WebPkiProvider<C, R> {
     pub fn new(rng: R) -> Self {
+        let certs = CERTS.get_or_init(|| {
+            assert_eq!(CERT_COUNT, mozilla_root_ca::der::DER_LIST.len());
+            core::array::from_fn(|n| Certificate::X509(mozilla_root_ca::der::DER_LIST[n]))
+        });
         WebPkiProvider {
             rng,
-            verifier: CertVerifier::new(Certificate::X509(
-                // include_bytes!("../../emqx.der"),
-                // include_bytes!("/Users/nathan/Downloads/EncryptionEverywhereDVTLSCA-G2.crt"),
-                include_bytes!("/Users/nathan/Downloads/emqxsl-ca.der"),
-                // mozilla_root_ca::der::DER_LIST[45],
-                // include_bytes!("/Users/nathan/Downloads/test-dv-ecc-ssl-com-chain.der"),
-            )),
+            verifier: CertVerifier::new(certs),
         }
     }
 }
@@ -41,39 +43,4 @@ impl<C: TlsCipherSuite, R: CryptoRngCore> CryptoProvider for WebPkiProvider<C, R
     fn verifier(&mut self) -> Result<&mut impl TlsVerifier<Self::CipherSuite>, TlsError> {
         Ok(&mut self.verifier)
     }
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn ring_core_0_17_16000__sha512_block_data_order_neon() {
-    todo!();
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn ring_core_0_17_16000__sha512_block_data_order_nohw() {
-    todo!();
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn __assert_func() {
-    todo!();
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn ring_core_0_17_16000__sha256_block_data_order_neon() {
-    todo!();
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn ring_core_0_17_16000__bn_mul8x_mont_neon() {
-    todo!();
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn ring_core_0_17_16000__sha256_block_data_order_nohw() {
-    todo!();
-}
-
-#[unsafe(no_mangle)]
-unsafe extern "C" fn ring_core_0_17_16000__bn_mul_mont_nohw() {
-    todo!();
 }

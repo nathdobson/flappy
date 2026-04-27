@@ -2390,7 +2390,6 @@ version = "0.9.9"
 dependencies = [
  "const-oid 0.9.6",
  "digest",
- "log",
  "num-bigint-dig",
  "num-integer",
  "num-traits",
