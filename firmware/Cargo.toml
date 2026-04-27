@@ -20,3 +20,5 @@ embassy-sync = { path = "../submodules/embassy/embassy-sync" }
 embassy-futures = {path ="../submodules/embassy/embassy-futures"}
 cyw43 = {path="../submodules/embassy/cyw43"}
 heapless = {path="../submodules/heapless"}
+der = {path = "../submodules/formats/der"}
+digest = {path="../submodules/traits/digest"}

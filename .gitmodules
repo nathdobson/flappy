@@ -56,3 +56,12 @@
 [submodule "submodules/RSA"]
 	path = submodules/RSA
 	url = https://github.com/nathdobson/RSA.git
+[submodule "submodules/traits"]
+	path = submodules/traits
+	url = https://github.com/nathdobson/traits.git
+[submodule "submodules/rust-smallvec"]
+	path = submodules/rust-smallvec
+	url = https://github.com/nathdobson/rust-smallvec.git
+[submodule "submodules/formats"]
+	path = submodules/formats
+	url = http://github.com/nathdobson/formats.git
