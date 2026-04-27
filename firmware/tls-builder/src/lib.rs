@@ -12,8 +12,7 @@ use embassy_net::tcp::{TcpReader, TcpSocket, TcpWriter};
 use embassy_rp::clocks::RoscRng;
 use embassy_time::Duration;
 use embedded_tls::{
-    Aes128GcmSha256, Aes256GcmSha384, Certificate, TlsConfig, TlsConnection, TlsContext, TlsError,
-    UnsecureProvider,
+    Aes256GcmSha384, TlsConfig, TlsConnection, TlsContext, TlsError, TlsReader, TlsWriter,
 };
 use log::info;
 use smoltcp::wire::{DnsQueryType, IpEndpoint};
@@ -125,13 +124,17 @@ impl<'a> TlsConnectionBuilderWithTcp<'a> {
 // type FlappyCipherSuite = Aes128GcmSha256;
 type FlappyCipherSuite = Aes256GcmSha384;
 
+pub type FlappyTlsConnection<'b, 'a> =
+    TlsConnection<'b, &'b MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>;
+
+pub type FlappyTlsWriter<'a> =
+    TlsWriter<'a, &'a MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>;
+
+pub type FlappyTlsReader<'a> =
+    TlsReader<'a, &'a MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>;
+
 impl<'a> TlsConnectionBuilderWithMergeSocket<'a> {
-    pub async fn connect_tls<'b>(
-        &'b mut self,
-    ) -> Result<
-        TlsConnection<'b, &'b MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>,
-        TlsError,
-    > {
+    pub async fn connect_tls<'b>(&'b mut self) -> Result<FlappyTlsConnection<'b, 'a>, TlsError> {
         info!(" [TLS] Starting handshake");
         let config = TlsConfig::new()
             .with_server_name(self.hostname)

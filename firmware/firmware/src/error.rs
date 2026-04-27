@@ -45,6 +45,7 @@ pub enum Error {
     FromGattError(trouble_host::types::gatt_traits::FromGattError),
     NoCertificateListSha256,
     BootselButtonTimeout,
+    #[cfg(feature = "usb")]
     UsbBuilderError(usb_builder::error::Error),
 }
 
@@ -93,6 +94,7 @@ impl Display for Error {
             Error::BootselButtonTimeout => {
                 write!(f, "Timeout waiting for the user to press bootsel.")
             }
+            #[cfg(feature = "usb")]
             Error::UsbBuilderError(error) => write!(f, "USB builder error: {:?}", error),
         }
     }

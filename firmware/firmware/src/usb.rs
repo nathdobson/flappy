@@ -104,6 +104,7 @@ impl UsbModule {
             .send_modify(move |x| f.take().unwrap()(x.get_or_insert_default()))
     }
 
+    #[cfg(feature = "setup")]
     pub async fn receive_request(&self) -> SetupRequest {
         loop {
             let mut buffer = Vec::<u8, MAX_SETUP_MESSAGE_SIZE>::new();
@@ -115,6 +116,7 @@ impl UsbModule {
             }
         }
     }
+    #[cfg(feature = "setup")]
     pub async fn send_response(&self, response: &SetupResponse) {
         let buffer = serde_json_core::to_vec::<_, MAX_SETUP_MESSAGE_SIZE>(response).unwrap();
         self.server.usb_rpc.send_response(buffer.as_slice()).await;

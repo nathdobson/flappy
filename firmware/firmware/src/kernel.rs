@@ -1,5 +1,4 @@
 use crate::error::Error;
-use crate::usb::{FlappyUsbServer, UsbModule};
 use ::runtime::RemoteSpawn;
 use core::fmt::Arguments;
 use core::intrinsics::abort;
@@ -29,7 +28,8 @@ pub struct KernelPeripherals {
 }
 
 pub struct KernelModule {
-    pub usb: &'static FlappyUsbServer,
+    #[cfg(feature = "usb")]
+    pub usb: &'static crate::usb::FlappyUsbServer,
 }
 
 impl KernelModule {
@@ -37,7 +37,8 @@ impl KernelModule {
         let module: &'static KernelModule = make_static!(
             KernelModule,
             KernelModule {
-                usb: FlappyUsbServer::new(spawner, peri.USB),
+                #[cfg(feature = "usb")]
+                usb: crate::usb::FlappyUsbServer::new(spawner, peri.USB),
             }
         );
         module

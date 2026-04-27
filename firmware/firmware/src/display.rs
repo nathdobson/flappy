@@ -1,4 +1,4 @@
-use crate::application::DisplayResponseContainer;
+use ::make_static::make_static;
 use core::cell::RefCell;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::Channel;
@@ -6,7 +6,6 @@ use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use heapless::{String, Vec};
 use log::{error, info};
-use ::make_static::make_static;
 use protocol::display::DisplayResponse;
 use protocol::display::MAX_GLYPH_BYTES;
 use protocol::display::MAX_GLYPHS;
@@ -16,21 +15,23 @@ const MODULE: &'static str = "[DISPL]";
 pub struct DisplayModule {
     #[cfg(feature = "display")]
     controller: &'static crate::controller::ControllerModule,
-    display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
+    #[cfg(feature = "mqtt")]
+    mqtt: &'static crate::mqtt::MqttModule,
     settings: RefCell<DisplaySettings>,
 }
 
 impl DisplayModule {
     pub fn new(
         #[cfg(feature = "display")] controller: &'static crate::controller::ControllerModule,
-        display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
+        #[cfg(feature = "mqtt")] mqtt: &'static crate::mqtt::MqttModule,
     ) -> &'static Self {
         make_static!(
             DisplayModule,
             DisplayModule {
                 #[cfg(feature = "display")]
                 controller,
-                display_response,
+                #[cfg(feature = "mqtt")]
+                mqtt,
                 settings: RefCell::new(DisplaySettings::default()),
             }
         )
@@ -65,11 +66,9 @@ impl DisplayModule {
     }
     pub async fn display_once(&'static self, msg: &str) {
         let (message, message_strs) = self.render(&msg);
-        self.display_response
-            .send(DisplayResponseContainer::DisplayResponse(
-                DisplayResponse::Start(message_strs.clone()),
-            ))
-            .await;
+        #[cfg(feature = "mqtt")]
+        self.mqtt
+            .send_response(DisplayResponse::Start(message_strs.clone()));
         #[cfg(not(feature = "display"))]
         Timer::after_millis(1000).await;
         #[cfg(feature = "display")]
@@ -80,10 +79,7 @@ impl DisplayModule {
                 error!("{MODULE} error when displaying message: {:?}", e);
             }
         }
-        self.display_response
-            .send(DisplayResponseContainer::DisplayResponse(
-                DisplayResponse::Stop(message_strs),
-            ))
-            .await;
+        #[cfg(feature = "mqtt")]
+        self.mqtt.send_response(DisplayResponse::Stop(message_strs))
     }
 }

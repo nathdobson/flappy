@@ -28,13 +28,13 @@ pub enum MqttField {
 
 #[derive(Debug)]
 pub enum TestType {
-    Spin,
     Read,
     Enable,
 }
 
 #[derive(Debug)]
 pub enum Command<'a> {
+    Phantom(!, PhantomData<&'a ()>),
     // WifiRead,
     // WifiWrite(WifiField, &'a str),
     // MqttRead,
@@ -43,7 +43,6 @@ pub enum Command<'a> {
     // CalibrateReadOne(usize),
     // CalibrateWriteOne(usize, Adjustment, usize),
     Help,
-    Display(&'a str),
     Test(TestType),
 }
 
@@ -79,7 +78,7 @@ impl<'a> Command<'a> {
         match kind {
             "help" => Self::parse_help(input),
             // "calibrate" => Self::parse_calibrate(input),
-            "display" => Self::parse_display(input),
+            // "display" => Self::parse_display(input),
             // "wifi" => Self::parse_wifi(input),
             // "mqtt" => Self::parse_mqtt(input),
             "test" => Self::parse_test(input),
@@ -121,9 +120,9 @@ impl<'a> Command<'a> {
     //     Ok(Command::CalibrateWriteOne(index, adj, value))
     // }
 
-    fn parse_display(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
-        Ok(Command::Display(input.remainder().unwrap_or("")))
-    }
+    // fn parse_display(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
+    //     Ok(Command::Display(input.remainder().unwrap_or("")))
+    // }
 
     // fn parse_wifi(mut input: Split<'a, &'a str>) -> Result<Command<'a>, CommandError> {
     //     let field = match input.next() {
@@ -166,7 +165,7 @@ impl<'a> Command<'a> {
             .next()
             .ok_or(CommandError::from("missing test type"))?;
         let typ = match typ {
-            "spin" => TestType::Spin,
+            // "spin" => TestType::Spin,
             "read" => TestType::Read,
             "enable" => TestType::Enable,
             _ => return Err(CommandError::from("unknown test type")),

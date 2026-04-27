@@ -1,9 +1,9 @@
 use crate::bootsel::BootselModule;
+use crate::built_info;
 use crate::cli::{Adjustment, Command, MqttField, TestType, WifiField};
 use crate::error::Error;
 use crate::kernel::KernelModule;
 use crate::peripherals::AppPeripherals;
-use crate::usb::UsbModule;
 use board_info::serial_number;
 use core::cell::RefCell;
 use core::future::pending;
@@ -32,13 +32,6 @@ use protocol::setup::{
 };
 use protocol::setup::{FLAP_COUNT, WriteAppSettings};
 use runtime::LocalSpawn;
-use crate::built_info;
-
-pub enum DisplayResponseContainer {
-    DisplayResponse(DisplayResponse),
-    DeviceInfo(DeviceInfo),
-}
-
 // No more than half of stack space should be used when serializing/deserializing.
 const _: [u8; 1] = [0; (size_of::<SetupRequest>() < 2048) as usize];
 const _: [u8; 1] = [0; (size_of::<SetupResponse>() < 2048) as usize];
@@ -48,7 +41,7 @@ pub struct Application {
     spawner: Spawner,
     runtime: &'static KernelModule,
     #[cfg(feature = "usb")]
-    usb: &'static UsbModule,
+    usb: &'static crate::usb::UsbModule,
     #[cfg(feature = "flash")]
     flash: &'static crate::flash::FlashModule,
     #[cfg(feature = "ble")]
@@ -63,12 +56,9 @@ pub struct Application {
     driver: &'static crate::driver::DriverModule,
     #[cfg(feature = "display")]
     controller: &'static crate::controller::ControllerModule,
-    #[cfg(feature = "display")]
     display: &'static crate::display::DisplayModule,
     #[cfg(feature = "spindle")]
     spindle: &'static crate::spindle::SpindleModule,
-    display_request: &'static Signal<NoopRawMutex, DisplayRequest>,
-    display_response: &'static Channel<NoopRawMutex, DisplayResponseContainer, 1>,
     settings: RefCell<AppSettings>,
 }
 
@@ -86,7 +76,7 @@ impl Application {
         peri: AppPeripherals,
     ) -> Result<&'static Self, Error> {
         #[cfg(feature = "usb")]
-        let usb = UsbModule::new(spawner, runtime.usb);
+        let usb = crate::usb::UsbModule::new(spawner, runtime.usb);
         let bootsel = BootselModule::new(spawner, peri.bootsel)?;
         #[cfg(feature = "display")]
         let driver = crate::driver::DriverModule::new(peri.driver_peri).await?;
@@ -115,24 +105,20 @@ impl Application {
             radio_drivers.net,
             &mut rng,
         )?;
-        let display_request = make_static!(Signal<NoopRawMutex, DisplayRequest>, Signal::new());
-        let display_response =
-            make_static!(Channel<NoopRawMutex, DisplayResponseContainer, 1>, Channel::new());
         #[cfg(feature = "mqtt")]
-        let mqtt = crate::mqtt::MqttModule::new(
-            spawner,
-            &wifi.stack(),
-            display_request,
-            display_response,
-        )?;
+        let mqtt = crate::mqtt::MqttModule::new(spawner, &wifi.stack())?;
         #[cfg(feature = "flash")]
         let state = flash.load().await?;
         #[cfg(not(feature = "flash"))]
         let state = AppSettings::default();
         #[cfg(feature = "spindle")]
         let spindle = crate::spindle::SpindleModule::new();
-        #[cfg(feature = "display")]
-        let mut display = crate::display::DisplayModule::new(controller, display_response);
+        let mut display = crate::display::DisplayModule::new(
+            #[cfg(feature = "display")]
+            controller,
+            #[cfg(feature = "mqtt")]
+            mqtt,
+        );
         let application = make_static!(
             Application,
             Application {
@@ -154,13 +140,10 @@ impl Application {
                 driver,
                 #[cfg(feature = "display")]
                 controller,
-                #[cfg(feature = "display")]
                 display,
                 #[cfg(feature = "spindle")]
                 spindle,
                 settings: RefCell::new(state.clone()),
-                display_request,
-                display_response,
             }
         );
         Ok(application)
@@ -186,7 +169,6 @@ impl Application {
                 old.display = display.clone();
                 #[cfg(feature = "display")]
                 self.controller.set_settings(display.clone());
-                #[cfg(feature = "display")]
                 self.display.set_settings(display.clone());
             }
         }
@@ -205,12 +187,12 @@ impl Application {
             self.mqtt.set_settings(state.mqtt.clone());
             #[cfg(feature = "display")]
             self.controller.set_settings(state.display.clone());
-            #[cfg(feature = "display")]
             self.display.set_settings(state.display.clone());
         }
         Ok(())
     }
     fn spawn_tasks(&'static self) -> Result<(), Error> {
+        #[cfg(feature = "mqtt")]
         make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
             self.handle_requests().await;
         });
@@ -262,26 +244,25 @@ impl Application {
         });
         Ok(())
     }
-
+    #[cfg(feature = "mqtt")]
     async fn handle_requests(&'static self) {
         let mut request_state = None;
         loop {
             if let Some(r) = request_state.take() {
-                match select(self.display_request.wait(), self.handle_request(r)).await {
+                match select(self.mqtt.receive_request(), self.handle_request(r)).await {
                     Either::First(r) => {
                         request_state = Some(r);
                     }
                     Either::Second(()) => {}
                 }
             } else {
-                request_state = Some(self.display_request.wait().await);
+                request_state = Some(self.mqtt.receive_request().await);
             }
         }
     }
     async fn handle_request(&'static self, request: DisplayRequest) {
         match request {
             DisplayRequest::Run(msg) => {
-                #[cfg(feature = "display")]
                 self.display.display_once(&msg).await;
             }
             DisplayRequest::Test => {
@@ -350,14 +331,7 @@ impl Application {
                     .write_feedback_line(format_args!("commands: help, display"))
                     .await;
             }
-            Command::Display(msg) => {
-                self.display_request
-                    .signal(DisplayRequest::Run(msg.try_into().unwrap_or_default()));
-            }
             Command::Test(typ) => match typ {
-                TestType::Spin => {
-                    self.display_request.signal(DisplayRequest::Test);
-                }
                 TestType::Enable => {
                     #[cfg(feature = "display")]
                     self.driver.set_enabled(true);
@@ -451,9 +425,7 @@ impl Application {
     async fn update_mqtt_device_info(&self) -> Result<(), Error> {
         let mut info = self.device_info();
         loop {
-            self.display_response
-                .send(DisplayResponseContainer::DeviceInfo(info.clone()))
-                .await;
+            self.mqtt.send_device_info(info.clone()).await;
             loop {
                 Timer::after(Duration::from_secs(1)).await;
                 let new = self.device_info();

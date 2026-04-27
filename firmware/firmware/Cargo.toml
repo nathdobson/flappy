@@ -55,7 +55,7 @@ embedded-tls = { path="../../submodules/embedded-tls", default-features = false,
 #embedded-tls = {version = "0.18.0",default-features = false,optional = true,features = ["webpki"]}
 embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
-smoltcp = { version = "0.13.0", default-features = false, features = ["proto-ipv4","proto-ipv6"], optional = true }
+#smoltcp = { version = "0.13.0", default-features = false, features = ["proto-ipv4","proto-ipv6"], optional = true }
 embedded-io-async = { version = "0.7.0", optional = true }
 embedded-io = { version = "0.7.1", optional = true }
 mqtt-client = { path = "../../common/mqtt-client", optional = true }
@@ -77,7 +77,7 @@ board-info = {path="../board-info"}
 fixed-freelist = {path="../../common/fixed-freelist"}
 runtime = {path="../runtime"}
 dummy-alloc="1.0.0"
-tls-builder = {path="../tls-builder"}
+tls-builder = {path="../tls-builder",optional = true}
 embedded-alloc = {version="0.7.0",optional = true}
 
 [target.'cfg(target_arch="arm")'.dependencies]
@@ -108,8 +108,8 @@ ble = [
   "dep:trouble-host",
   "dep:uuid",
 ]
-wifi = ["radio","dep:smoltcp","embassy-net"]
-mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena", "dep:p256"]
+wifi = ["radio","embassy-net"]
+mqtt = ["wifi",    "dep:mqtt-client",   "dep:arena", "dep:p256","dep:tls-builder","dep:embedded-tls"]
 preemption = []
 usb = ["dep:embassy-usb","dep:usb-builder"]
 spindle = ["dep:spindle"]
