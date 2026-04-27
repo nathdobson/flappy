@@ -56,3 +56,6 @@
 [submodule "submodules/RSA"]
 	path = submodules/RSA
 	url = https://github.com/nathdobson/RSA.git
+[submodule "submodules/mbedtls-rs"]
+	path = submodules/mbedtls-rs
+	url = https://github.com/nathdobson/mbedtls-rs.git

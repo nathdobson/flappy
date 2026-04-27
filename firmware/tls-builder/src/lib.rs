@@ -1,21 +1,20 @@
 #![no_std]
 
 mod merge_socket;
-mod webpki_provider;
+// mod webpki_provider;
 // mod fixed_provider;
 
 use crate::merge_socket::MergeSocket;
-use crate::webpki_provider::WebPkiProvider;
+use core::ffi::CStr;
 use core::fmt;
 use embassy_net::Stack;
 use embassy_net::tcp::{TcpReader, TcpSocket, TcpWriter};
 use embassy_rp::clocks::RoscRng;
 use embassy_time::Duration;
-use embedded_tls::{
-    Aes128GcmSha256, Aes256GcmSha384, Certificate, TlsConfig, TlsConnection, TlsContext, TlsError,
-    UnsecureProvider,
-};
 use log::info;
+use mbedtls_rs::{
+    Certificate, ClientSessionConfig, Session, SessionConfig, SessionError, Tls, TlsError, X509,
+};
 use smoltcp::wire::{DnsQueryType, IpEndpoint};
 
 pub struct TlsConnectionBuilder<'a> {
@@ -122,33 +121,52 @@ impl<'a> TlsConnectionBuilderWithTcp<'a> {
     }
 }
 
-// type FlappyCipherSuite = Aes128GcmSha256;
-type FlappyCipherSuite = Aes256GcmSha384;
+const CA_BUNDLE: &CStr = match CStr::from_bytes_with_nul(
+    concat!(
+        include_str!("../../../submodules/mbedtls-rs/examples/common/certs/ca-bundle-small.pem"),
+        "\0"
+    )
+    .as_bytes(),
+) {
+    Ok(bundle) => bundle,
+    _ => panic!("CA bundle is not a valid text file"),
+};
+
+#[derive(Debug)]
+pub enum MyError {
+    SessionError(SessionError),
+    TlsError(TlsError),
+}
+
+impl From<TlsError> for MyError {
+    fn from(e: TlsError) -> Self {
+        MyError::TlsError(e)
+    }
+}
+
+impl From<SessionError> for MyError {
+    fn from(e: SessionError) -> Self {
+        MyError::SessionError(e)
+    }
+}
 
 impl<'a> TlsConnectionBuilderWithMergeSocket<'a> {
     pub async fn connect_tls<'b>(
         &'b mut self,
-    ) -> Result<
-        TlsConnection<'b, &'b MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>,
-        TlsError,
-    > {
-        info!(" [TLS] Starting handshake");
-        let config = TlsConfig::new()
-            .with_server_name(self.hostname)
-            .enable_rsa_signatures();
+        tls: &'b Tls<'b>,
+    ) -> Result<mbedtls_rs::Session<'b, &'b MergeSocket<TcpWriter<'a>, TcpReader<'a>>>, MyError>
+    {
+        let mut conf = ClientSessionConfig {
+            ca_chain: Some(Certificate::new(X509::PEM(CA_BUNDLE)).unwrap()),
+            server_name: Some(c"httpbin.org"),
+            ..ClientSessionConfig::new()
+        };
 
-        let mut tls = TlsConnection::<_, FlappyCipherSuite>::new(
+        let mut session = Session::new(
+            tls.reference(),
             &self.merge_socket,
-            &mut self.read_record_buffer,
-            &mut self.write_record_buffer,
-        );
-        // let provider = FixedProvider::new(RoscRng);
-        // let provider = UnsecureProvider::new(RoscRng).with_cert(Certificate::X509(
-        //     include_bytes!("/Users/nathan/Downloads/emqxsl-ca.crt"),
-        // ));
-        let provider = WebPkiProvider::new(RoscRng);
-        tls.open::<_>(TlsContext::new(&config, provider)).await?;
-        info!("[TLS] Handshake complete");
-        Ok(tls)
+            &SessionConfig::Client(conf),
+        )?;
+        Ok(session)
     }
 }

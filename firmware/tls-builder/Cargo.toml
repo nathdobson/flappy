@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-embedded-tls = {path="../../submodules/embedded-tls",default-features = false,features = ["log","rustpki","rsa","webpki"]}
+#embedded-tls = {path="../../submodules/embedded-tls",default-features = false,features = ["log","rustpki","rsa","webpki"]}
 p256={version="0.13.2",default-features = false}
 embassy-net = {path="../../submodules/embassy/embassy-net"}
 embassy-sync = {path="../../submodules/embassy/embassy-sync"}
@@ -15,3 +15,5 @@ embassy-time = {path="../../submodules/embassy/embassy-time"}
 smoltcp = {version="0.13.0",default-features = false,features=["proto-ipv4","proto-ipv6"]}
 log = "0.4.29"
 mozilla-root-ca = {version="2025.6.7",features = ["der"]}
+mbedtls-rs = {path="../../submodules/mbedtls-rs/mbedtls-rs",features = []}
+mbedtls-rs-sys = {path="../../submodules/mbedtls-rs/mbedtls-rs-sys",features = []}

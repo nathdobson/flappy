@@ -126,6 +126,7 @@ pub enum MqttServiceError {
     DnsError(DnsError),
     TcpError(TcpError),
     TlsError(TlsError),
+    MbedtlsError,
     MqttError(mqtt_core::error::ProtocolError),
     Disconnected,
     DeadlineExceeded,

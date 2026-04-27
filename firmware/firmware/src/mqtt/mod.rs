@@ -23,13 +23,9 @@ use embassy_sync::watch::{DynReceiver, Watch};
 use embassy_time::{Duration, TimeoutError, Timer, with_timeout};
 use embedded_io::ErrorKind;
 use embedded_io_async::{ErrorType, Read, Write};
-use embedded_tls::alert::{AlertDescription, AlertLevel};
-use embedded_tls::{
-    Aes128GcmSha256, Certificate, NoClock, NoVerify, TlsCipherSuite, TlsConfig, TlsConnection,
-    TlsContext, TlsError, TlsVerifier, TlsWriter, UnsecureProvider,
-};
 use heapless::{String, format};
 use log::{error, info, trace, warn};
+use mbedtls_rs::Tls;
 use make_static::make_static;
 use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
@@ -48,7 +44,9 @@ const PACKET_SIZE: usize = 1024;
 const RECORD_SIZE: usize = 16640;
 
 use crate::application::DisplayResponseContainer;
-use crate::mqtt::error::{convert_dns_error, convert_mqtt_error, convert_tcp_error, convert_tls_error};
+use crate::mqtt::error::{
+    convert_dns_error, convert_mqtt_error, convert_tcp_error, convert_tls_error,
+};
 use protocol::display::DisplayRequest;
 use protocol::error::{
     DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel,
@@ -199,9 +197,11 @@ impl MqttModule {
         let mut tls = tls.connect_tcp().await.map_err(convert_tcp_error)?;
         self.status.sender().send(MqttServiceStatus::TlsConnect);
         let mut tls = tls.merge_socket();
-        let mut tls = tls.connect_tls().await.map_err(convert_tls_error)?;
+        let mut rng = RoscRng;
+        let mut etls = Tls::new(&mut rng).map_err(|_| MqttServiceError::MbedtlsError)?;
+        let mut tls = tls.connect_tls(&etls).await.map_err(|_| MqttServiceError::MbedtlsError)?;
 
-        let (read, write): (_, TlsWriter<_, _>) = tls.split();
+        let (read, write): (_, _) = tls.split().await.map_err(|_| MqttServiceError::MbedtlsError)?;
         let sender = MqttSender::<_, 1024, 1, 1>::new(write);
         let mut receiver = MqttReceiver::new(read);
         match select5(

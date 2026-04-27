@@ -51,7 +51,7 @@ serde-json-core = { path="../../submodules/serde-json-core", optional = true }
 rand_core = "0.9.3"
 uuid = { version = "1.18.1", default-features = false, optional = true }
 heapless = { version = "0.9.2" }
-embedded-tls = { path="../../submodules/embedded-tls", default-features = false, optional = true, features = ["log"] }
+#embedded-tls = { path="../../submodules/embedded-tls", default-features = false, optional = true, features = ["log"] }
 #embedded-tls = {version = "0.18.0",default-features = false,optional = true,features = ["webpki"]}
 embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
@@ -79,6 +79,7 @@ runtime = {path="../runtime"}
 dummy-alloc="1.0.0"
 tls-builder = {path="../tls-builder"}
 embedded-alloc = {version="0.7.0",optional = true}
+mbedtls-rs = {path="../../submodules/mbedtls-rs/mbedtls-rs"}
 
 [target.'cfg(target_arch="arm")'.dependencies]
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }
@@ -109,7 +110,7 @@ ble = [
   "dep:uuid",
 ]
 wifi = ["radio","dep:smoltcp","embassy-net"]
-mqtt = ["wifi",  "dep:embedded-tls",  "dep:mqtt-client",   "dep:arena", "dep:p256"]
+mqtt = ["wifi",   "dep:mqtt-client",   "dep:arena", "dep:p256"]
 preemption = []
 usb = ["dep:embassy-usb","dep:usb-builder"]
 spindle = ["dep:spindle"]

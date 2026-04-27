@@ -1,7 +1,7 @@
-use embedded_tls::pki::CertVerifier;
-use embedded_tls::{
-    Certificate, CryptoProvider, CryptoRngCore, TlsCipherSuite, TlsClock, TlsError, TlsVerifier,
-};
+// use embedded_tls::pki::CertVerifier;
+// use embedded_tls::{
+//     Certificate, CryptoProvider, CryptoRngCore, TlsCipherSuite, TlsClock, TlsError, TlsVerifier,
+// };
 
 pub struct WebPkiProvider<C: TlsCipherSuite, R> {
     rng: R,

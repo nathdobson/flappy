@@ -27,7 +27,7 @@ pub enum Error {
     #[cfg(feature = "radio")]
     MqttError(mqtt_core::error::ProtocolError),
     #[cfg(feature = "mqtt")]
-    TlsError(embedded_tls::TlsError),
+    TlsError(mbedtls_rs::TlsError),
     #[cfg(feature = "wifi")]
     ConnectError(embassy_net::tcp::ConnectError),
     SpiError(embassy_rp::spi::Error),
@@ -166,8 +166,8 @@ impl From<embassy_net::dns::Error> for Error {
 }
 
 #[cfg(feature = "mqtt")]
-impl From<embedded_tls::TlsError> for Error {
-    fn from(error: embedded_tls::TlsError) -> Self {
+impl From<mbedtls_rs::TlsError> for Error {
+    fn from(error: mbedtls_rs::TlsError) -> Self {
         Error::TlsError(error)
     }
 }

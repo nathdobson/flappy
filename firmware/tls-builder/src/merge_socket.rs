@@ -2,6 +2,7 @@ use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embedded_io::ErrorType;
 use embedded_io_async::{Read, Write};
+use mbedtls_rs::Split;
 
 /// A wrapper that combines one implementation of [embedded_io_async::Read] and one implementation of [embedded_io_async::Write] into a single value.
 pub struct MergeSocket<W, R> {
@@ -35,5 +36,20 @@ impl<'a, W: Write, R: ErrorType<Error = W::Error>> Write for &'a MergeSocket<W, 
 impl<'a, W: ErrorType, R: Read + ErrorType<Error = W::Error>> Read for &'a MergeSocket<W, R> {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         self.read.lock().await.read(buf).await
+    }
+}
+
+impl<'a, W: Write, R: Read + ErrorType<Error = W::Error>> Split for &'a MergeSocket<W, R> {
+    type Read<'b>
+    where
+        Self: 'b,
+    = Self;
+    type Write<'b>
+    where
+        Self: 'b,
+    = Self;
+
+    fn split(&mut self) -> (Self::Read<'_>, Self::Write<'_>) {
+        (*self, *self)
     }
 }
