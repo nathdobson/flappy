@@ -1,4 +1,3 @@
-
 use crate::error::Error;
 use arena::Arena;
 use board_info::serial_number;
@@ -316,21 +315,21 @@ impl MqttModule {
         let mut receiver = self.device_info.receiver().unwrap();
         loop {
             let info = receiver.get().await;
-            match serde_json_core::to_vec::<DeviceInfo, PACKET_SIZE>(&info) {
-                Ok(info) => {
-                    sender
-                        .publish(&PublishRequest {
-                            qos: Qos::AtMostOnce,
-                            topic: &info_topic,
-                            payload: &info,
-                            retain: true,
-                        })
-                        .await?;
-                }
+            let info = match serde_json_core::to_vec::<DeviceInfo, PACKET_SIZE>(&info) {
+                Ok(info) => info,
                 Err(e) => {
                     warn!("Cannot encode info {:?}", e);
+                    continue;
                 }
-            }
+            };
+            sender
+                .publish(&PublishRequest {
+                    qos: Qos::AtMostOnce,
+                    topic: &info_topic,
+                    payload: &info,
+                    retain: true,
+                })
+                .await?;
             receiver.changed().await;
         }
     }
@@ -345,21 +344,22 @@ impl MqttModule {
         let mut receiver = self.display_response.receiver().unwrap();
         loop {
             let mut response = receiver.get().await;
-            match serde_json_core::to_vec::<DisplayResponse, PACKET_SIZE>(&response) {
-                Ok(response) => {
-                    sender
-                        .publish(&PublishRequest {
-                            qos: Qos::AtMostOnce,
-                            topic: &response_topic,
-                            payload: &response,
-                            retain: true,
-                        })
-                        .await?;
-                }
+            let response = match serde_json_core::to_vec::<DisplayResponse, PACKET_SIZE>(&response)
+            {
+                Ok(response) => response,
                 Err(e) => {
                     warn!("Cannot encode response {:?}", e);
+                    continue;
                 }
-            }
+            };
+            sender
+                .publish(&PublishRequest {
+                    qos: Qos::AtMostOnce,
+                    topic: &response_topic,
+                    payload: &response,
+                    retain: true,
+                })
+                .await?;
             receiver.changed().await;
         }
     }
