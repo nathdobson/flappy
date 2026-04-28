@@ -194,14 +194,16 @@ impl From<fmt::Error> for Error {
 }
 
 #[cfg(feature = "mqtt")]
-impl<E> From<mqtt_client::error::Error<E>> for Error
+impl<W, R> From<mqtt_client::error::Error<W, R>> for Error
 where
-    Error: From<E>,
+    Error: From<W>,
+    Error: From<R>,
 {
-    fn from(value: mqtt_client::error::Error<E>) -> Self {
+    fn from(value: mqtt_client::error::Error<W, R>) -> Self {
         match value {
-            mqtt_client::error::Error::NetworkError(e) => Error::from(e),
-            mqtt_client::error::Error::ProtocolError(e) => Error::MqttError(e),
+            mqtt_client::error::Error::WriteError(w) => Self::from(w),
+            mqtt_client::error::Error::ReadError(r) => Self::from(r),
+            mqtt_client::error::Error::ProtocolError(p) => Self::from(p),
         }
     }
 }

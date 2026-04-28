@@ -55,7 +55,7 @@ impl<const SEND_CAP: usize, W: Write> MqttWriter<W, SEND_CAP> {
             Packet::Pingresp(_) => 0,
         }
     }
-    pub async fn send_packet(&mut self, packet: &Packet<'_>) -> Result<(), Error<W::Error>> {
+    pub async fn send_packet(&mut self, packet: &Packet<'_>) -> Result<(), Error<W::Error, !>> {
         self.packet.clear();
         self.packet.extend([0u8; FIXED_HEADER_RESERVATION]);
         let mut builder = MqttPacketBuilder {
@@ -80,8 +80,8 @@ impl<const SEND_CAP: usize, W: Write> MqttWriter<W, SEND_CAP> {
         self.inner
             .write_all(buf)
             .await
-            .map_err(Error::NetworkError)?;
-        self.inner.flush().await.map_err(Error::NetworkError)?;
+            .map_err(Error::WriteError)?;
+        self.inner.flush().await.map_err(Error::WriteError)?;
         Ok(())
     }
 }

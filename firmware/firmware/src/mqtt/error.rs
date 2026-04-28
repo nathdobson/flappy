@@ -1,9 +1,12 @@
 use embassy_net::dns;
 use embassy_net::tcp::ConnectError;
 use embedded_io::ErrorKind;
-use embedded_tls::alert::{AlertDescription, AlertLevel};
 use embedded_tls::TlsError;
-use protocol::error::{DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel};
+use embedded_tls::alert::{AlertDescription, AlertLevel};
+use mqtt_client::error::Error;
+use protocol::error::{
+    DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel,
+};
 
 pub fn convert_dns_error(error: dns::Error) -> MqttServiceError {
     MqttServiceError::DnsError(match error {
@@ -134,9 +137,12 @@ pub fn convert_tls_error(error: TlsError) -> MqttServiceError {
     })
 }
 
-pub fn convert_mqtt_error(error: mqtt_client::error::Error<TlsError>) -> MqttServiceError {
+pub fn convert_mqtt_error(
+    error: mqtt_client::error::Error<TlsError, TlsError>,
+) -> MqttServiceError {
     match error {
-        mqtt_client::error::Error::NetworkError(e) => convert_tls_error(e),
-        mqtt_client::error::Error::ProtocolError(e) => MqttServiceError::MqttError(e),
+        Error::WriteError(x) => convert_tls_error(x),
+        Error::ReadError(x) => convert_tls_error(x),
+        Error::ProtocolError(x) => MqttServiceError::MqttError(x),
     }
 }

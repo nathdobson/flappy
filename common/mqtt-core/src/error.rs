@@ -13,6 +13,8 @@ pub enum ProtocolError {
     BadUtf8,
     ExceededRecvConcurrency,
     PublishFailed(ReasonCode),
+    Disconnected(ReasonCode),
+    DeadlineExceeded,
 }
 
 impl Display for ProtocolError {
@@ -27,6 +29,8 @@ impl Display for ProtocolError {
             ProtocolError::BadUtf8 => write!(f, "bad UTF-8"),
             ProtocolError::ExceededRecvConcurrency => write!(f, "exceed recv concurrency"),
             ProtocolError::PublishFailed(r) => write!(f, "publish failed {}", r),
+            ProtocolError::Disconnected(r) => write!(f, "disconnected {}", r),
+            ProtocolError::DeadlineExceeded => write!(f, "deadline exceeded"),
         }
     }
 }

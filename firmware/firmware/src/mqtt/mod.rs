@@ -30,8 +30,7 @@ use embedded_tls::{
 use heapless::{String, format};
 use log::{error, info, trace, warn};
 use make_static::make_static;
-use mqtt_client::receiver::MqttReceiver;
-use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
+use mqtt_client::client::{ConnectRequest, MqttClient, PublishRequest};
 use mqtt_core::protocol::{Packet, PublishPacket, Qos};
 use serde::{Deserialize, Serialize};
 // use rust_mqtt::client::client::MqttClient;
@@ -72,8 +71,14 @@ const SEND_CAP: usize = 1024;
 const RECV_CONC: usize = 1;
 const SEND_CONC: usize = 2;
 
-type FlappyMqttSender<'a> = MqttSender<FlappyTlsWriter<'a>, SEND_CAP, RECV_CONC, SEND_CONC>;
-type FlappyMqttReceiver<'a> = MqttReceiver<FlappyTlsReader<'a>>;
+type FlappyMqttClient<'a> = MqttClient<
+    NoopRawMutex,
+    FlappyTlsWriter<'a>,
+    FlappyTlsReader<'a>,
+    SEND_CAP,
+    RECV_CONC,
+    SEND_CONC,
+>;
 
 impl MqttModule {
     pub fn new(
@@ -208,45 +213,29 @@ impl MqttModule {
         let mut tls = tls.connect_tls().await.map_err(convert_tls_error)?;
 
         let (read, write): (_, TlsWriter<_, _>) = tls.split();
-        let sender = FlappyMqttSender::new(write);
-        let mut receiver = MqttReceiver::new(read);
-        match select5(
-            self.do_receive(receiver, &sender),
-            self.wait_disconnect(&sender),
-            self.send_acks(&sender),
-            self.send_pings(&sender),
-            self.do_connect(&sender, &settings),
+        let client = FlappyMqttClient::new(write, read);
+        match select4(
+            client.run(),
+            self.send_pings(&client),
+            self.do_connect(&client, &settings),
+            self.do_receive(&client),
         )
         .await
         {
-            Either5::First(x) => x?,
-            Either5::Second(x) => x?,
-            Either5::Third(x) => x?,
-            Either5::Fourth(x) => x?,
-            Either5::Fifth(x) => x?,
+            Either4::First(x) => x.map_err(convert_mqtt_error)?,
+            Either4::Second(x) => x?,
+            Either4::Third(x) => x?,
+            Either4::Fourth(x) => x?,
         }
     }
-    async fn do_receive(
-        &self,
-        mut receiver: FlappyMqttReceiver<'_>,
-        sender: &FlappyMqttSender<'_>,
-    ) -> Result<!, MqttServiceError> {
-        let mut arena_slice = [0u8; 1024];
-        loop {
-            let mut arena =
-                Arena::new(&mut arena_slice).map_err(|e| MqttServiceError::AllocError)?;
-            let (ack, packet) = receiver.receive(arena).await.map_err(convert_mqtt_error)?;
-            match packet {
-                Packet::Publish(publish) => {
-                    self.handle_publish(&publish);
-                }
-                Packet::Disconnect(disconnect) => {
-                    info!("Disconnected: {}", disconnect.reason);
-                }
-                _ => {}
-            }
-            sender.acknowledge(ack).map_err(convert_mqtt_error)?;
-        }
+    async fn do_receive(&self, client: &FlappyMqttClient<'_>) -> Result<!, MqttServiceError> {
+        client
+            .receive_with(&mut [0u8; 1024], async |publish| {
+                self.handle_publish(publish);
+                Ok::<(), MqttServiceError>(())
+            })
+            .await
+            .map_err(convert_mqtt_error)?
     }
     fn handle_publish(&self, publish: &PublishPacket<'_>) {
         let Ok(message) = str::from_utf8(publish.payload) else {
@@ -271,15 +260,7 @@ impl MqttModule {
         trace!("{MODULE} Parsed message: {:?}", message);
         self.display_request.signal(request);
     }
-    async fn wait_disconnect(&self, sender: &FlappyMqttSender<'_>) -> Result<!, MqttServiceError> {
-        let disconnect = sender.wait_disconnect().await.map_err(convert_mqtt_error)?;
-        error!("Disconnect: {}", disconnect);
-        Err::<!, MqttServiceError>(MqttServiceError::Disconnected)
-    }
-    async fn send_acks(&self, sender: &FlappyMqttSender<'_>) -> Result<!, MqttServiceError> {
-        sender.send_acks().await.map_err(convert_mqtt_error)?;
-    }
-    async fn send_pings(&self, sender: &FlappyMqttSender<'_>) -> Result<!, MqttServiceError> {
+    async fn send_pings(&self, sender: &FlappyMqttClient<'_>) -> Result<!, MqttServiceError> {
         Timer::after(Duration::from_secs(KEEPALIVE as u64)).await;
         loop {
             let mut timer = Timer::after(Duration::from_secs(KEEPALIVE as u64));
@@ -292,7 +273,7 @@ impl MqttModule {
     }
     async fn do_connect(
         &self,
-        sender: &FlappyMqttSender<'_>,
+        sender: &FlappyMqttClient<'_>,
         settings: &MqttSettings,
     ) -> Result<!, MqttServiceError> {
         self.status.sender().send(MqttServiceStatus::MqttConnect);
@@ -338,7 +319,7 @@ impl MqttModule {
     }
     async fn do_device_info(
         &self,
-        sender: &FlappyMqttSender<'_>,
+        sender: &FlappyMqttClient<'_>,
         settings: &MqttSettings,
     ) -> Result<!, MqttServiceError> {
         let info_topic: String<128> = format!("{}/info", settings.topic)
@@ -368,7 +349,7 @@ impl MqttModule {
     }
     async fn do_display_response(
         &self,
-        sender: &FlappyMqttSender<'_>,
+        sender: &FlappyMqttClient<'_>,
         settings: &MqttSettings,
     ) -> Result<!, MqttServiceError> {
         let response_topic: String<128> = format!("{}/response", settings.topic)

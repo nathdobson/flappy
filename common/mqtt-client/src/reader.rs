@@ -17,17 +17,17 @@ impl<R: Read> MqttReader<R> {
     pub fn new(inner: R) -> Self {
         MqttReader { inner }
     }
-    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error<R::Error>> {
-        Ok(self.inner.read(buf).await.map_err(Error::NetworkError)?)
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error<!, R::Error>> {
+        Ok(self.inner.read(buf).await.map_err(Error::ReadError)?)
     }
-    async fn read_u8(&mut self) -> Result<u8, Error<R::Error>> {
+    async fn read_u8(&mut self) -> Result<u8, Error<!, R::Error>> {
         let mut buf = [0; 1];
         if self.read(&mut buf).await? == 0 {
             return Err(ProtocolError::UnexpectedEof.into());
         };
         Ok(buf[0])
     }
-    async fn read_varint(&mut self) -> Result<u8, Error<R::Error>> {
+    async fn read_varint(&mut self) -> Result<u8, Error<!, R::Error>> {
         let mut value = 0;
         for index in 0..4 {
             let b = self.read_u8().await?;
@@ -41,7 +41,7 @@ impl<R: Read> MqttReader<R> {
     pub async fn read_packet<'ar>(
         &mut self,
         arena: &'ar Arena,
-    ) -> Result<Packet<'ar>, Error<R::Error>> {
+    ) -> Result<Packet<'ar>, Error<!, R::Error>> {
         let b = self.read_u8().await?;
         let flags = b & 0x0F;
         let kind = PacketType::from_repr(b >> 4).ok_or(ProtocolError::Malformed)?;
@@ -52,7 +52,7 @@ impl<R: Read> MqttReader<R> {
             .await
             .map_err(|e| match e {
                 ReadExactError::UnexpectedEof => ProtocolError::UnexpectedEof.into(),
-                ReadExactError::Other(e) => Error::NetworkError(e),
+                ReadExactError::Other(e) => Error::ReadError(e),
             })?;
         let parser: PacketParser = PacketParser::new(packet, arena, kind, flags);
         let packet: Packet<'ar> = parser.parse()?;

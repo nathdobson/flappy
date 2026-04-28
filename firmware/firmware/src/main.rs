@@ -18,6 +18,7 @@
 #![allow(unused_features)]
 #![feature(macro_derive)]
 #![feature(type_alias_impl_trait)]
+#![feature(unwrap_infallible)]
 
 use crate::application::main_task;
 use crate::kernel::KernelModule;

@@ -86,6 +86,8 @@ picoboot = {path="../submodules/picoboot"}
 btleplug={path="../submodules/btleplug"}
 nusb ={path="../submodules/nusb"}
 setup-client = {path="../common/setup-client"}
+embassy-sync = {path="../submodules/embassy/embassy-sync"}
+async_io_stream = "0.3.3"
 
 [build-dependencies]
 built = {version="0.8.0",features = ["git2"]}

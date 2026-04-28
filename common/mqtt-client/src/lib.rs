@@ -12,5 +12,4 @@ pub mod error;
 mod reader;
 mod varint;
 mod writer;
-pub mod sender;
-pub mod receiver;
+pub mod client;

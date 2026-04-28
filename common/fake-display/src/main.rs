@@ -12,7 +12,7 @@ use glyph_render::Renderer;
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
 use mqtt_client::receiver::MqttReceiver;
-use mqtt_client::sender::{ConnectRequest, MqttSender, PublishRequest};
+use mqtt_client::client::{ConnectRequest, MqttClient, PublishRequest};
 use mqtt_core::protocol::{Packet, Qos};
 use protocol::display::MAX_GLYPH_BYTES;
 use protocol::display::MAX_GLYPHS;
@@ -76,7 +76,7 @@ async fn main() -> anyhow::Result<()> {
         .await
         .unwrap();
     let (read, write) = split_io(stream);
-    let sender = MqttSender::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
+    let sender = MqttClient::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
     let mut receiver = MqttReceiver::new(TokioStreamAdapter(read));
     let (request_send, mut request_recv) = tokio::sync::mpsc::unbounded_channel::<DisplayRequest>();
     let req_topic = format!("{}/request", args.mqtt_topic);
