@@ -56,7 +56,11 @@ pub enum TlsAlertDescription {
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum TlsParseError {}
+pub enum TlsParseError {
+    InvalidData,
+    InsufficientSpace,
+    InsufficientBytes,
+}
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -111,7 +115,7 @@ pub enum TlsError {
     InvalidCertificateEntry,
     InvalidCertificateRequest,
     UnableToInitializeCryptoEngine,
-    ParseError,
+    ParseError(TlsParseError),
     OutOfMemory,
     CryptoError,
     EncodeError,
@@ -163,7 +167,10 @@ mod embassy_net_impls {
 
 #[cfg(feature = "embedded-tls")]
 mod embedded_tls_impls {
-    use crate::error::{MqttServiceError, TlsAlertDescription, TlsAlertLevel, TlsError};
+    use crate::error::{
+        MqttServiceError, TlsAlertDescription, TlsAlertLevel, TlsError, TlsParseError,
+    };
+    use embedded_tls::ParseError;
     use embedded_tls::alert::{AlertDescription, AlertLevel};
 
     impl From<AlertLevel> for TlsAlertLevel {
@@ -215,6 +222,15 @@ mod embedded_tls_impls {
             }
         }
     }
+    impl From<ParseError> for TlsParseError {
+        fn from(error: ParseError) -> Self {
+            match error {
+                ParseError::InsufficientBytes => TlsParseError::InsufficientBytes,
+                ParseError::InsufficientSpace => TlsParseError::InsufficientSpace,
+                ParseError::InvalidData => TlsParseError::InvalidData,
+            }
+        }
+    }
     impl From<embedded_tls::TlsError> for MqttServiceError {
         fn from(error: embedded_tls::TlsError) -> MqttServiceError {
             MqttServiceError::TlsError(match error {
@@ -258,7 +274,7 @@ mod embedded_tls_impls {
                 embedded_tls::TlsError::UnableToInitializeCryptoEngine => {
                     TlsError::UnableToInitializeCryptoEngine
                 }
-                embedded_tls::TlsError::ParseError(error) => TlsError::ParseError,
+                embedded_tls::TlsError::ParseError(error) => TlsError::ParseError(error.into()),
                 embedded_tls::TlsError::OutOfMemory => TlsError::OutOfMemory,
                 embedded_tls::TlsError::CryptoError => TlsError::CryptoError,
                 embedded_tls::TlsError::EncodeError => TlsError::EncodeError,
