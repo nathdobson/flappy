@@ -261,15 +261,12 @@ impl MqttModule {
         self.display_request.signal(request);
     }
     async fn send_pings(&self, sender: &FlappyMqttClient<'_>) -> Result<!, MqttServiceError> {
-        Timer::after(Duration::from_secs(KEEPALIVE as u64)).await;
-        loop {
-            let mut timer = Timer::after(Duration::from_secs(KEEPALIVE as u64));
-            match select(&mut timer, sender.ping()).await {
-                Either::First(()) => return Err(MqttServiceError::DeadlineExceeded),
-                Either::Second(p) => p.map_err(convert_mqtt_error)?,
-            }
-            timer.await
-        }
+        sender
+            .ping_keepalive(async || {
+                Timer::after(Duration::from_secs(KEEPALIVE as u64)).await;
+                Ok(())
+            })
+            .await.map_err(convert_mqtt_error)?
     }
     async fn do_connect(
         &self,
