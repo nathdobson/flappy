@@ -193,21 +193,6 @@ impl From<fmt::Error> for Error {
     }
 }
 
-#[cfg(feature = "mqtt")]
-impl<W, R> From<mqtt_client::error::Error<W, R>> for Error
-where
-    Error: From<W>,
-    Error: From<R>,
-{
-    fn from(value: mqtt_client::error::Error<W, R>) -> Self {
-        match value {
-            mqtt_client::error::Error::WriteError(w) => Self::from(w),
-            mqtt_client::error::Error::ReadError(r) => Self::from(r),
-            mqtt_client::error::Error::ProtocolError(p) => Self::from(p),
-        }
-    }
-}
-
 #[cfg(feature = "radio")]
 impl From<mqtt_core::error::ProtocolError> for Error {
     fn from(value: mqtt_core::error::ProtocolError) -> Self {

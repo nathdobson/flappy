@@ -8,7 +8,8 @@
 #![feature(never_type)]
 #![allow(unreachable_code)]
 
-pub mod error;
+mod error;
+pub use error::Error;
 mod reader;
 mod varint;
 mod writer;

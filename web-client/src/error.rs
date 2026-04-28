@@ -91,16 +91,16 @@ impl From<ws_stream_wasm::WsErr> for Error {
     }
 }
 
-impl<W, R> From<mqtt_client::error::Error<W, R>> for Error
+impl<W, R> From<mqtt_client::Error<W, R>> for Error
 where
     Error: From<W>,
     Error: From<R>,
 {
-    fn from(value: mqtt_client::error::Error<W, R>) -> Self {
+    fn from(value: mqtt_client::Error<W, R>) -> Self {
         match value {
-            mqtt_client::error::Error::WriteError(e) => e.into(),
-            mqtt_client::error::Error::ReadError(e) => e.into(),
-            mqtt_client::error::Error::ProtocolError(e) => e.into(),
+            mqtt_client::Error::WriteError(e) => e.into(),
+            mqtt_client::Error::ReadError(e) => e.into(),
+            mqtt_client::Error::ProtocolError(e) => e.into(),
         }
     }
 }

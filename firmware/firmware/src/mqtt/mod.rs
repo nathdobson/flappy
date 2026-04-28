@@ -1,4 +1,3 @@
-mod error;
 
 use crate::error::Error;
 use arena::Arena;
@@ -44,9 +43,6 @@ const KEEPALIVE: u16 = 60;
 const PACKET_SIZE: usize = 1024;
 const RECORD_SIZE: usize = 16640;
 
-use crate::mqtt::error::{
-    convert_dns_error, convert_mqtt_error, convert_tcp_error, convert_tls_error,
-};
 use protocol::display::DisplayRequest;
 use protocol::error::{
     DnsError, EmbeddedIoErrorKind, MqttServiceError, TcpError, TlsAlertDescription, TlsAlertLevel,
@@ -205,12 +201,12 @@ impl MqttModule {
             stack: self.stack,
         };
         self.status.sender().send(MqttServiceStatus::DnsQuery);
-        let mut tls = tls.resolve_dns().await.map_err(convert_dns_error)?;
+        let mut tls = tls.resolve_dns().await?;
         self.status.sender().send(MqttServiceStatus::TcpConnect);
-        let mut tls = tls.connect_tcp().await.map_err(convert_tcp_error)?;
+        let mut tls = tls.connect_tcp().await?;
         self.status.sender().send(MqttServiceStatus::TlsConnect);
         let mut tls = tls.merge_socket();
-        let mut tls = tls.connect_tls().await.map_err(convert_tls_error)?;
+        let mut tls = tls.connect_tls().await?;
 
         let (read, write): (_, TlsWriter<_, _>) = tls.split();
         let client = FlappyMqttClient::new(write, read);
@@ -222,7 +218,7 @@ impl MqttModule {
         )
         .await
         {
-            Either4::First(x) => x.map_err(convert_mqtt_error)?,
+            Either4::First(x) => x?,
             Either4::Second(x) => x?,
             Either4::Third(x) => x?,
             Either4::Fourth(x) => x?,
@@ -234,8 +230,7 @@ impl MqttModule {
                 self.handle_publish(publish);
                 Ok::<(), MqttServiceError>(())
             })
-            .await
-            .map_err(convert_mqtt_error)?
+            .await?
     }
     fn handle_publish(&self, publish: &PublishPacket<'_>) {
         let Ok(message) = str::from_utf8(publish.payload) else {
@@ -266,7 +261,7 @@ impl MqttModule {
                 Timer::after(Duration::from_secs(KEEPALIVE as u64)).await;
                 Ok(())
             })
-            .await.map_err(convert_mqtt_error)?
+            .await?
     }
     async fn do_connect(
         &self,
@@ -288,8 +283,7 @@ impl MqttModule {
                 password: Some(&settings.password),
                 keepalive: 0,
             })
-            .await
-            .map_err(convert_mqtt_error)?;
+            .await?;
         info!("{MODULE} Connected to broker");
 
         self.status.sender().send(MqttServiceStatus::MqttSubscribe);
@@ -297,10 +291,7 @@ impl MqttModule {
             .ok()
             .ok_or(MqttServiceError::TopicTooLong)?;
         info!("{MODULE} Subscribing to {}", request_topic);
-        sender
-            .subscribe(&request_topic)
-            .await
-            .map_err(convert_mqtt_error)?;
+        sender.subscribe(&request_topic).await?;
         info!("{MODULE} Subscribed");
 
         self.status.sender().send(MqttServiceStatus::Connected);
@@ -334,8 +325,7 @@ impl MqttModule {
                             payload: &info,
                             retain: true,
                         })
-                        .await
-                        .map_err(convert_mqtt_error)?;
+                        .await?;
                 }
                 Err(e) => {
                     warn!("Cannot encode info {:?}", e);
@@ -364,8 +354,7 @@ impl MqttModule {
                             payload: &response,
                             retain: true,
                         })
-                        .await
-                        .map_err(convert_mqtt_error)?;
+                        .await?;
                 }
                 Err(e) => {
                     warn!("Cannot encode response {:?}", e);

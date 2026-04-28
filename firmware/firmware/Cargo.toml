@@ -60,7 +60,7 @@ embedded-io-async = { version = "0.7.0", optional = true }
 embedded-io = { version = "0.7.1", optional = true }
 mqtt-client = { path = "../../common/mqtt-client", optional = true }
 arena = { path = "../../common/arena", optional = true }
-protocol = { path = "../../common/protocol" }
+protocol = { path = "../../common/protocol",features = ["mqtt-client","embedded-tls","embassy-net","embedded-io"] }
 cyw43 = { path = "../../submodules/embassy/cyw43", features = [
   "log","firmware-logs"
 ], optional = true }

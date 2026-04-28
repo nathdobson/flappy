@@ -2176,7 +2176,11 @@ dependencies = [
 name = "protocol"
 version = "0.1.0"
 dependencies = [
+ "embassy-net",
+ "embedded-io",
+ "embedded-tls",
  "heapless 0.9.2",
+ "mqtt-client",
  "mqtt-core",
  "serde",
  "sha2",
