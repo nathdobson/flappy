@@ -47,6 +47,7 @@ pub enum Error {
     BootselButtonTimeout,
     #[cfg(feature = "usb")]
     UsbBuilderError(usb_builder::error::Error),
+    #[cfg(feature = "radio")]
     RadioError(radio_builder::Error),
 }
 
@@ -97,6 +98,7 @@ impl Display for Error {
             }
             #[cfg(feature = "usb")]
             Error::UsbBuilderError(error) => write!(f, "USB builder error: {:?}", error),
+            #[cfg(feature = "radio")]
             Error::RadioError(error) => write!(f, "Radio error: {:?}", error),
         }
     }

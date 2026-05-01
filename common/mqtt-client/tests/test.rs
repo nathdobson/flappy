@@ -1,14 +1,15 @@
 #![allow(unreachable_code)]
 #![allow(unused_imports)]
 
+use arena::Arena;
 use core::fmt::{Debug, Display, Formatter};
 use core::time::Duration;
-use embassy_futures::select::{Either4, select4};
+use embassy_futures::select::{Either4, select4, select3, Either3};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embedded_io_async::{BufRead, ErrorKind, ErrorType, Read, Write};
 use io_adapters::split::split_io;
 use io_adapters::tokio::{TokioErrorAdapter, TokioStreamAdapter};
-use mqtt_client::error::Error;
-use mqtt_client::receiver::MqttReceiver;
+use mqtt_client::Error;
 use mqtt_client::client::{ConnectRequest, MqttClient, PublishRequest};
 use mqtt_core::protocol::Qos;
 use std::env;
@@ -22,10 +23,10 @@ use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::pki_types::ServerName;
 use tokio_rustls::{TlsConnector, rustls};
-use arena::Arena;
+
 const KEEPALIVE: u16 = 60;
 
-type MyError = Error<TokioErrorAdapter>;
+type MyError = Error<TokioErrorAdapter, TokioErrorAdapter>;
 
 #[ignore]
 #[tokio::test]
@@ -46,12 +47,18 @@ async fn test() -> Result<(), MyError> {
         .await
         .unwrap();
     let (read, write) = split_io(stream);
-    let sender = MqttClient::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
-    let mut receiver = MqttReceiver::new(TokioStreamAdapter(read));
-    match select4(
+    let client = MqttClient::<
+        NoopRawMutex,
+        TokioStreamAdapter<_>,
+        TokioStreamAdapter<_>,
+        1024,
+        1,
+        1,
+    >::new(TokioStreamAdapter(write), TokioStreamAdapter(read));
+    match select3(
         async {
             println!("Connecting...");
-            sender
+            client
                 .connect(&ConnectRequest {
                     client_id: "sfasfgasfgf",
                     username: Some(&username),
@@ -60,9 +67,9 @@ async fn test() -> Result<(), MyError> {
                 })
                 .await?;
             println!("Subscribing...");
-            sender.subscribe("testtopic/test").await?;
+            client.subscribe("testtopic/test").await?;
             loop {
-                sender
+                client
                     .publish(&PublishRequest {
                         retain: false,
                         qos: Qos::AtMostOnce,
@@ -79,30 +86,25 @@ async fn test() -> Result<(), MyError> {
             let mut arena = [0u8; 1024];
             loop {
                 let arena = Arena::new(&mut arena)?;
-                let (token, packet) = receiver.receive(arena).await?;
+                let (token, packet) = client.receive(arena).await?;
                 println!("Received {:?}", packet);
-                sender.acknowledge(token)?;
+                client.acknowledge(token)?;
             }
-            Result::<_, MyError>::Ok(())
-        },
-        async {
-            sender.send_acks().await?;
             Result::<_, MyError>::Ok(())
         },
         async {
             loop {
                 tokio::time::sleep(Duration::from_secs(KEEPALIVE as u64)).await;
-                sender.ping().await?;
+                client.ping().await?;
             }
             Result::<_, MyError>::Ok(())
         },
     )
     .await
     {
-        Either4::First(x) => x?,
-        Either4::Second(x) => x?,
-        Either4::Third(x) => x?,
-        Either4::Fourth(x) => x?,
+        Either3::First(x) => x?,
+        Either3::Second(x) => x?,
+        Either3::Third(x) => x?,
     }
     Ok(())
 }

@@ -14,7 +14,8 @@ mqtt-core = {path="../mqtt-core"}
 arena = {path="../arena"}
 anyhow = "1.0.100"
 io-adapters = {path="../io-adapters"}
-embassy-futures = "0.1.2"
+embassy-futures = {path="../../submodules/embassy/embassy-futures"}
+embassy-sync = {path="../../submodules/embassy/embassy-sync"}
 serde-json-core = {path="../../submodules/serde-json-core"}
 protocol = {path="../protocol", features = ["serde"]}
 glyph-render = {path="../glyph-render"}

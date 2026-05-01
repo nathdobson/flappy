@@ -31,7 +31,9 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
 use protocol::setup::{FLAP_COUNT, WriteAppSettings};
+#[cfg(feature = "radio")]
 use radio_builder::RadioBuilder;
+#[cfg(feature = "wifi")]
 use radio_builder::wifi::{WifiBuilder, WifiStack};
 use runtime::LocalSpawn;
 // No more than half of stack space should be used when serializing/deserializing.

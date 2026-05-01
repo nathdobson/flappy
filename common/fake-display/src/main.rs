@@ -3,6 +3,7 @@
 #![allow(unreachable_code)]
 #![allow(unused_variables)]
 
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use arena::Arena;
 use clap::Parser;
 use clap::builder::TypedValueParser;
@@ -11,7 +12,6 @@ use embassy_futures::select::{Either4, Either5, select5};
 use glyph_render::Renderer;
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
-use mqtt_client::receiver::MqttReceiver;
 use mqtt_client::client::{ConnectRequest, MqttClient, PublishRequest};
 use mqtt_core::protocol::{Packet, Qos};
 use protocol::display::MAX_GLYPH_BYTES;
@@ -76,16 +76,18 @@ async fn main() -> anyhow::Result<()> {
         .await
         .unwrap();
     let (read, write) = split_io(stream);
-    let sender = MqttClient::<_, 1024, 1, 1>::new(TokioStreamAdapter(write));
-    let mut receiver = MqttReceiver::new(TokioStreamAdapter(read));
+    let client = MqttClient::<NoopRawMutex, _, _, 1024, 1, 1>::new(
+        TokioStreamAdapter(write),
+        TokioStreamAdapter(read),
+    );
     let (request_send, mut request_recv) = tokio::sync::mpsc::unbounded_channel::<DisplayRequest>();
     let req_topic = format!("{}/request", args.mqtt_topic);
     let resp_topic = format!("{}/response", args.mqtt_topic);
     let info_topic = format!("{}/info", args.mqtt_topic);
-    match select5(
+    match select4(
         async {
             println!("Connecting...");
-            sender
+            client
                 .connect(&ConnectRequest {
                     client_id: "sfasfgasfgf",
                     username: Some(&args.mqtt_username),
@@ -94,7 +96,7 @@ async fn main() -> anyhow::Result<()> {
                 })
                 .await?;
             println!("Subscribing...");
-            sender.subscribe(&req_topic).await?;
+            client.subscribe(&req_topic).await?;
             println!("Publishing Device Info...");
             let device_info: heapless::Vec<u8, 1024> = serde_json_core::to_vec(&DeviceInfo {
                 serial: 0,
@@ -105,7 +107,7 @@ async fn main() -> anyhow::Result<()> {
                 background: (*args.background_color).try_into()?,
                 foreground: (*args.foreground_color).try_into()?,
             })?;
-            sender
+            client
                 .publish(&PublishRequest {
                     qos: Qos::AtMostOnce,
                     topic: &info_topic,
@@ -122,7 +124,7 @@ async fn main() -> anyhow::Result<()> {
             let mut arena = [0u8; 1024];
             loop {
                 let arena = Arena::new(&mut arena)?;
-                let (token, packet): (_, Packet) = receiver.receive(arena).await?;
+                let (token, packet): (_, Packet) = client.receive(arena).await?;
                 match packet {
                     Packet::Publish(packet) => {
                         let request = serde_json_core::from_slice_escaped::<DisplayRequest>(
@@ -134,18 +136,14 @@ async fn main() -> anyhow::Result<()> {
                     }
                     _ => {}
                 }
-                sender.acknowledge(token)?;
+                client.acknowledge(token)?;
             }
-            anyhow::Result::<()>::Ok(())
-        },
-        async {
-            sender.send_acks().await?;
             anyhow::Result::<()>::Ok(())
         },
         async {
             loop {
                 tokio::time::sleep(Duration::from_secs(KEEPALIVE as u64)).await;
-                sender.ping().await?;
+                client.ping().await?;
             }
             anyhow::Result::<()>::Ok(())
         },
@@ -159,15 +157,13 @@ async fn main() -> anyhow::Result<()> {
                         let rendered = renderer.finish();
                         let rendered = rendered
                             .iter()
-                            .map(|x| {
-                                heapless::String::<MAX_GLYPH_BYTES>::try_from(&*GLYPHS[*x])
-                            })
+                            .map(|x| heapless::String::<MAX_GLYPH_BYTES>::try_from(&*GLYPHS[*x]))
                             .collect::<Result<
                                 heapless::Vec<heapless::String<MAX_GLYPH_BYTES>, MAX_GLYPHS>,
                                 CapacityError,
                             >>()?;
                         println!("Rendered = {:?}", rendered);
-                        sender
+                        client
                             .publish(&PublishRequest {
                                 qos: Qos::AtMostOnce,
                                 topic: &resp_topic,
@@ -178,7 +174,7 @@ async fn main() -> anyhow::Result<()> {
                             })
                             .await?;
                         tokio::time::sleep(Duration::from_secs(2)).await;
-                        sender
+                        client
                             .publish(&PublishRequest {
                                 qos: Qos::AtMostOnce,
                                 topic: &resp_topic,
@@ -198,11 +194,10 @@ async fn main() -> anyhow::Result<()> {
     )
     .await
     {
-        Either5::First(x) => x?,
-        Either5::Second(x) => x?,
-        Either5::Third(x) => x?,
-        Either5::Fourth(x) => x?,
-        Either5::Fifth(x) => x?,
+        Either4::First(x) => x?,
+        Either4::Second(x) => x?,
+        Either4::Third(x) => x?,
+        Either4::Fourth(x) => x?,
     }
     Ok(())
 }
