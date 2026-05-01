@@ -47,29 +47,17 @@ mod error;
 mod flash;
 mod kernel;
 #[cfg(feature = "radio")]
-mod led;
+mod blink;
 #[cfg(feature = "mqtt")]
 mod mqtt;
 mod peripherals;
-#[cfg(feature = "radio")]
-mod radio;
 mod settings_channel;
-// #[cfg(feature = "usb")]
-// mod usb;
-// #[cfg(feature = "usb")]
-// mod usb_reset;
-// #[cfg(feature = "usb")]
-// mod usb_serial;
-// #[cfg(all(feature="usb",feature = "setup"))]
-// mod usb_setup;
 mod bootsel;
 mod display;
 #[cfg(feature = "spindle")]
 mod spindle;
 #[cfg(feature = "usb")]
 mod usb;
-#[cfg(feature = "wifi")]
-mod wifi;
 
 mod built_info {
     // The file has been placed there by the build script.

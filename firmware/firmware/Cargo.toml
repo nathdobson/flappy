@@ -60,7 +60,7 @@ embedded-io-async = { version = "0.7.0", optional = true }
 embedded-io = { version = "0.7.1", optional = true }
 mqtt-client = { path = "../../common/mqtt-client", optional = true }
 arena = { path = "../../common/arena", optional = true }
-protocol = { path = "../../common/protocol",features = ["mqtt-client","embedded-tls","embassy-net","embedded-io"] }
+protocol = { path = "../../common/protocol",features = [] }
 cyw43 = { path = "../../submodules/embassy/cyw43", features = [
   "log","firmware-logs"
 ], optional = true }
@@ -79,6 +79,8 @@ runtime = {path="../runtime"}
 dummy-alloc="1.0.0"
 tls-builder = {path="../tls-builder",optional = true}
 embedded-alloc = {version="0.7.0",optional = true}
+radio-builder = {path="../radio-builder",optional = true,features = ["led"]}
+protocol-ble = {path="../../common/protocol-ble",optional = true,features = ["trouble-host"]}
 
 [target.'cfg(target_arch="arm")'.dependencies]
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }
@@ -88,7 +90,7 @@ cortex-m-rt = { version = "0.7.0", features = [] }
 built = { version = "0.8.0", features = ["git2"] }
 
 [features]
-default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","usb","spindle"]
+default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","usb","spindle","heap"]
 serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","protocol/serde"]
 radio = [
   "dep:cyw43",
@@ -97,6 +99,7 @@ radio = [
   "dep:embedded-io",
   "serde",
   "fixed",
+  "dep:radio-builder",
 ]
 flash = ["serde"]
 display = []
@@ -107,9 +110,11 @@ ble = [
   "cyw43/bluetooth",
   "dep:trouble-host",
   "dep:uuid",
+  "radio-builder/ble",
+  "dep:protocol-ble",
 ]
-wifi = ["radio","embassy-net"]
-mqtt = ["wifi",    "dep:mqtt-client",   "dep:arena", "dep:p256","dep:tls-builder","dep:embedded-tls"]
+wifi = ["radio","embassy-net","radio-builder/wifi","protocol/embedded-tls","protocol/embassy-net","protocol/embedded-io"]
+mqtt = ["wifi",    "dep:mqtt-client",   "dep:arena", "dep:p256","dep:tls-builder","dep:embedded-tls","protocol/mqtt-client","heap"]
 preemption = []
 usb = ["dep:embassy-usb","dep:usb-builder"]
 spindle = ["dep:spindle"]

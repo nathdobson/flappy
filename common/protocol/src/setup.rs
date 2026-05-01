@@ -4,6 +4,7 @@ use crate::error::MqttServiceError;
 use core::error::Error;
 use core::fmt::{Display, Formatter};
 use heapless::{String, Vec};
+use protocol_wifi::{WifiSettings, WifiStatus};
 
 pub const MAX_SETUP_MESSAGE_SIZE: usize = 1024;
 
@@ -48,12 +49,6 @@ pub struct MqttSettings {
     pub topic: String<128>,
 }
 
-#[derive(Default, Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct WifiSettings {
-    pub ssid: String<32>,
-    pub password: String<63>,
-}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -154,21 +149,6 @@ impl Default for MqttServiceStatus {
     }
 }
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum WifiStatus {
-    Unconfigured,
-    Disconnected,
-    Connected,
-    Error(u32),
-}
-
-impl Default for WifiStatus {
-    fn default() -> Self {
-        WifiStatus::Unconfigured
-    }
-}
-
 impl Display for MqttServiceStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -203,12 +183,6 @@ pub struct AppStatus {
 impl Display for AppStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{} {}", self.wifi_status, self.mqtt_status)
-    }
-}
-
-impl Display for WifiStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?}", self)
     }
 }
 

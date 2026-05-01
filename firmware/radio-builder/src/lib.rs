@@ -1,21 +1,34 @@
-use core::mem;
-use cyw43::{A4, Aligned, Control, NetDriver, aligned_bytes};
-use cyw43_pio::{PioSpi, RM2_CLOCK_DIVIDER};
+#![no_std]
+#![feature(type_alias_impl_trait)]
+#![deny(unused_must_use)]
+#![feature(never_type)]
+#![feature(allocator_api)]
+extern crate alloc;
+
+#[cfg(feature = "ble")]
+pub mod ble;
+mod error;
+#[cfg(feature = "led")]
+pub mod led;
+#[cfg(feature = "wifi")]
+pub mod wifi;
+#[cfg(feature = "ble")]
+pub mod ble_rpc;
+
+pub use error::Error;
+
+use cyw43::{A4, Aligned, Control, aligned_bytes};
+use cyw43_pio::PioSpi;
 use embassy_executor::{SpawnError, Spawner};
-use embassy_futures::yield_now;
 use embassy_rp::gpio::{Level, Output};
+use embassy_rp::interrupt::typelevel::{Binding, DMA_IRQ_0, PIO0_IRQ_0};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::{Common, Irq, IrqFlags, Pio, StateMachine};
-use embassy_rp::{Peri, bind_interrupts, dma};
+use embassy_rp::{Peri, dma, pio};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
-use embassy_time::{Duration, Timer};
-use fixed::FixedU32;
 use log::info;
 use make_static::make_static;
-use crate::Irqs;
-
-const MODULE: &'static str = "[Radio]";
 
 type MyRunner = cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>>;
 
@@ -29,26 +42,33 @@ pub struct RadioPeripherals {
     pub DMA_CH0: Peri<'static, DMA_CH0>,
 }
 
-pub struct RadioModule {
-    pub control: Mutex<NoopRawMutex, Control<'static>>,
-    // Dropping this causes weird stuff to happen
-    common: Common<'static, PIO0>,
-    irq_flags: IrqFlags<'static, PIO0>,
-    irq1: Irq<'static, PIO0, 1>,
-    irq2: Irq<'static, PIO0, 2>,
-    irq3: Irq<'static, PIO0, 3>,
-    sm1: StateMachine<'static, PIO0, 1>,
-    sm2: StateMachine<'static, PIO0, 2>,
-    sm3: StateMachine<'static, PIO0, 3>,
+pub struct RadioBuilder<I1, I2> {
+    pub spawner: Spawner,
+    pub peripherals: RadioPeripherals,
+    pub pio_irq: I1,
+    pub dma_irq: I2,
 }
 
-pub struct RadioDrivers {
-    pub module: &'static RadioModule,
+struct RadioModule {
+    control: Mutex<NoopRawMutex, Control<'static>>,
+    // Dropping this causes weird stuff to happen
+    _common: Common<'static, PIO0>,
+    _irq_flags: IrqFlags<'static, PIO0>,
+    _irq1: Irq<'static, PIO0, 1>,
+    _irq2: Irq<'static, PIO0, 2>,
+    _irq3: Irq<'static, PIO0, 3>,
+    _sm1: StateMachine<'static, PIO0, 1>,
+    _sm2: StateMachine<'static, PIO0, 2>,
+    _sm3: StateMachine<'static, PIO0, 3>,
+}
+
+pub struct Radio {
+    #[cfg(feature = "led")]
+    pub led: &'static crate::led::RadioLed,
     #[cfg(feature = "ble")]
-    pub ble: cyw43::bluetooth::BtDriver<'static>,
+    pub ble: crate::ble::BlePeripherals,
     #[cfg(feature = "wifi")]
-    pub net: NetDriver<'static>,
-    pub mac_address: [u8; 6],
+    pub wifi: crate::wifi::WifiPeripherals,
 }
 
 static FIRMWARE: &'static Aligned<A4, [u8]> =
@@ -61,13 +81,17 @@ static FIRMWARE_CLM: &'static Aligned<A4, [u8]> =
 static FIRMWARE_NVRAM: &'static Aligned<A4, [u8]> =
     aligned_bytes!("../../../submodules/embassy/cyw43-firmware/nvram_rp2040.bin");
 
-impl RadioModule {
-    pub async fn new(spawner: Spawner, peri: RadioPeripherals) -> Result<RadioDrivers, SpawnError> {
+impl<I1, I2> RadioBuilder<I1, I2>
+where
+    I1: 'static + Binding<PIO0_IRQ_0, pio::InterruptHandler<PIO0>>,
+    I2: 'static + Binding<DMA_IRQ_0, dma::InterruptHandler<DMA_CH0>>,
+{
+    pub async fn build(self) -> Result<Radio, SpawnError> {
         let module: &'static mut RadioModule;
         info!("[Radio] Connecting to CYW43 radio transceiver over PIO-SPI");
-        let pwr = Output::new(peri.PIN_23, Level::Low);
-        let cs = Output::new(peri.PIN_25, Level::High);
-        let mut pio = Pio::new(peri.PIO0, Irqs);
+        let pwr = Output::new(self.peripherals.PIN_23, Level::Low);
+        let cs = Output::new(self.peripherals.PIN_25, Level::High);
+        let mut pio = Pio::new(self.peripherals.PIO0, self.pio_irq);
         let spi = PioSpi::new(
             &mut pio.common,
             pio.sm0,
@@ -75,14 +99,14 @@ impl RadioModule {
             // See: https://github.com/embassy-rs/embassy/issues/3960.
             // This value seems to be pretty good to limit BLE corruption.
             #[cfg(feature = "ble")]
-            FixedU32::from_bits(0x0B00),
+            fixed::FixedU32::from_bits(0x0B00),
             #[cfg(not(feature = "ble"))]
-            RM2_CLOCK_DIVIDER,
+            cyw43_pio::RM2_CLOCK_DIVIDER,
             pio.irq0,
             cs,
-            peri.PIN_24,
-            peri.PIN_29,
-            dma::Channel::new(peri.DMA_CH0, Irqs),
+            self.peripherals.PIN_24,
+            self.peripherals.PIN_29,
+            dma::Channel::new(self.peripherals.DMA_CH0, self.dma_irq),
         );
 
         let state = make_static!(cyw43::State, cyw43::State::new());
@@ -94,7 +118,7 @@ impl RadioModule {
         let (net_device, mut control, runner) =
             cyw43::new(state, pwr, spi, FIRMWARE, FIRMWARE_NVRAM).await;
 
-        spawner.spawn({
+        self.spawner.spawn({
             #[embassy_executor::task]
             async fn cyw43_task(runner: MyRunner) -> ! {
                 runner.run().await
@@ -112,24 +136,35 @@ impl RadioModule {
             RadioModule,
             RadioModule {
                 control: Mutex::new(control),
-                common: pio.common,
-                irq_flags: pio.irq_flags,
-                irq1: pio.irq1,
-                irq2: pio.irq2,
-                irq3: pio.irq3,
-                sm1: pio.sm1,
-                sm2: pio.sm2,
-                sm3: pio.sm3,
+                _common: pio.common,
+                _irq_flags: pio.irq_flags,
+                _irq1: pio.irq1,
+                _irq2: pio.irq2,
+                _irq3: pio.irq3,
+                _sm1: pio.sm1,
+                _sm2: pio.sm2,
+                _sm3: pio.sm3,
             }
         );
-        info!("{MODULE} Connected");
-        Ok(RadioDrivers {
-            module,
+        info!("Radio Connected");
+        Ok(Radio {
+            #[cfg(feature = "led")]
+            led: make_static!(
+                crate::led::RadioLed,
+                crate::led::RadioLed {
+                    control: &module.control
+                }
+            ),
             #[cfg(feature = "ble")]
-            ble: bt_device,
+            ble: crate::ble::BlePeripherals {
+                ble: bt_device,
+                mac_address,
+            },
             #[cfg(feature = "wifi")]
-            net: net_device,
-            mac_address,
+            wifi: crate::wifi::WifiPeripherals {
+                net: net_device,
+                control: &module.control,
+            },
         })
     }
 }

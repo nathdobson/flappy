@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(allocator_api)]
 #![feature(unsafe_pinned)]
+#![feature(unsize)]
 extern crate alloc;
 
 #[cfg(test)]
@@ -9,6 +10,7 @@ mod test;
 use alloc::boxed::Box;
 use core::alloc::{AllocError, Allocator, Layout};
 use core::cell::RefCell;
+use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::pin::UnsafePinned;
 use core::ptr::NonNull;
@@ -60,6 +62,19 @@ impl<M: RawMutex, T, const N: usize> FreelistStorage<M, T, N> {
                 },
             ))
         }
+    }
+}
+
+pub trait AllocBoxDefault<M: RawMutex, U: ?Sized> {
+    fn alloc_box_default(&self) -> Result<Box<U, Freelist<'_, M>>, AllocError>;
+}
+
+impl<const N: usize, M: RawMutex, T, U: ?Sized> AllocBoxDefault<M, U> for FreelistStorage<M, T, N>
+where
+    T: Default + Unsize<U>,
+{
+    fn alloc_box_default(&self) -> Result<Box<U, Freelist<'_, M>>, AllocError> {
+        Ok(self.alloc_box_with(T::default)?)
     }
 }
 

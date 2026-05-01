@@ -1,5 +1,5 @@
 [workspace]
-members = ["arena","mqtt-client","protocol", "io-adapters", "glyph-render", "mqtt-core", "serde-string", "fake-display", "empty-rc", "setup-client", "spawn-local", "make-static", "protocol-usb", "log-vec", "fixed-freelist"]
+members = ["arena","mqtt-client","protocol", "io-adapters", "glyph-render", "mqtt-core", "serde-string", "fake-display", "empty-rc", "setup-client", "spawn-local", "make-static", "protocol-usb", "log-vec", "fixed-freelist", "protocol-wifi", "protocol-ble"]
 resolver = "3"
 
 

@@ -1,6 +1,6 @@
 use crate::error::Error;
 use ::make_static::make_static;
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 use embassy_executor::Spawner;
 use embassy_rp::Peri;
 use embassy_rp::peripherals::BOOTSEL;
@@ -14,7 +14,7 @@ pub struct BootselPeripherals {
     pub bootsel: Peri<'static, BOOTSEL>,
 }
 pub struct BootselModule {
-    pub pressed: Cell<bool>,
+    bootsel: RefCell<Peri<'static, BOOTSEL>>,
 }
 
 impl BootselModule {
@@ -22,20 +22,15 @@ impl BootselModule {
         let module: &_ = make_static!(
             BootselModule,
             BootselModule {
-                pressed: Cell::new(false)
+                bootsel: RefCell::new(peri.bootsel)
             }
         );
-        make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move {
-            loop {
-                let bootsel = peri.bootsel.reborrow();
-                let bootsel = embassy_rp::bootsel::is_bootsel_pressed(bootsel);
-                module.pressed.replace(bootsel);
-                Delay.delay_ms(100).await;
-            }
-        });
         Ok(module)
     }
     pub fn is_pressed(&self) -> bool {
-        self.pressed.get()
+        let mut bootsel = self.bootsel.borrow_mut();
+        let bootsel = bootsel.reborrow();
+        let bootsel = embassy_rp::bootsel::is_bootsel_pressed(bootsel);
+        bootsel
     }
 }

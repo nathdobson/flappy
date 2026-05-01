@@ -1,9 +1,9 @@
 use crate::bootsel::BootselModule;
-use crate::built_info;
 use crate::cli::{Adjustment, Command, MqttField, TestType, WifiField};
 use crate::error::Error;
 use crate::kernel::KernelModule;
 use crate::peripherals::AppPeripherals;
+use crate::{Irqs, built_info};
 use board_info::serial_number;
 use core::cell::RefCell;
 use core::future::pending;
@@ -31,10 +31,13 @@ use protocol::setup::{
     AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteSettingsError,
 };
 use protocol::setup::{FLAP_COUNT, WriteAppSettings};
+use radio_builder::RadioBuilder;
+use radio_builder::wifi::{WifiBuilder, WifiStack};
 use runtime::LocalSpawn;
 // No more than half of stack space should be used when serializing/deserializing.
 const _: [u8; 1] = [0; (size_of::<SetupRequest>() < 2048) as usize];
 const _: [u8; 1] = [0; (size_of::<SetupResponse>() < 2048) as usize];
+const WIFI_SOCKETS: usize = 5;
 
 pub const MODULE: &'static str = "[APP  ]";
 pub struct Application {
@@ -47,9 +50,9 @@ pub struct Application {
     #[cfg(feature = "ble")]
     ble: &'static crate::ble::BleModule,
     #[cfg(feature = "radio")]
-    led: &'static crate::led::LedModule,
+    led: &'static crate::blink::BlinkModule,
     #[cfg(feature = "wifi")]
-    wifi: &'static crate::wifi::WifiModule,
+    wifi: &'static radio_builder::wifi::Wifi,
     #[cfg(feature = "mqtt")]
     mqtt: &'static crate::mqtt::MqttModule,
     #[cfg(feature = "display")]
@@ -88,23 +91,26 @@ impl Application {
         #[cfg(feature = "flash")]
         let flash = crate::flash::FlashModule::new(peri.flash_peri).await?;
         #[cfg(feature = "radio")]
-        let radio_drivers = crate::radio::RadioModule::new(spawner, peri.radio_peri).await?;
+        let radio = RadioBuilder {
+            spawner,
+            peripherals: peri.radio_peri,
+            pio_irq: Irqs,
+            dma_irq: Irqs,
+        }
+        .build()
+        .await?;
+        // let radio_drivers = crate::radio::RadioModule::new(spawner, peri.radio_peri).await?;
         #[cfg(feature = "radio")]
-        let led = crate::led::LedModule::new(spawner, radio_drivers.module)?;
+        let led = crate::blink::BlinkModule::new(spawner, radio.led)?;
         #[cfg(feature = "ble")]
-        let ble = crate::ble::BleModule::new(
-            spawner,
-            radio_drivers.ble,
-            radio_drivers.mac_address,
-            bootsel,
-        )?;
+        let ble = crate::ble::BleModule::new(spawner, radio.ble, bootsel)?;
         #[cfg(feature = "wifi")]
-        let wifi = crate::wifi::WifiModule::new(
+        let wifi = WifiBuilder {
             spawner,
-            radio_drivers.module,
-            radio_drivers.net,
-            &mut rng,
-        )?;
+            peripherals: radio.wifi,
+            stack: make_static!(WifiStack::<WIFI_SOCKETS>, WifiStack::new()),
+        }
+        .build()?;
         #[cfg(feature = "mqtt")]
         let mqtt = crate::mqtt::MqttModule::new(spawner, &wifi.stack())?;
         #[cfg(feature = "flash")]
@@ -213,12 +219,15 @@ impl Application {
 
         #[cfg(all(feature = "setup", feature = "radio", feature = "ble"))]
         make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
-            let requests = self.ble.requests();
-            let responses = self.ble.responses();
-            loop {
-                let request = requests.receive().await;
-                let response = self.handle_setup(&request, false).await;
-                responses.send(response).await;
+            if let Err(e) = self
+                .ble
+                .advertise(async |request| {
+                    self.handle_setup(request, false).await
+
+                })
+                .await
+            {
+                error!("BLE error {}", e);
             }
         });
 

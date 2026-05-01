@@ -1,6 +1,5 @@
 #![no_std]
 
-pub mod ble;
 pub mod display;
 pub mod setup;
 #[cfg(test)]

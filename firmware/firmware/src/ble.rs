@@ -7,7 +7,7 @@ use core::mem;
 use core::str::Utf8Error;
 use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
-use embassy_futures::select::{Either, select};
+use embassy_futures::select::{Either, Either3, select, select3};
 use embassy_futures::yield_now;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::otp::get_chipid;
@@ -20,9 +20,11 @@ use embedded_hal_async::delay::DelayNs;
 use heapless::{String, Vec, format};
 use log::{error, info, warn};
 use make_static::make_static;
-use protocol::ble::SERIAL_MTU;
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
 use protocol::{PRODUCT_NAME, PRODUCT_SHORT_NAME};
+use protocol_ble::SERIAL_MTU;
+use radio_builder::ble::{BleBuilder, BlePeripherals, BleStack};
+use radio_builder::ble_rpc::{RpcAdvertiser, RpcConnection};
 use runtime::LocalSpawn;
 use trouble_host::advertise::{
     AdStructure, Advertisement, AdvertisementParameters, BR_EDR_NOT_SUPPORTED,
@@ -34,311 +36,109 @@ use trouble_host::gap::{GapConfig, PeripheralConfig};
 use trouble_host::gatt::{GattConnection, GattConnectionEvent, GattEvent};
 use trouble_host::l2cap::{CreditFlowPolicy, L2capChannel, L2capChannelConfig};
 use trouble_host::prelude::{
-    AddrKind, AsGatt, BdAddr, CccdTable, DefaultPacketPool, ExternalController, FromGatt,
-    HeaplessString, Peripheral, Runner, appearance, descriptors, gatt_server, gatt_service, uuid,
+    AddrKind, AsGatt, AttributeServer, BdAddr, CccdTable, DefaultPacketPool, ExternalController,
+    FromGatt, HeaplessString, Peripheral, Runner, appearance, descriptors, gatt_server,
+    gatt_service, uuid,
 };
-use trouble_host::{Address, HostResources, IoCapabilities, PacketPool, Stack};
+use trouble_host::{Address, HostResources, IoCapabilities, PacketPool, Stack, advertise};
 
 const MODULE: &'static str = "[BLE  ]";
-/// Max number of connections
-const CONNECTIONS_MAX: usize = 1;
-
-/// Max number of L2CAP channels.
-const L2CAP_CHANNELS_MAX: usize = 2;
 
 const SLOTS: usize = 10;
-pub const FLAPPY_SERVICE_UUID: Uuid = uuid!("5af0b930-b9b5-11f0-b558-0800200c9a66");
-
-// GATT Server definition
-#[gatt_server]
-pub struct Server {
-    pub flappy_service: FlappyService,
-}
-
-/// Battery service
-#[gatt_service(uuid = FLAPPY_SERVICE_UUID)]
-pub struct FlappyService {
-    #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Serial in")]
-    #[characteristic(
-        uuid = "4574529b-fbe4-44ae-ba52-d877ac76ef2d",
-        read,
-        notify,
-        permissions(encrypted)
-    )]
-    //
-    pub serial_in: Vec<u8, SERIAL_MTU>,
-
-    #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "Serial out")]
-    #[characteristic(
-        uuid = "2d2bc907-c9fa-49fd-ba45-410cddf61e5c",
-        write,
-        permissions(encrypted)
-    )]
-    //
-    pub serial_out: Vec<u8, SERIAL_MTU>,
-
-    #[descriptor(uuid = descriptors::CHARACTERISTIC_USER_DESCRIPTION, read, value = "App Status")]
-    #[characteristic(uuid = "4dc5669d-6bc8-40eb-b6af-8091d4e9b713", read, notify)]
-    pub app_status: HeaplessString<256>,
-}
-
 pub struct BleModule {
-    spawner: Spawner,
-    stack: &'static MyStack,
-    conn: RefCell<Option<MyConnection>>,
-    server: MyServer,
-    setup_request: Channel<NoopRawMutex, SetupRequest, 1>,
-    setup_response: Channel<NoopRawMutex, SetupResponse, 1>,
-    setup_status: Watch<NoopRawMutex, AppStatus, 1>,
+    advertiser: &'static RpcAdvertiser<SetupRequest, SetupResponse, AppStatus>,
     bootsel: &'static BootselModule,
 }
-
-type MyPacketPool = DefaultPacketPool;
-type MyDriver = BtDriver<'static>;
-pub type MyController = ExternalController<MyDriver, SLOTS>;
-type MyResources =
-    HostResources<MyController, DefaultPacketPool, CONNECTIONS_MAX, L2CAP_CHANNELS_MAX>;
-type MyPeripheral = Peripheral<'static, MyController, MyPacketPool>;
-type MyStack = Stack<'static, MyController, MyPacketPool>;
-type MyRunner = Runner<'static, MyController, MyPacketPool>;
-
-type MyConnection = GattConnection<'static, 'static, MyPacketPool>;
-type MyServer = Server<'static>;
 
 impl BleModule {
     pub fn new(
         spawner: Spawner,
-        driver: MyDriver,
-        mac_address: [u8; 6],
+        ble: BlePeripherals,
         bootsel: &'static BootselModule,
     ) -> Result<&'static BleModule, Error> {
-        info!("{MODULE} Starting Bluetooth Low Energy");
-        let controller = MyController::new(driver);
-        let resources: &mut MyResources = make_static!(MyResources, MyResources::new());
-        let stack: &MyStack = make_static!(
-            MyStack,
-            trouble_host::new(controller, resources)
-                .set_random_address(Address::random(mac_address))
-                .set_random_generator_seed(&mut RoscRng)
-                .set_secure_connections_only(true)
-                .set_io_capabilities(IoCapabilities::NoInputNoOutput)
-                .build()
+        let ble = BleBuilder {
+            peripherals: ble,
+            spawner,
+            stack: make_static!(
+                BleStack::<SLOTS, /*CONNS*/ 1, /*CHANNELS*/ 2, 1, 10>,
+                BleStack::new()
+            ),
+        }
+        .build()?;
+        let name = make_static!(
+            String<28>,
+            format!("FLAP {}", serial_number().unwrap_or("<noid>"))?
         );
-        let central = stack.central();
-        let mut runner = stack.runner();
-        let peri = stack.peripheral();
-        let name: String<28> = format!("FLAP {}", serial_number().unwrap_or("<noid>"))?;
-        let name = make_static!(String<28>, name);
-        let server = Server::new_with_config(GapConfig::Peripheral(PeripheralConfig {
-            name,
-            appearance: &appearance::domestic_appliance::COFFEE_MAKER,
-        }))?;
-        let module: &BleModule = make_static!(
+
+        let advertiser = make_static!(
+            _,
+            RpcAdvertiser::<SetupRequest, SetupResponse, AppStatus>::new(
+                ble,
+                PRODUCT_SHORT_NAME,
+                name
+            )?
+        );
+        let module = make_static!(
             BleModule,
             BleModule {
-                spawner,
-                stack,
-                conn: RefCell::new(None),
-                server,
-                setup_request: Channel::new(),
-                setup_response: Channel::new(),
-                setup_status: Watch::new(),
-                bootsel,
+                advertiser,
+                bootsel
             }
         );
-        make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move {
-            if let Err(e) = runner.run().await {
-                error!("{MODULE} system error: {:?}", e);
-            }
-        });
-        make_static!(_, LocalSpawn::new(spawner)).spawn(|| async move {
-            module.advertise_loop(peri).await;
-        });
-        make_static!(_, LocalSpawn::new(spawner)).spawn(|| async move {
-            if let Err(e) = module.notify_status().await {
-                error!("{MODULE} error: {:?}", e);
-            }
-        });
-        info!("{MODULE} Started");
 
         Ok(module)
     }
-    fn spawn_tasks(&'static self, spawner: Spawner, mut runner: MyRunner, peri: MyPeripheral) {}
-    async fn advertise_loop(&'static self, mut peripheral: MyPeripheral) {
+    pub async fn advertise<H: AsyncFn(&SetupRequest) -> SetupResponse>(
+        &self,
+        handler: H,
+    ) -> Result<(), Error> {
         loop {
-            match self.advertise(&mut peripheral).await {
-                Ok(conn) => {
-                    self.conn.borrow_mut().replace(conn);
-                    if let Err(e) = self
-                        .handle_connection(self.conn.borrow().as_ref().unwrap())
-                        .await
-                    {
-                        error!("{MODULE} error while processing connection: {}", e)
-                    } //
-                    self.conn.borrow_mut().take();
-                }
-                Err(e) => {
-                    error!("{MODULE} error while advertising: {}", e);
-                }
-            }
-        }
-    }
-    pub async fn advertise(
-        &'static self,
-        peripheral: &mut MyPeripheral,
-    ) -> Result<MyConnection, Error> {
-        let mut advertiser_data = [0; 128];
-        const FLAPPY_SERVICE_UUID_BYTES: [u8; 16] = {
-            match FLAPPY_SERVICE_UUID {
-                Uuid::Uuid128(x) => x,
-                _ => unreachable!(),
-            }
-        };
-        let mut service_uuid = FLAPPY_SERVICE_UUID_BYTES;
-        let len = AdStructure::encode_slice(
-            &[
-                AdStructure::Flags(LE_GENERAL_DISCOVERABLE | BR_EDR_NOT_SUPPORTED),
-                AdStructure::IncompleteServiceUuids128(&[service_uuid]),
-                AdStructure::CompleteLocalName(PRODUCT_SHORT_NAME.as_bytes()),
-            ],
-            &mut advertiser_data[..],
-        )?;
-        info!("{MODULE} advertising");
-        let advertiser = peripheral
-            .advertise(
-                &AdvertisementParameters::default(),
-                Advertisement::ConnectableScannableUndirected {
-                    adv_data: &advertiser_data[..len],
-                    scan_data: &[],
-                },
+            let connection = self.advertiser.advertise().await?;
+            let result = select(
+                self.run_connection(&connection),
+                self.run_requests(&connection, &handler),
             )
-            .await?;
-        let conn = advertiser.accept().await?;
-        let conn = conn.with_attribute_server(&self.server)?;
-        info!("{MODULE} connection established");
-        Ok(conn)
-    }
-    async fn handle_connection(&'static self, conn: &MyConnection) -> Result<(), Error> {
-        let mut unlocked = false;
-        let receive = async {
-            let mut serial_out_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE> = Vec::new();
-            let mut tmp = [0u8; MAX_SETUP_MESSAGE_SIZE];
-            loop {
-                match conn.next().await {
-                    GattConnectionEvent::Disconnected { reason } => {
-                        break;
-                    }
-                    GattConnectionEvent::Gatt { event } => {
-                        match &event {
-                            GattEvent::Write(event) => {
-                                if event.handle() == self.server.flappy_service.serial_out.handle {
-                                    // Require the user to press the bootsel button before executing
-                                    // commands.
-                                    if !unlocked {
-                                        for i in 0..100 {
-                                            if self.bootsel.is_pressed() {
-                                                unlocked = true;
-                                                break;
-                                            }
-                                            Delay.delay_ms(100).await;
-                                        }
-                                    }
-                                    if !unlocked {
-                                        return Err(Error::BootselButtonTimeout);
-                                    }
-                                    let new_data =
-                                        event.value(&self.server.flappy_service.serial_out)?;
-                                    serial_out_buffer.extend_from_slice(&new_data)?;
-                                    if new_data.len() < SERIAL_MTU {
-                                        match str::from_utf8(&serial_out_buffer) {
-                                            Ok(x) => info!("{MODULE} request {}", x),
-                                            Err(e) => {
-                                                error!("{MODULE} request {:?}", serial_out_buffer)
-                                            }
-                                        }
-                                        let request = serde_json_core::from_slice_escaped::<
-                                            SetupRequest,
-                                        >(
-                                            &serial_out_buffer, &mut tmp
-                                        )?
-                                        .0;
-                                        serial_out_buffer.clear();
-                                        self.setup_request.send(request).await;
-                                    }
-                                }
-                            }
-                            GattEvent::Read(event) => {}
-                            GattEvent::Other(other) => {}
-                            GattEvent::NotAllowed(e) => {
-                                info!("Event not allowed");
-                            }
-                        };
-                        match event.accept() {
-                            Ok(reply) => reply.send().await,
-                            Err(e) => warn!("{MODULE} error sending response: {:?}", e),
-                        };
-                    }
-                    _ => {} // ignore other Gatt Connection Events
-                }
+            .await;
+            let result = match result {
+                Either::First(x) => x,
+                Either::Second(x) => x.map(|x| ()),
+            };
+            if let Err(e) = result {
+                error!("Error during BLE connection: {}", e);
             }
-            Ok::<(), Error>(())
-        };
-        let send = async {
-            let mut serial_in_buffer: Vec<u8, MAX_SETUP_MESSAGE_SIZE>;
-            loop {
-                let response = self.setup_response.receive().await;
-                serial_in_buffer = serde_json_core::to_vec(&response)?;
-                for chunk in serial_in_buffer.chunks(SERIAL_MTU) {
-                    let chunk = Vec::from_slice(chunk)?;
-                    self.server
-                        .flappy_service
-                        .serial_in
-                        .notify(&conn, &chunk)
-                        .await?;
-                }
-                if serial_in_buffer.len() % SERIAL_MTU == 0 {
-                    self.server
-                        .flappy_service
-                        .serial_in
-                        .notify(&conn, &Vec::new())
-                        .await?;
-                }
-            }
-            Ok::<(), Error>(())
-        };
-        match select(receive, send).await {
-            Either::First(x) => x?,
-            Either::Second(x) => x?,
         }
-
+    }
+    async fn run_connection(
+        &self,
+        connection: &RpcConnection<SetupRequest, SetupResponse, AppStatus, MAX_SETUP_MESSAGE_SIZE>,
+    ) -> Result<(), Error> {
+        connection.run().await?;
         Ok(())
     }
-    async fn notify_status(&self) -> Result<(), Error> {
-        let mut receiver = self
-            .setup_status
-            .receiver()
-            .ok_or(Error::NotEnoughReceivers)?;
+    async fn run_requests<H: AsyncFn(&SetupRequest) -> SetupResponse>(
+        &self,
+        connection: &RpcConnection<SetupRequest, SetupResponse, AppStatus, MAX_SETUP_MESSAGE_SIZE>,
+        handler: &H,
+    ) -> Result<!, Error> {
+        let mut bootsel_pressed = false;
         loop {
-            let status = receiver.changed().await;
-            if let Some(conn) = &*self.conn.borrow() {
-                self.server
-                    .flappy_service
-                    .app_status
-                    .notify(&conn, &serde_json_core::to_string(&status)?)
-                    .await?;
+            let request = connection.receive().await;
+            if !bootsel_pressed {
+                loop {
+                    if self.bootsel.is_pressed() {
+                        bootsel_pressed = true;
+                        break;
+                    } else {
+                        Delay.delay_ms(100).await;
+                    }
+                }
             }
+            let response = handler(&request).await;
+            connection.send(&response).await?;
         }
-        Ok(())
     }
-    pub fn requests(&'static self) -> DynamicReceiver<'static, SetupRequest> {
-        self.setup_request.dyn_receiver()
-    }
-    pub fn responses(&'static self) -> DynamicSender<'static, SetupResponse> {
-        self.setup_response.dyn_sender()
-    }
+
     pub fn update_status(&self, f: impl Fn(&mut AppStatus)) {
-        self.setup_status
-            .sender()
-            .send_modify(move |x| f(x.get_or_insert_default()))
+        self.advertiser.update_status(f);
     }
 }

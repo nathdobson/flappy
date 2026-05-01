@@ -14,18 +14,19 @@ protocol = {path="../protocol",features = ["uuid","serde"]}
 futures-util = "0.3.32"
 thiserror = "2.0.18"
 heapless = {path="../../submodules/heapless"}
-serde-json-core = "0.6.0"
+serde-json-core = {path="../../submodules/serde-json-core"}
 tokio = {version = "1.51.1", features = ["io-util","sync"]}
 spawn-local = {path ="../spawn-local"}
 clap = {version = "4.6.0",optional = true}
 picoboot = {path="../../submodules/picoboot", optional = true }
 log = "0.4.29"
+protocol-ble = {path="../protocol-ble",optional=true,features = ["uuid"]}
 
 [dev-dependencies]
 tokio = {version="1.51.1",features = ["macros","rt"]}
 
 [features]
 default = ["ble","usb"]
-ble = ["dep:btleplug","dep:serde-string"]
+ble = ["dep:btleplug","dep:serde-string","dep:protocol-ble"]
 usb = ["dep:nusb","dep:picoboot"]
 clap = ["dep:clap"]

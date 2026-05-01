@@ -68,12 +68,12 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_qs = "0.15.0"
 ws_stream_wasm = { version = "0.7.5", features = ["tokio_io"] }
 io-adapters = { path = "../common/io-adapters" }
-embassy-futures = "0.1.2"
+embassy-futures = {path="../submodules/embassy/embassy-futures"}
 arena = { path = "../common/arena" }
 protocol = { path = "../common/protocol", features = ["serde","uuid"] }
 tokio = { version = "1.51.0", features = ["sync", "macros"] }
-serde-json-core = "0.6.0"
-heapless = "0.9.2"
+serde-json-core = {path="../submodules/serde-json-core"}
+heapless = {path="../submodules/heapless"}
 mqtt-core = { path = "../common/mqtt-core" }
 uuid = { version = "1.23.0", features = ["v4", "js"] }
 futures-util = "0.3.31"
@@ -88,6 +88,8 @@ nusb ={path="../submodules/nusb"}
 setup-client = {path="../common/setup-client"}
 embassy-sync = {path="../submodules/embassy/embassy-sync"}
 async_io_stream = "0.3.3"
+protocol-ble = {path="../common/protocol-ble",features = ["uuid"] }
+protocol-wifi = {path="../common/protocol-wifi"}
 
 [build-dependencies]
 built = {version="0.8.0",features = ["git2"]}

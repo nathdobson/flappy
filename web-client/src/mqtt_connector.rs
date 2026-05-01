@@ -12,7 +12,7 @@ use log::{error, info};
 use mqtt_client::client::{ConnectRequest, MqttClient, PublishRequest};
 use mqtt_core::protocol::{Packet, PublishPacket, Qos};
 use protocol::display::{DisplayRequest, DisplayResponse};
-use protocol::setup::DeviceInfo;
+use protocol::setup::{DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
 use serde::{Deserialize, Serialize};
 use std::pin::pin;
 use std::rc::Rc;
@@ -90,8 +90,9 @@ async fn handle_publish(
     info_topic: &str,
     responses: &mut Sender<DisplayResponseContainer>,
 ) -> Result<(), Error> {
+    let mut tmp = vec![0; MAX_SETUP_MESSAGE_SIZE];
     if publish.topic == resp_topic {
-        match serde_json_core::from_slice::<DisplayResponse>(&publish.payload) {
+        match serde_json_core::from_slice_escaped::<DisplayResponse>(&publish.payload, &mut tmp) {
             Ok((response, _)) => {
                 responses
                     .send(DisplayResponseContainer::DisplayResponse(response))
@@ -102,7 +103,7 @@ async fn handle_publish(
             }
         }
     } else if publish.topic == info_topic {
-        match serde_json_core::from_slice::<DeviceInfo>(&publish.payload) {
+        match serde_json_core::from_slice_escaped::<DeviceInfo>(&publish.payload, &mut tmp) {
             Ok((info, _)) => {
                 responses
                     .send(DisplayResponseContainer::DeviceInfo(info))

@@ -23,10 +23,12 @@ use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
 use jsonformat::Indentation;
 use log::{error, info};
 use picoboot::{Access, Picoboot};
-use protocol::ble::{APP_STATUS_UUID, FLAPPY_SERVICE_UUID};
+use protocol_ble::uuid::{APP_STATUS_UUID, RPC_SERVICE_UUID};
+use protocol_wifi::WifiSettings;
+
 use protocol::setup::{
     AppSettings, AppStatus, DisplaySettings, DriverVersion, MAX_SETUP_MESSAGE_SIZE, MqttSettings,
-    SetupRequest, WifiSettings, WriteAppSettings,
+    SetupRequest, WriteAppSettings,
 };
 use setup_client::ble::BleClient;
 use setup_client::client::{Client, ClientTransport};

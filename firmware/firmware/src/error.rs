@@ -47,6 +47,7 @@ pub enum Error {
     BootselButtonTimeout,
     #[cfg(feature = "usb")]
     UsbBuilderError(usb_builder::error::Error),
+    RadioError(radio_builder::Error),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -96,6 +97,7 @@ impl Display for Error {
             }
             #[cfg(feature = "usb")]
             Error::UsbBuilderError(error) => write!(f, "USB builder error: {:?}", error),
+            Error::RadioError(error) => write!(f, "Radio error: {:?}", error),
         }
     }
 }
@@ -237,5 +239,13 @@ impl From<trouble_host::types::gatt_traits::FromGattError> for Error {
 impl From<usb_builder::error::Error> for Error {
     fn from(value: usb_builder::error::Error) -> Self {
         Error::UsbBuilderError(value)
+    }
+}
+
+
+#[cfg(feature = "radio")]
+impl From<radio_builder::Error> for Error{
+    fn from(value: radio_builder::Error) -> Self {
+        Error::RadioError(value)
     }
 }

@@ -8,8 +8,9 @@ use btleplug::platform::{Adapter, PeripheralId};
 use btleplug::platform::{Manager, Peripheral};
 use futures_util::Stream;
 use futures_util::stream::StreamExt;
-use protocol::ble::{
-    APP_STATUS_UUID, FLAPPY_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_MTU, SERIAL_OUT_UUID,
+use protocol_ble::SERIAL_MTU;
+use protocol_ble::uuid::{
+    APP_STATUS_UUID, RPC_SERVICE_UUID, SERIAL_IN_UUID, SERIAL_OUT_UUID,
 };
 use protocol::setup::{AppStatus, MAX_SETUP_MESSAGE_SIZE, SetupRequest, SetupResponse};
 use std::mem;
@@ -54,7 +55,7 @@ impl BleClientBuilder {
         let events = central.events().await?;
         central
             .start_scan(ScanFilter {
-                services: vec![FLAPPY_SERVICE_UUID],
+                services: vec![RPC_SERVICE_UUID],
             })
             .await?;
         Ok(Box::pin(events.filter_map(move |event| {
@@ -87,7 +88,7 @@ impl BleClientBuilder {
             .peripheral
             .services()
             .into_iter()
-            .find(|service| service.uuid == FLAPPY_SERVICE_UUID)
+            .find(|service| service.uuid == RPC_SERVICE_UUID)
             .ok_or(BleError::MissingService)?;
 
         let mut serial_out = None;

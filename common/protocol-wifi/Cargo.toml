@@ -1,0 +1,11 @@
+[package]
+name = "protocol-wifi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = {version = "1.0.228", optional = true,default-features = false,features = ["derive"]}
+heapless = {path="../../submodules/heapless"}
+
+[features]
+serde = ["dep:serde","heapless/serde"]

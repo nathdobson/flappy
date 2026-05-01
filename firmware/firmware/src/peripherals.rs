@@ -9,7 +9,7 @@ pub struct AppPeripherals {
     #[cfg(feature = "display")]
     pub driver_peri: crate::driver::DriverPeripherals,
     #[cfg(feature = "radio")]
-    pub radio_peri: crate::radio::RadioPeripherals,
+    pub radio_peri: radio_builder::RadioPeripherals,
     pub bootsel: BootselPeripherals,
 }
 
@@ -37,7 +37,7 @@ pub fn build_peripherals() -> (KernelPeripherals, AppPeripherals) {
                 SPI0: p.SPI0,
             },
             #[cfg(feature = "radio")]
-            radio_peri: crate::radio::RadioPeripherals {
+            radio_peri: radio_builder::RadioPeripherals {
                 PIN_23: p.PIN_23,
                 PIN_24: p.PIN_24,
                 PIN_25: p.PIN_25,

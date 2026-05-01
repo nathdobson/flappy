@@ -1,28 +1,30 @@
-use crate::radio::RadioModule;
+// use crate::radio::RadioModule;
 use core::cell::RefCell;
 use embassy_executor::{SpawnError, Spawner};
 use embassy_futures::yield_now;
 use embassy_time::{Duration, Timer};
 use log::info;
 use make_static::make_static;
+use radio_builder::Radio;
+use radio_builder::led::RadioLed;
 use runtime::LocalSpawn;
 
 const MODULE: &str = "[LED  ]";
 const INCREMENTS: u64 = 20;
 const DELAY_NANOS: f32 = 10_000_000f32;
 
-pub struct LedModule {
-    radio: &'static RadioModule,
+pub struct BlinkModule {
+    led: &'static RadioLed,
 }
 
-impl LedModule {
+impl BlinkModule {
     pub fn new(
         spawner: Spawner,
-        radio: &'static RadioModule,
-    ) -> Result<&'static LedModule, SpawnError> {
+        led: &'static RadioLed,
+    ) -> Result<&'static BlinkModule, SpawnError> {
         let delay = Duration::from_millis(250);
         info!("{MODULE} starting");
-        let module: &_ = make_static!(LedModule, LedModule { radio });
+        let module: &_ = make_static!(BlinkModule, BlinkModule { led });
         make_static!(_, LocalSpawn::new(spawner)).spawn(move || async move {
             module.blink().await;
         });
@@ -39,9 +41,9 @@ impl LedModule {
             let wait2 = (DELAY_NANOS * (1.0 - duty)) as u64;
             let wait1 = Duration::from_nanos(wait1);
             let wait2 = Duration::from_nanos(wait2);
-            self.radio.control.lock().await.gpio_set(0, true).await;
+            self.led.set_led(true).await;
             Timer::after(wait1).await;
-            self.radio.control.lock().await.gpio_set(0, false).await;
+            self.led.set_led(false).await;
             Timer::after(wait2).await;
         }
     }
