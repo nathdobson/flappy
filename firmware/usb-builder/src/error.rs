@@ -3,6 +3,6 @@ use thiserror::Error;
 
 #[derive(Error,Debug)]
 pub enum Error {
-    #[error("Spawn error {0}")]
+    #[error("Spawn error")]
     SpawnError(#[from] SpawnError),
 }

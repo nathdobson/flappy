@@ -25,3 +25,4 @@ embedded-hal = "1.0.0"
 embedded-hal-async = "1.0.0"
 static_cell = "2.1.1"
 fixed-freelist = {path="../../common/fixed-freelist"}
+error-report = {path="../../common/error-report"}

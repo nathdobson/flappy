@@ -1,36 +1,36 @@
 use crate::protocol::ReasonCode;
-use core::fmt::{Display, Formatter};
+use core::str::Utf8Error;
+use thiserror::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ProtocolError {
+    #[error("buffer full")]
     BufferFull,
+    #[error("unexpected EOF")]
     UnexpectedEof,
+    #[error("malformed")]
     Malformed,
+    #[error("unsupported")]
     Unsupported,
-    ConnectFailed(ReasonCode),
+    #[error("connect failed")]
+    ConnectFailed(#[source] ReasonCode),
+    #[error("exceeded send concurrency limit")]
     ExceededSendConcurrency,
-    BadUtf8,
+    #[error("invalid utf8")]
+    Utf8Error,
+    #[error("exceeded receive concurrency limit")]
     ExceededRecvConcurrency,
-    PublishFailed(ReasonCode),
-    Disconnected(ReasonCode),
+    #[error("publish failed")]
+    PublishFailed(#[source] ReasonCode),
+    #[error("disconnected")]
+    Disconnected(#[source] ReasonCode),
+    #[error("deadline exceeded")]
     DeadlineExceeded,
 }
 
-impl Display for ProtocolError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            ProtocolError::BufferFull => write!(f, "buffer full"),
-            ProtocolError::UnexpectedEof => write!(f, "unexpected EOF"),
-            ProtocolError::Malformed => write!(f, "malformed"),
-            ProtocolError::Unsupported => write!(f, "unsupported"),
-            ProtocolError::ConnectFailed(r) => write!(f, "connect failed {}", r),
-            ProtocolError::ExceededSendConcurrency => write!(f, "exceed send concurrency"),
-            ProtocolError::BadUtf8 => write!(f, "bad UTF-8"),
-            ProtocolError::ExceededRecvConcurrency => write!(f, "exceed recv concurrency"),
-            ProtocolError::PublishFailed(r) => write!(f, "publish failed {}", r),
-            ProtocolError::Disconnected(r) => write!(f, "disconnected {}", r),
-            ProtocolError::DeadlineExceeded => write!(f, "deadline exceeded"),
-        }
+impl From<Utf8Error> for ProtocolError {
+    fn from(_: Utf8Error) -> Self {
+        ProtocolError::Utf8Error
     }
 }

@@ -1,3 +1,4 @@
+use error_report::Report;
 use crate::error::Error;
 use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
@@ -68,7 +69,7 @@ pub(crate) type MyGattConnection = GattConnection<'static, 'static, MyPacketPool
 fn my_runner_wrapper<const SLOTS: usize>(mut runner: MyRunner<SLOTS>) -> MyRunnerWrapper<SLOTS> {
     async move {
         if let Err(e) = runner.run().await {
-            error!("BLE system error: {:?}", e);
+            error!("BLE system error: {}", Report::new(e));
         }
     }
 }
@@ -110,7 +111,7 @@ impl<
                 .set_io_capabilities(IoCapabilities::NoInputNoOutput)
                 .build()
         });
-        let central = stack.central();
+        let _central = stack.central();
         let runner = stack.runner();
         let peri = stack.peripheral();
 

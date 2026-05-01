@@ -90,6 +90,8 @@ embassy-sync = {path="../submodules/embassy/embassy-sync"}
 async_io_stream = "0.3.3"
 protocol-ble = {path="../common/protocol-ble",features = ["uuid"] }
 protocol-wifi = {path="../common/protocol-wifi"}
+error-report = {path="../common/error-report"}
+thiserror="2.0.18"
 
 [build-dependencies]
 built = {version="0.8.0",features = ["git2"]}

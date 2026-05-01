@@ -9,19 +9,19 @@ use thiserror::Error;
 pub enum Error {
     #[error("feature not enabled: {0}")]
     FeatureNotEnabled(ClientTransport),
-    #[error("setup client error: {0}")]
+    #[error("setup client error")]
     SetupClientError(#[from] setup_client::error::Error),
-    #[error("json serialization error: {0}")]
+    #[error("json serialization error")]
     JsonSerializationError(#[from] serde_json_core::ser::Error),
-    #[error("json deserialization error: {0}")]
+    #[error("json deserialization error")]
     JsonDeserializationError(#[from] serde_json_core::de::Error),
-    #[error("io error: {0}")]
+    #[error("IO error")]
     IoError(#[from] io::Error),
     #[error("device not found")]
     DeviceNotFound,
     #[error("Failed to reboot device in picoboot mode")]
     RebootFailed,
     #[cfg(feature = "usb")]
-    #[error("picoboot error: {0}")]
+    #[error("picoboot error")]
     PicobootError(#[from] picoboot::Error),
 }

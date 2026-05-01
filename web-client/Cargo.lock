@@ -451,6 +451,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "error-report"
+version = "0.1.0"
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1033,6 +1037,7 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "strum",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1381,6 +1386,7 @@ dependencies = [
  "log",
  "ryu",
  "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1995,6 +2001,7 @@ dependencies = [
  "embassy-futures",
  "embassy-sync",
  "empty-rc",
+ "error-report",
  "futures-util",
  "heapless",
  "io-adapters",
@@ -2013,6 +2020,7 @@ dependencies = [
  "serde-json-core",
  "serde_qs",
  "setup-client",
+ "thiserror 2.0.18",
  "tokio",
  "unicode-segmentation",
  "url",

@@ -21,6 +21,7 @@ use embassy_sync::watch::Watch;
 use embassy_time::Timer;
 use embassy_time::{Delay, Duration};
 use embedded_hal_async::delay::DelayNs;
+use error_report::Report;
 use heapless::{CapacityError, String, Vec, format};
 use log::{error, info};
 use make_static::make_static;
@@ -36,6 +37,7 @@ use radio_builder::RadioBuilder;
 #[cfg(feature = "wifi")]
 use radio_builder::wifi::{WifiBuilder, WifiStack};
 use runtime::LocalSpawn;
+
 // No more than half of stack space should be used when serializing/deserializing.
 const _: [u8; 1] = [0; (size_of::<SetupRequest>() < 2048) as usize];
 const _: [u8; 1] = [0; (size_of::<SetupResponse>() < 2048) as usize];
@@ -65,13 +67,6 @@ pub struct Application {
     #[cfg(feature = "spindle")]
     spindle: &'static crate::spindle::SpindleModule,
     settings: RefCell<AppSettings>,
-}
-
-fn trim_null<const N: usize>(mut x: String<N>) -> String<N> {
-    if x.as_bytes().last() == Some(&b'\0') {
-        x.pop();
-    }
-    x
 }
 
 impl Application {
@@ -223,35 +218,26 @@ impl Application {
         make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
             if let Err(e) = self
                 .ble
-                .advertise(async |request| {
-                    self.handle_setup(request, false).await
-
-                })
+                .advertise(async |request| self.handle_setup(request, false).await)
                 .await
             {
-                error!("BLE error {}", e);
+                error!("BLE error {}", Report::new(e));
             }
         });
 
         #[cfg(all(feature = "setup", feature = "mqtt"))]
         make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
-            if let Err(e) = self.update_mqtt_status().await {
-                error!("{:?}", e);
-            }
+            self.update_mqtt_status().await;
         });
 
         #[cfg(all(feature = "setup", feature = "radio", feature = "wifi"))]
         make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
-            if let Err(e) = self.update_wifi_status().await {
-                error!("{:?}", e);
-            }
+            self.update_wifi_status().await;
         });
 
         #[cfg(all(feature = "mqtt"))]
         make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
-            if let Err(e) = self.update_mqtt_device_info().await {
-                error!("{:?}", e);
-            }
+            self.update_mqtt_device_info().await;
         });
         Ok(())
     }
@@ -285,7 +271,7 @@ impl Application {
                             msg.push(index).ok();
                         }
                         if let Err(e) = self.controller.run(&msg).await {
-                            error!("{MODULE} error when displaying message: {:?}", e);
+                            error!("{MODULE} error when displaying message: {}", Report::new(e));
                         }
                         Timer::after_millis(250).await;
                     }
@@ -403,8 +389,8 @@ impl Application {
         }
     }
     #[cfg(all(feature = "setup", feature = "mqtt"))]
-    async fn update_mqtt_status(&self) -> Result<(), Error> {
-        let mut mqtt_status = self.mqtt.watch_status().ok_or(Error::NotEnoughReceivers)?;
+    async fn update_mqtt_status(&self) -> ! {
+        let mut mqtt_status = self.mqtt.watch_status().unwrap();
         loop {
             let mqtt_status = mqtt_status.changed().await;
             #[cfg(feature = "usb")]
@@ -418,8 +404,8 @@ impl Application {
         }
     }
     #[cfg(all(feature = "setup", feature = "radio", feature = "wifi"))]
-    async fn update_wifi_status(&self) -> Result<(), Error> {
-        let mut wifi_status = self.wifi.watch_status().ok_or(Error::NotEnoughReceivers)?;
+    async fn update_wifi_status(&self) -> ! {
+        let mut wifi_status = self.wifi.watch_status().unwrap();
         loop {
             let wifi_status = wifi_status.changed().await;
             #[cfg(feature = "usb")]
@@ -433,7 +419,7 @@ impl Application {
         }
     }
     #[cfg(all(feature = "mqtt"))]
-    async fn update_mqtt_device_info(&self) -> Result<(), Error> {
+    async fn update_mqtt_device_info(&self) -> ! {
         let mut info = self.device_info();
         loop {
             self.mqtt.send_device_info(info.clone()).await;

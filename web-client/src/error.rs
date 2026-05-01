@@ -4,90 +4,171 @@ use mqtt_core::error::ProtocolError;
 use mqtt_core::protocol::ReasonCode;
 use protocol::setup::WriteSettingsError;
 use std::any::Any;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::str::ParseBoolError;
+use thiserror::Error;
 use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use web_sys::{DomException, UsbTransferStatus};
 
-#[derive(Debug)]
-pub enum Error {
-    JsError(JsValue),
-    UrlError(url::ParseError),
-    QueryStringError(serde_qs::Error),
-    WsError(ws_stream_wasm::WsErr),
-    IoError(std::io::Error),
-    DeadlineExceeded,
-    MqttError(ProtocolError),
-    TypeError,
-    JsonSerError(serde_json_core::ser::Error),
-    CapacityError,
-    TrySendError,
-    Disconnect(ReasonCode),
-    SendError,
-    UnexpectedEof,
-    RecvError,
-    Panic(Box<dyn Any + Send>),
-    ChannelClosed,
-    CannotFindElement,
-    BluetoothNotSupported,
-    SerdeDeError(serde_json_core::de::Error),
-    MissingStatusValue,
-    BadResponse,
-    WriteSettingsError(WriteSettingsError),
-    ExpectedSingleFile,
-    NotConnected,
-    UsbConfigurationNotFound,
-    UsbMissingInterface,
-    UsbMissingEndpoint,
-    UsbTransferError(UsbTransferStatus),
-    UsbMissingData,
-    ParseIntError(std::num::ParseIntError),
-    NotApplicationMode,
-    Picoboot(picoboot::Error),
-    BtleplugError(btleplug::Error),
-    SetupClientError(setup_client::error::Error),
-    UsbError(nusb::Error),
-    RequiresUsb,
-    NotPicobootMode,
-    UsbNotSupported,
-    ParseBoolError,
-}
+#[derive(Debug, Clone)]
+pub struct JsErrorAdapter(JsValue);
 
-impl From<nusb::Error> for Error {
-    fn from(e: nusb::Error) -> Self {
-        Error::UsbError(e)
+impl From<JsValue> for JsErrorAdapter {
+    fn from(value: JsValue) -> Self {
+        JsErrorAdapter(value)
     }
 }
 
-impl From<setup_client::error::Error> for Error {
-    fn from(e: setup_client::error::Error) -> Self {
-        Error::SetupClientError(e)
+impl Into<JsValue> for JsErrorAdapter {
+    fn into(self) -> JsValue {
+        self.0
+    }
+}
+
+impl Display for JsErrorAdapter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Ok(e) = self.0.clone().dyn_into::<DomException>() {
+            write!(f, "{} ({})", e.message(), e.name())?;
+        } else {
+            write!(f, "JsError: {:?}", self)?;
+        }
+        Ok(())
+    }
+}
+
+impl core::error::Error for JsErrorAdapter {}
+
+pub struct PanicError(Box<dyn Any + Send + 'static>);
+impl From<Box<dyn Any + Send + 'static>> for PanicError {
+    fn from(value: Box<dyn Any + Send + 'static>) -> Self {
+        PanicError(value)
+    }
+}
+
+impl From<PanicError> for Box<dyn Any + Send + 'static> {
+    fn from(value: PanicError) -> Self {
+        value.0
+    }
+}
+
+impl Debug for PanicError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut f = f.debug_tuple("PanicError");
+        if let Some(x) = (*self.0).downcast_ref::<String>() {
+            f.field(x).finish()
+        } else if let Some(x) = (*self.0).downcast_ref::<&str>() {
+            f.field(x).finish()
+        } else {
+            return f.finish_non_exhaustive();
+        }
+    }
+}
+
+impl Display for PanicError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some(x) = (*self.0).downcast_ref::<String>() {
+            write!(f, "panic: {}", x)
+        } else if let Some(x) = (*self.0).downcast_ref::<&str>() {
+            write!(f, "panic: {}", x)
+        } else {
+            write!(f, "panic: ?")
+        }
+    }
+}
+
+impl core::error::Error for PanicError {}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("javascript error")]
+    JsError(#[from] JsErrorAdapter),
+    #[error("URL parse error")]
+    UrlError(#[from] url::ParseError),
+    #[error("query string error")]
+    QueryStringError(#[from] serde_qs::Error),
+    #[error("websocket error")]
+    WsError(#[from] ws_stream_wasm::WsErr),
+    #[error("IO error")]
+    IoError(#[from] std::io::Error),
+    #[error("deadline exceeded")]
+    DeadlineExceeded,
+    #[error("MQTT error")]
+    MqttError(#[from] ProtocolError),
+    #[error("type cast error")]
+    TypeError,
+    #[error("serde json serialization error")]
+    JsonSerError(#[from] serde_json_core::ser::Error),
+    #[error("serde json deserialization error")]
+    SerdeDeError(#[from] serde_json_core::de::Error),
+    #[error("capacity error")]
+    CapacityError(#[from] CapacityError),
+    #[error("try send error")]
+    TrySendError,
+    #[error("MQTT disconnect")]
+    Disconnect(#[from] ReasonCode),
+    #[error("send error")]
+    SendError,
+    #[error("unexpected EOF")]
+    UnexpectedEof,
+    #[error("receive error")]
+    RecvError(#[from] tokio::sync::oneshot::error::RecvError),
+    #[error("panic")]
+    Panic(#[from] PanicError),
+    #[error("channel closed")]
+    ChannelClosed,
+    #[error("cannot find element")]
+    CannotFindElement,
+    #[error("Bluetooth not supported by browser")]
+    BluetoothNotSupported,
+    #[error("bad response")]
+    BadResponse,
+    #[error("error writing settings")]
+    WriteSettingsError(#[from] WriteSettingsError),
+    #[error("not connected")]
+    NotConnected,
+    #[error("usb configuration not found")]
+    UsbConfigurationNotFound,
+    #[error("usb missing interface")]
+    UsbMissingInterface,
+    #[error("usb missing endpoint")]
+    UsbMissingEndpoint,
+    #[error("usb transfer error {0:?}")]
+    UsbTransferError(UsbTransferStatus),
+    #[error("usb missing data")]
+    UsbMissingData,
+    #[error("error parsing integer")]
+    ParseIntError(#[from] std::num::ParseIntError),
+    #[error("microcontroller not in application mode")]
+    NotApplicationMode,
+    #[error("picoboot error")]
+    Picoboot(#[from] picoboot::Error),
+    #[error("BLE error")]
+    BtleplugError(#[from] btleplug::Error),
+    #[error("setup error")]
+    SetupClientError(#[from] setup_client::error::Error),
+    #[error("usb error")]
+    UsbError(#[from] nusb::Error),
+    #[error("feature requires USB connection")]
+    RequiresUsb,
+    #[error("microcontroller not in picoboot mode")]
+    NotPicobootMode,
+    #[error("USB not supported by browser")]
+    UsbNotSupported,
+    #[error("error parsing boolean")]
+    ParseBoolError(#[from] ParseBoolError),
+}
+
+impl From<Box<dyn Any + Send + 'static>> for Error {
+    fn from(value: Box<dyn Any + Send + 'static>) -> Self {
+        Error::Panic(value.into())
     }
 }
 
 impl From<JsValue> for Error {
     fn from(value: JsValue) -> Self {
-        Error::JsError(value)
-    }
-}
-
-impl From<url::ParseError> for Error {
-    fn from(value: url::ParseError) -> Self {
-        Error::UrlError(value)
-    }
-}
-
-impl From<serde_qs::Error> for Error {
-    fn from(value: serde_qs::Error) -> Self {
-        Error::QueryStringError(value)
-    }
-}
-
-impl From<ws_stream_wasm::WsErr> for Error {
-    fn from(value: ws_stream_wasm::WsErr) -> Self {
-        Error::WsError(value)
+        Error::JsError(value.into())
     }
 }
 
@@ -104,152 +185,9 @@ where
         }
     }
 }
-impl From<ProtocolError> for Error {
-    fn from(value: ProtocolError) -> Self {
-        Error::MqttError(value)
-    }
-}
 
 impl From<TokioErrorAdapter> for Error {
     fn from(e: TokioErrorAdapter) -> Self {
         Error::IoError(e.0)
-    }
-}
-
-impl From<serde_json_core::ser::Error> for Error {
-    fn from(value: serde_json_core::ser::Error) -> Self {
-        Error::JsonSerError(value)
-    }
-}
-
-impl From<CapacityError> for Error {
-    fn from(value: CapacityError) -> Self {
-        Error::CapacityError
-    }
-}
-
-impl<T> From<TrySendError<T>> for Error {
-    fn from(value: TrySendError<T>) -> Self {
-        Error::TrySendError
-    }
-}
-
-impl<T> From<SendError<T>> for Error {
-    fn from(value: SendError<T>) -> Self {
-        Error::SendError
-    }
-}
-
-impl From<Box<dyn Any + Send>> for Error {
-    fn from(x: Box<dyn Any + Send + 'static>) -> Self {
-        Error::Panic(x)
-    }
-}
-
-impl From<tokio::sync::oneshot::error::RecvError> for Error {
-    fn from(_: tokio::sync::oneshot::error::RecvError) -> Self {
-        Error::RecvError
-    }
-}
-
-impl From<serde_json_core::de::Error> for Error {
-    fn from(value: serde_json_core::de::Error) -> Self {
-        Error::SerdeDeError(value)
-    }
-}
-
-impl From<WriteSettingsError> for Error {
-    fn from(value: WriteSettingsError) -> Self {
-        Error::WriteSettingsError(value)
-    }
-}
-
-impl From<std::num::ParseIntError> for Error {
-    fn from(value: std::num::ParseIntError) -> Self {
-        Error::ParseIntError(value)
-    }
-}
-
-impl From<picoboot::Error> for Error {
-    fn from(value: picoboot::Error) -> Self {
-        Error::Picoboot(value)
-    }
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::JsError(e) => {
-                if let Ok(e) = e.clone().dyn_into::<DomException>() {
-                    write!(f, "{} ({})", e.message(), e.name())?;
-                } else {
-                    write!(f, "JsError: {:?}", e)?;
-                }
-                Ok(())
-            }
-            Error::UrlError(x) => write!(f, "{}", x),
-            Error::QueryStringError(x) => write!(f, "{}", x),
-            Error::WsError(x) => write!(f, "{}", x),
-            Error::IoError(x) => write!(f, "{}", x),
-            Error::DeadlineExceeded => write!(f, "deadline exceeded"),
-            Error::MqttError(x) => write!(f, "{}", x),
-            Error::TypeError => write!(f, "type error"),
-            Error::JsonSerError(x) => write!(f, "{}", x),
-            Error::CapacityError => write!(f, "capacity error"),
-            Error::TrySendError => write!(f, "failed to send internal message"),
-            Error::Disconnect(x) => write!(f, "disconnected: {}", x),
-            Error::SendError => write!(f, "failed to send internal message"),
-            Error::UnexpectedEof => write!(f, "unexpected end of message"),
-            Error::RecvError => write!(f, "failed to receive internal message"),
-            Error::Panic(x) => {
-                let x: &(dyn Any + Send) = &**x;
-                if let Some(x) = x.downcast_ref::<String>() {
-                    write!(f, "panic {}", x)
-                } else if let Some(x) = x.downcast_ref::<&str>() {
-                    write!(f, "panic {}", x)
-                } else {
-                    write!(f, "panic")
-                }
-            }
-            Error::ChannelClosed => write!(f, "channel closed"),
-            Error::CannotFindElement => write!(f, "cannot find element"),
-            Error::BluetoothNotSupported => write!(f, "Bluetooth not supported"),
-            Error::SerdeDeError(e) => write!(f, "Deserialization error: {}", e),
-            Error::MissingStatusValue => write!(f, "missing status value"),
-            Error::BadResponse => write!(f, "bad response"),
-            Error::WriteSettingsError(e) => write!(f, "Write settings error: {}", e),
-            Error::ExpectedSingleFile => write!(f, "expected single file"),
-            Error::NotConnected => write!(f, "not connected"),
-            Error::UsbConfigurationNotFound => write!(f, "USB configuration not found"),
-            Error::UsbMissingInterface => write!(f, "USB missing interface"),
-            Error::UsbMissingEndpoint => write!(f, "USB missing endpoint"),
-            Error::UsbTransferError(x) => write!(f, "USB transfer error: {:?}", x),
-            Error::UsbMissingData => write!(f, "USB missing data"),
-            Error::ParseIntError(e) => write!(f, "parse int error: {}", e),
-            Error::NotApplicationMode => write!(
-                f,
-                "Device not in application mode. Restart device with no buttons pressed."
-            ),
-            Error::Picoboot(e) => write!(f, "{}", e),
-            Error::BtleplugError(e) => write!(f, "{}", e),
-            Error::SetupClientError(e) => write!(f, "{}", e),
-            Error::UsbError(e) => write!(f, "{}", e),
-            Error::RequiresUsb => write!(f, "flashing firmware requires a USB connection"),
-            Error::NotPicobootMode => write!(f, "failed to reboot in Picoboot mode"),
-            Error::UsbNotSupported => write!(f, "USB not supported"),
-            Error::ParseBoolError => write!(f, "failed to parse boolean"),
-        }
-    }
-}
-
-impl From<btleplug::Error> for Error {
-    fn from(value: btleplug::Error) -> Self {
-        Error::BtleplugError(value)
-    }
-}
-
-impl From<ParseBoolError> for Error {
-    fn from(value: ParseBoolError) -> Self {
-        Error::ParseBoolError
     }
 }

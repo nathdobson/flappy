@@ -182,7 +182,7 @@ impl ConnectTab {
                 async move {
                     let Err(e) =
                         run_mqtt(query_params, status.clone(), request_recv, response_send).await;
-                    status.set(StatusPriority::Error, format!("{}", e));
+                    status.set_error(StatusPriority::Error, &e);
                 }
             });
 
@@ -191,7 +191,7 @@ impl ConnectTab {
                 let display = display.clone();
                 async move {
                     let Err(e) = display.run_display(response_recv, status.clone()).await;
-                    status.set(StatusPriority::Error, format!("{}", e));
+                    status.set_error(StatusPriority::Error, &e);
                 }
             });
 

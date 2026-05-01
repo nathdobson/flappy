@@ -79,7 +79,7 @@ pub async fn run_mqtt(
         .await
         .into_err();
         error!("MQTT Connection failure: {}", e);
-        status.set(StatusPriority::Error, format!("{}", e));
+        status.set_error(StatusPriority::Error, &e);
         requests.peek_recv().await.ok_or(Error::ChannelClosed)?;
     }
 }
@@ -93,22 +93,20 @@ async fn handle_publish(
     let mut tmp = vec![0; MAX_SETUP_MESSAGE_SIZE];
     if publish.topic == resp_topic {
         match serde_json_core::from_slice_escaped::<DisplayResponse>(&publish.payload, &mut tmp) {
-            Ok((response, _)) => {
-                responses
-                    .send(DisplayResponseContainer::DisplayResponse(response))
-                    .await?
-            }
+            Ok((response, _)) => responses
+                .send(DisplayResponseContainer::DisplayResponse(response))
+                .await
+                .map_err(|_| Error::SendError)?,
             Err(e) => {
                 error!("Could not parse message: {:?}", e);
             }
         }
     } else if publish.topic == info_topic {
         match serde_json_core::from_slice_escaped::<DeviceInfo>(&publish.payload, &mut tmp) {
-            Ok((info, _)) => {
-                responses
-                    .send(DisplayResponseContainer::DeviceInfo(info))
-                    .await?
-            }
+            Ok((info, _)) => responses
+                .send(DisplayResponseContainer::DeviceInfo(info))
+                .await
+                .map_err(|_| Error::SendError)?,
             Err(e) => {
                 error!("Could not parse message: {:?}", e);
             }

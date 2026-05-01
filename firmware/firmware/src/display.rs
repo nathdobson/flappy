@@ -6,6 +6,7 @@ use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use heapless::{String, Vec};
 use log::{error, info};
+use error_report::Report;
 use protocol::display::DisplayResponse;
 use protocol::display::MAX_GLYPH_BYTES;
 use protocol::display::MAX_GLYPHS;
@@ -53,7 +54,7 @@ impl DisplayModule {
         }
         let mut renderer = glyph_render::Renderer::<MAX_GLYPHS>::new(&glyphs);
         if let Err(e) = renderer.append(&msg) {
-            error!("{MODULE} error when rendering message: {:?}", e);
+            error!("{MODULE} error when rendering message: {}", Report::new(e));
         }
         let message = renderer.finish();
         let mut glyph_strs: Vec<String<MAX_GLYPH_BYTES>, MAX_GLYPHS> = Vec::new();
@@ -76,7 +77,7 @@ impl DisplayModule {
             info!("{MODULE} Displaying {}", msg);
             // display.set_settings(self.state.borrow().display.clone());
             if let Err(e) = self.controller.run(&message).await {
-                error!("{MODULE} error when displaying message: {:?}", e);
+                error!("{MODULE} error when displaying message: {}", Report::new(e));
             }
         }
         #[cfg(feature = "mqtt")]

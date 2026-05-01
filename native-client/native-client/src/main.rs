@@ -25,6 +25,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::io::stdin;
 use tokio::io::{AsyncReadExt, AsyncWrite};
 use uuid::Uuid;
+use error_report::Report;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -116,7 +117,7 @@ async fn connect(transport: ClientTransport, address: &str) -> Result<Client, Er
 #[tokio::main]
 async fn main() {
     if let Err(e) = main_impl().await {
-        eprintln!("{}", e);
+        eprintln!("{}", Report::new(e));
     }
 }
 async fn main_impl() -> Result<(), Error> {

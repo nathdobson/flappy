@@ -11,6 +11,7 @@ use embassy_time::{Delay, Timer};
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
 use log::{error, info};
+use error_report::Report;
 use make_static::make_static;
 
 const MODULE: &str = "[DRIVE]";
@@ -75,7 +76,7 @@ impl DriverModule {
                 }
             }
         }
-        Err(Error::StrError("count failure"))
+        Err(Error::CountFailure)
     }
     pub fn write(&self, data: &[u8]) -> Result<(), Error> {
         let ref mut inner = *self.inner.borrow_mut();
@@ -123,7 +124,7 @@ impl DriverModule {
         loop {
             let mut buf = [0u8; 20];
             if let Err(e) = self.read(&mut buf) {
-                error!("{:?}", e);
+                error!("error during read test: {}", Report::new(e));
                 return;
             }
             info!("read = {:?}", buf);

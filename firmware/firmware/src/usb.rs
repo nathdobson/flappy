@@ -10,6 +10,7 @@ use embassy_sync::watch::Watch;
 use fixed_freelist::{Freelist, FreelistStorage};
 use heapless::{Vec, box_pool};
 use log::{error, info};
+use error_report::Report;
 use make_static::make_static;
 use protocol::setup::{AppStatus, SetupRequest};
 use protocol::setup::{MAX_SETUP_MESSAGE_SIZE, SetupResponse};
@@ -46,7 +47,7 @@ impl FlappyUsbServer {
         server.usb_terminal.set_logger();
         make_static!(_, RemoteSpawn::new(spawner)).spawn(move |spawner| async move {
             if let Err(e) = server.start(spawner, peri).await {
-                info!("uncaught runtime error: {:?}", e);
+                info!("uncaught runtime error: {}", Report::new(e));
             }
         });
         server

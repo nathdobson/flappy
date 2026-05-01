@@ -1,9 +1,10 @@
 use crate::error::Error;
 use crate::utils::{create_element, get_element_by_id};
-use log::info;
+use log::{error, info};
 use std::cell::RefCell;
 use std::rc::Rc;
 use web_sys::{HtmlDivElement, HtmlElement};
+use error_report::Report;
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum StatusPriority {
@@ -37,5 +38,9 @@ impl Status {
             *old = priority;
             self.element.set_text_content(Some(&value));
         }
+    }
+    pub fn set_error(&self, priority: StatusPriority, error: &dyn core::error::Error) {
+        error!("{:?}", error);
+        self.set(priority, format!("{}", Report::new(error)));
     }
 }

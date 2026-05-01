@@ -169,7 +169,7 @@ impl<
                     }
                 }
                 GattConnectionEvent::Disconnected { reason } => {
-                    return Err(Error::GattDisconnect(reason));
+                    reason.to_result()?;
                 }
                 _ => {}
             }

@@ -41,6 +41,7 @@ use trouble_host::prelude::{
     gatt_service, uuid,
 };
 use trouble_host::{Address, HostResources, IoCapabilities, PacketPool, Stack, advertise};
+use error_report::Report;
 
 const MODULE: &'static str = "[BLE  ]";
 
@@ -67,7 +68,7 @@ impl BleModule {
         .build()?;
         let name = make_static!(
             String<28>,
-            format!("FLAP {}", serial_number().unwrap_or("<noid>"))?
+            format!("FLAP {}", serial_number().unwrap_or("<noid>")).unwrap()
         );
 
         let advertiser = make_static!(
@@ -104,7 +105,7 @@ impl BleModule {
                 Either::Second(x) => x.map(|x| ()),
             };
             if let Err(e) = result {
-                error!("Error during BLE connection: {}", e);
+                error!("Error during BLE connection: {}", Report::new(e));
             }
         }
     }

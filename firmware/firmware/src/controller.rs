@@ -153,7 +153,7 @@ impl<'a> DisplayControllerGuard<'a> {
     fn recount(&mut self) -> Result<(), Error> {
         let count = self.guard.driver.count()?;
         if count > MAX_GLYPHS {
-            return Err("Too many characters in series".into());
+            return Err(Error::CapacityError);
         }
         while self.guard.segments.len() > count {
             self.guard.segments.pop();

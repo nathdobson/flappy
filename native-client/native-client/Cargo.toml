@@ -21,6 +21,7 @@ log = "0.4.29"
 picoboot = {path="../../submodules/picoboot", optional = true }
 setup-client = {path="../../common/setup-client",default-features = false,features = ["clap"]}
 thiserror= "2.0.18"
+error-report = {path="../../common/error-report"}
 
 
 [target.'cfg(darwin)'.dependencies]

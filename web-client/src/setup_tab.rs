@@ -322,19 +322,13 @@ impl SetupTab {
                             let client = Rc::new(client);
                             client_cell.set(client.clone()).ok().unwrap();
                             if let Err(e) = self.run_connection(client).await {
-                                self.connect_status.set(
-                                    StatusPriority::Error,
-                                    format!("Connection failed: {}", e),
-                                );
+                                self.connect_status.set_error(StatusPriority::Error, &e);
                             }
                         }
                         Ok(EitherClient::Picoboot(client)) => {
                             picoboot_cell.set(Some(client));
                         }
-                        Err(e) => self.connect_status.set(
-                            StatusPriority::Error,
-                            format!("Error establishing connection: {}", e),
-                        ),
+                        Err(e) => self.connect_status.set_error(StatusPriority::Error, &e),
                     }
                 }
             }),
@@ -413,8 +407,7 @@ impl SetupTab {
         spawn_local(async move {
             self.firmware_status.reset();
             if let Err(e) = self.try_flash_firmware().await {
-                self.firmware_status
-                    .set(StatusPriority::Error, format!("{}", e));
+                self.firmware_status.set_error(StatusPriority::Error, &e);
             }
         })
     }

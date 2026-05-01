@@ -102,7 +102,7 @@ impl<'ar> PacketParser<'ar> {
         self.read(len)
     }
     pub fn read_string(&mut self) -> Result<&'ar str, ProtocolError> {
-        Ok(str::from_utf8(self.read_bytes()?).map_err(|e| ProtocolError::BadUtf8)?)
+        Ok(str::from_utf8(self.read_bytes()?)?)
     }
     pub fn parse_connack(&mut self) -> Result<ConnackPacket<'ar>, ProtocolError> {
         let session_present = self.read_u8()? & 1 == 1;

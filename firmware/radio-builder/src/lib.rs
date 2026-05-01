@@ -3,6 +3,8 @@
 #![deny(unused_must_use)]
 #![feature(never_type)]
 #![feature(allocator_api)]
+#![allow(unused_features)]
+#![allow(unused_variables)]
 extern crate alloc;
 
 #[cfg(feature = "ble")]

@@ -56,3 +56,6 @@
 [submodule "submodules/RSA"]
 	path = submodules/RSA
 	url = https://github.com/nathdobson/RSA.git
+[submodule "submodules/bt-hci"]
+	path = submodules/bt-hci
+	url = https://github.com/nathdobson/bt-hci.git

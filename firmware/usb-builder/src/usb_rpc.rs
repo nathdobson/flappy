@@ -14,6 +14,7 @@ use embassy_usb_driver::EndpointIn;
 use embassy_usb_driver::EndpointOut;
 use heapless::VecView;
 use log::{error};
+use error_report::Report;
 use protocol_usb::{CUSTOM_CLASS_ID, CUSTOM_SUBCLASS_ID};
 
 struct RpcEndpoints {
@@ -57,13 +58,13 @@ impl UsbRpcServer {
     pub async fn send_response(&self, data: &[u8]) {
         let mut eps = self.rpc_eps.get().await.lock().await;
         if let Err(e) = eps.in_ep.write_transfer(data, true).await {
-            error!("Error sending USB response {}", e);
+            error!("Error sending USB response {}", Report::new(e));
         }
     }
     pub async fn send_status(&self, data: &[u8]) {
         let mut status_ep = self.status_ep.get().await.lock().await;
         if let Err(e) = status_ep.write_transfer(data, true).await {
-            error!("Error sending USB status {}", e);
+            error!("Error sending USB status {}", Report::new(e));
         }
     }
 }

@@ -22,10 +22,11 @@ protocol-wifi = {path="../../common/protocol-wifi",optional=true}
 embedded-hal-async = "1.0.0"
 protocol-ble = {path="../../common/protocol-ble",optional=true,features = ["trouble-host"]}
 fixed-freelist = {path="../../common/fixed-freelist",optional = true}
-bt-hci = "0.8.1"
+bt-hci = {path="../../submodules/bt-hci"}
 serde = {version="1.0.228",optional  = true,default-features = false}
 serde-json-core = {path="../../submodules/serde-json-core",optional = true}
 embassy-futures = {path="../../submodules/embassy/embassy-futures", optional = true}
+error-report = {path="../../common/error-report"}
 
 [features]
 default = []
