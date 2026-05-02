@@ -37,7 +37,7 @@ pub async fn connect_ble(status: Rc<Status>) -> Result<EitherClient, Error> {
 }
 
 pub async fn connect_usb(status: Rc<Status>) -> Result<EitherClient, Error> {
-    let usb: Usb = try_window()?.navigator().usb();
+    let usb: Usb = try_window()?.navigator().usb().ok_or(Error::UsbNotSupported)?;
     let mut filter = UsbDeviceFilter::new();
     filter.set_vendor_id(VENDOR_ID);
     let device = usb
