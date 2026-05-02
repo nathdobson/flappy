@@ -16,4 +16,5 @@ pub mod usb;
 #[cfg(all(feature = "usb", test))]
 mod usb_test;
 pub mod client;
+#[cfg(feature = "usb")]
 pub mod flash_firmware;
