@@ -39,7 +39,6 @@ embassy-executor = { path = "../../submodules/embassy/embassy-executor", feature
   "platform-cortex-m"
 ] }
 embassy-sync = { path = "../../submodules/embassy/embassy-sync", features = [] }
-trouble-host = { path = "../../submodules/trouble/host", features = ["legacy-pairing"],optional = true }
 
 critical-section = "1.1"
 log = "0.4.28"
@@ -110,7 +109,6 @@ setup = ["serde"]
 ble = [
   "radio",
   "cyw43/bluetooth",
-  "dep:trouble-host",
   "dep:uuid",
   "radio-builder/ble",
   "dep:protocol-ble",

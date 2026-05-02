@@ -1,9 +1,9 @@
-use error_report::Report;
 use crate::error::Error;
 use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
 use embassy_executor::raw::TaskPool;
 use embassy_rp::clocks::RoscRng;
+use error_report::Report;
 use log::{error, info};
 use static_cell::StaticCell;
 use trouble_host::advertise::{
@@ -68,8 +68,10 @@ pub(crate) type MyGattConnection = GattConnection<'static, 'static, MyPacketPool
 #[define_opaque(MyRunnerWrapper)]
 fn my_runner_wrapper<const SLOTS: usize>(mut runner: MyRunner<SLOTS>) -> MyRunnerWrapper<SLOTS> {
     async move {
-        if let Err(e) = runner.run().await {
-            error!("BLE system error: {}", Report::new(e));
+        loop {
+            if let Err(e) = runner.run().await {
+                error!("BLE system error: {}", Report::new(e));
+            }
         }
     }
 }
@@ -107,7 +109,7 @@ impl<
             trouble_host::new(controller, resources)
                 .set_random_address(Address::random(self.peripherals.mac_address))
                 .set_random_generator_seed(&mut RoscRng)
-                .set_secure_connections_only(true)
+                .set_secure_connections_only(false)
                 .set_io_capabilities(IoCapabilities::NoInputNoOutput)
                 .build()
         });

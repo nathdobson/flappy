@@ -35,7 +35,7 @@ struct RpcService {
         uuid = SERIAL_IN_UUID,
         read,
         notify,
-        permissions(encrypted)
+        // permissions(encrypted)
     )]
     serial_in: Vec<u8, SERIAL_MTU>,
 
@@ -43,7 +43,7 @@ struct RpcService {
     #[characteristic(
         uuid = SERIAL_OUT_UUID,
         write,
-        permissions(encrypted)
+        // permissions(encrypted)
     )]
     serial_out: Vec<u8, SERIAL_MTU>,
 

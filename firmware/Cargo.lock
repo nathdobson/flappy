@@ -1082,7 +1082,6 @@ dependencies = [
  "static_cell",
  "thiserror",
  "tls-builder",
- "trouble-host",
  "usb-builder",
  "uuid",
 ]

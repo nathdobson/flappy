@@ -26,21 +26,6 @@ use protocol_ble::SERIAL_MTU;
 use radio_builder::ble::{BleBuilder, BlePeripherals, BleStack};
 use radio_builder::ble_rpc::{RpcAdvertiser, RpcConnection};
 use runtime::LocalSpawn;
-use trouble_host::advertise::{
-    AdStructure, Advertisement, AdvertisementParameters, BR_EDR_NOT_SUPPORTED,
-    LE_GENERAL_DISCOVERABLE, PhyKind, TxPower,
-};
-use trouble_host::attribute::{AttributeTable, Characteristic, Uuid};
-use trouble_host::connection::{Connection, SecurityLevel};
-use trouble_host::gap::{GapConfig, PeripheralConfig};
-use trouble_host::gatt::{GattConnection, GattConnectionEvent, GattEvent};
-use trouble_host::l2cap::{CreditFlowPolicy, L2capChannel, L2capChannelConfig};
-use trouble_host::prelude::{
-    AddrKind, AsGatt, AttributeServer, BdAddr, CccdTable, DefaultPacketPool, ExternalController,
-    FromGatt, HeaplessString, Peripheral, Runner, appearance, descriptors, gatt_server,
-    gatt_service, uuid,
-};
-use trouble_host::{Address, HostResources, IoCapabilities, PacketPool, Stack, advertise};
 use error_report::Report;
 
 const MODULE: &'static str = "[BLE  ]";

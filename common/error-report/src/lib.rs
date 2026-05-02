@@ -18,6 +18,7 @@ impl<E: Display + Error> Display for Report<E> {
         loop {
             write!(f, "{}", error)?;
             if let Some(source) = error.source() {
+                write!(f, ": ")?;
                 error = source;
             } else {
                 break;

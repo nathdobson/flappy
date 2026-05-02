@@ -13,7 +13,7 @@ fixed = {version="1.31.0",optional = true}
 log = "0.4.29"
 make-static = {path="../../common/make-static"}
 heapless = {path="../../submodules/heapless",optional = true}
-trouble-host = {path="../../submodules/trouble/host",optional = true}
+trouble-host = {path="../../submodules/trouble/host",optional = true,features = ["legacy-pairing"]}
 static_cell = "2.1.1"
 thiserror={version = "2.0.18",default-features = false}
 embassy-net ={path="../../submodules/embassy/embassy-net", optional = true}
