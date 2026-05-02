@@ -129,30 +129,28 @@ impl UsbClient {
         let mut request_response = self.request_response.lock().await;
         request_response.request.write_all(req).await?;
         request_response.request.flush().await?;
-        let mut response = vec![];
-        loop {
-            let packet_size = request_response.response.max_packet_size();
-            request_response.response.submit(Buffer::new(packet_size));
-            let buffer = request_response
-                .response
-                .next_complete()
-                .await
-                .into_result()?
-                .into_vec();
-            response.extend_from_slice(&buffer);
-            if buffer.len() < packet_size {
-                break;
-            }
-        }
+        let response = self.receive_raw(&mut request_response.response).await?;
         Ok(response)
     }
 
     pub async fn receive_status_raw(&self) -> Result<Vec<u8>, Error> {
         let mut status = self.status.lock().await;
-        let packet_size = status.max_packet_size();
-        status.submit(Buffer::new(packet_size));
-        let buffer = status.next_complete().await.into_result()?.into_vec();
-        Ok(buffer)
+        let status = self.receive_raw(&mut *status).await?;
+        Ok(status)
+    }
+
+    async fn receive_raw(&self, endpoint: &mut Endpoint<Bulk, In>) -> Result<Vec<u8>, Error> {
+        let mut result = vec![];
+        loop {
+            let packet_size = endpoint.max_packet_size();
+            endpoint.submit(Buffer::new(packet_size));
+            let buffer = endpoint.next_complete().await.into_result()?.into_vec();
+            result.extend_from_slice(&buffer);
+            if buffer.len() < packet_size {
+                break;
+            }
+        }
+        Ok(result)
     }
 
     pub async fn reset_picoboot(&self) -> Result<(), Error> {
