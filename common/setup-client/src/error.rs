@@ -58,6 +58,8 @@ pub enum Error {
     NeedsApplication,
     #[error("Device is booted in Application mode, but needs Picoboot mode")]
     NeedsPicoboot,
+    #[error("Failed to verify binary written to flash")]
+    FlashVerifyError,
 }
 
 impl From<CapacityError> for Error {

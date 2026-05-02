@@ -1,3 +1,4 @@
+#![feature(step_trait)]
 #![deny(unused_must_use)]
 #![allow(unused_imports)]
 #![allow(dead_code)]
@@ -15,3 +16,4 @@ pub mod usb;
 #[cfg(all(feature = "usb", test))]
 mod usb_test;
 pub mod client;
+pub mod flash_firmware;

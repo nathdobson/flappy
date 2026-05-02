@@ -7,10 +7,11 @@ use crate::tabs::TabContent;
 use crate::utils::{AppendChild, create_element, sleep, try_window};
 use empty_rc::EmptyRc;
 use js_sys::futures::spawn_local;
-use js_sys::{ArrayBuffer, Uint8Array};
+use js_sys::{ArrayBuffer, Date, Uint8Array};
 use log::info;
 use picoboot::{Access, Picoboot};
 use setup_client::client::Client;
+use setup_client::flash_firmware::flash_firmware;
 use std::rc::Rc;
 use std::time::Duration;
 use wasm_bindgen::JsCast;
@@ -86,14 +87,10 @@ impl FirmwareTab {
         let binary: ArrayBuffer = binary.array_buffer()?.into_future().await?.dyn_into()?;
         let binary = Uint8Array::new(&binary).to_vec();
 
-        self.firmware_status.set(
-            StatusPriority::Info,
-            "Disconnecting from current device...".to_string(),
-        );
         self.firmware_status
             .set(StatusPriority::Info, "Connecting...".to_string());
 
-        let client = match connect_usb(self.firmware_status.clone()).await? {
+        let mut client = match connect_usb(self.firmware_status.clone()).await? {
             EitherClient::Application(Client::UsbClient(x)) => {
                 self.firmware_status.set(
                     StatusPriority::Info,
@@ -113,54 +110,25 @@ impl FirmwareTab {
             EitherClient::Picoboot(client) => client,
             EitherClient::Application(_) => unreachable!(),
         };
-        self.firmware_status
-            .set(StatusPriority::Info, "Connected to Picoboot...".to_string());
-
-        let mut picoboot = Picoboot::from_first(None).await?;
         self.firmware_status.set(
             StatusPriority::Info,
-            "Connecting to USB device...".to_string(),
+            "Connecting to Picoboot...".to_string(),
         );
-        let conn = picoboot.connect().await?;
-        self.firmware_status
-            .set(StatusPriority::Info, "Resetting interface...".to_string());
-        conn.reset_interface().await?;
+        let mut client = client.connect().await?;
+        let start = Date::now();
+        flash_firmware::<!>(&mut client, &binary, &mut |progress| {
+            self.firmware_status
+                .set(StatusPriority::Info, progress.to_string());
+            Ok(())
+        })
+        .await?
+        .into_ok();
+        let end = Date::now();
+        info!("Flashed firmware in {} seconds", (end - start) / 1000.0);
         self.firmware_status.set(
             StatusPriority::Info,
-            "Disabling mass storage...".to_string(),
+            "Successfully updated firmware!".to_string(),
         );
-        conn.set_exclusive_access(Access::ExclusiveAndEject).await?;
-        self.firmware_status
-            .set(StatusPriority::Info, "Disabling XIP...".to_string());
-        conn.exit_xip().await?;
-        self.firmware_status
-            .set(StatusPriority::Info, "Erasing flash...".to_string());
-        conn.flash_erase_start(binary.len()).await?;
-        self.firmware_status
-            .set(StatusPriority::Info, "Writing firmware...".to_string());
-        conn.flash_write_start(&binary).await?;
-        self.firmware_status
-            .set(StatusPriority::Info, "Verifying firmware...".to_string());
-        let verified = conn.flash_read_start(binary.len() as u32).await?;
-        if binary != verified {
-            self.firmware_status.set(
-                StatusPriority::Error,
-                format!(
-                    "firmware verification failed comparing {} bytes and {} bytes",
-                    binary.len(),
-                    verified.len()
-                ),
-            );
-            return Ok(());
-        }
-        self.firmware_status
-            .set(StatusPriority::Info, "Rebooting device...".to_string());
-        conn.reboot(Duration::from_millis(500)).await?;
-        self.firmware_status.set(
-            StatusPriority::Info,
-            "Firmware successfully updated!".to_string(),
-        );
-
         Ok(())
     }
 }
