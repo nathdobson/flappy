@@ -196,6 +196,11 @@ When the display stops spinning the flaps, it sends an equivalent `Stop` message
 
 The stop message is retained, so clients may determine the current contents of the display.
 
+# License
+The contents of the [models](models/) and [driver](driver/) directories and associated release artifacts
+are licensed under the [CERN-OHL-W license](LICENSE-CERN-OHL-W-2.0). The remainder of this repository
+is licensed under the [LGPL v3.0 license](LICENSE-LGPL-3.0).
+
 [^2]: The provided 3MF files are configured for use with BambuStudio and tuned for PLA with PETG support on the Bambu A1 Mini
 with AMS. The files will likely work on other slicers and printers, but may require additional tuning.
 
