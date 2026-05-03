@@ -20,6 +20,7 @@ embassy-rp = { path = "../../submodules/embassy/embassy-rp", features = [
    "critical-section-impl", "rp235xa","binary-info",
   "log"
 ] }
+rp-pac = {version = "7.0.0", features = ["rp235x"]}
 embassy-time = { path = "../../submodules/embassy/embassy-time", features = [] }
 embassy-usb = { path = "../../submodules/embassy/embassy-usb" ,optional = true}
 embassy-net = { path = "../../submodules/embassy/embassy-net", features = [

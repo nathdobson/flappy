@@ -19,7 +19,7 @@ pub mod ble_rpc;
 
 pub use error::Error;
 
-use cyw43::{A4, Aligned, Control, aligned_bytes};
+use cyw43::{A4, Aligned, Control, aligned_bytes, Cyw43439};
 use cyw43_pio::PioSpi;
 use embassy_executor::{SpawnError, Spawner};
 use embassy_rp::gpio::{Level, Output};
@@ -32,7 +32,7 @@ use embassy_sync::mutex::Mutex;
 use log::info;
 use make_static::make_static;
 
-type MyRunner = cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>>;
+type MyRunner = cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>, Cyw43439>;
 
 #[allow(non_snake_case)]
 pub struct RadioPeripherals {
