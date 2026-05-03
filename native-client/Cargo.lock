@@ -560,7 +560,7 @@ checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
 
 [[package]]
 name = "heapless"
-version = "0.9.2"
+version = "0.9.3"
 dependencies = [
  "hash32",
  "serde_core",
