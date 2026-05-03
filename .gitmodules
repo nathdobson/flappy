@@ -4,9 +4,6 @@
 [submodule "trouble"]
 	path = submodules/trouble
 	url = https://github.com/nathdobson/trouble.git
-[submodule "rust-mqtt"]
-	path = submodules/rust-mqtt
-	url = https://github.com/nathdobson/rust-mqtt.git
 [submodule "submodules/rust-unidecode"]
 	path = submodules/rust-unidecode
 	url = https://github.com/nathdobson/rust-unidecode.git
@@ -19,15 +16,9 @@
 [submodule "submodules/serde-json-core"]
 	path = submodules/serde-json-core
 	url = https://github.com/nathdobson/serde-json-core.git
-[submodule "submodules/ring"]
-	path = submodules/ring
-	url = https://github.com/nathdobson/ring.git
 [submodule "submodules/embedded-tls"]
 	path = submodules/embedded-tls
 	url = https://github.com/nathdobson/embedded-tls.git
-[submodule "submodules/cyw43-firmware-rust"]
-	path = submodules/cyw43-firmware-rust
-	url = https://github.com/KizzyCode/cyw43-firmware-rust.git
 [submodule "submodules/spindle"]
 	path = submodules/spindle
 	url = https://github.com/nathdobson/spindle.git
@@ -50,9 +41,6 @@
 [submodule "submodules/wasm-bindgen"]
 	path = submodules/wasm-bindgen
 	url = https://github.com/nathdobson/wasm-bindgen.git
-[submodule "submodules/webpki"]
-	path = submodules/webpki
-	url = https://github.com/nathdobson/webpki.git
 [submodule "submodules/RSA"]
 	path = submodules/RSA
 	url = https://github.com/nathdobson/RSA.git
