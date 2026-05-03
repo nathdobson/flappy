@@ -63,7 +63,7 @@ web-sys = { path="../submodules/wasm-bindgen/crates/web-sys", features = [
 js-sys = {path="../submodules/wasm-bindgen/crates/js-sys"}
 wasm-logger = "0.2.0"
 log = "0.4.29"
-wasm-bindgen-futures = "0.4.68"
+wasm-bindgen-futures = "0.4.70"
 url = "2.5.7"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_qs = "0.15.0"
