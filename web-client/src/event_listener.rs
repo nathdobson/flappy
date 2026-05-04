@@ -7,7 +7,7 @@ use web_sys::{Event, EventTarget};
 pub struct EventListener<'a> {
     target: EventTarget,
     typ: EventType,
-    closure: Closure<dyn 'a + FnMut(Event) -> bool>,
+    closure: Closure<dyn 'a + FnMut(Event)>,
 }
 
 pub enum EventType {
@@ -22,9 +22,9 @@ impl<'a> EventListener<'a> {
     pub fn new(
         target: &EventTarget,
         typ: EventType,
-        callback: impl 'a + FnMut(Event) -> bool,
+        callback: impl 'a + FnMut(Event),
     ) -> Result<EventListener<'a>, Error> {
-        let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(Event) -> bool>);
+        let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(Event)>);
         target.add_event_listener_with_callback(typ.name(), &closure.as_ref().unchecked_ref())?;
         Ok(EventListener {
             target: target.clone(),

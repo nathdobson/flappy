@@ -47,7 +47,6 @@ impl<T: 'static> ValueForm<T> {
                         this.submit_status.set_text_content(Some("Submitted"));
                     }
                 }
-                false
             }
         })?;
         let this = this.into_rc(ValueForm {

@@ -53,9 +53,7 @@ impl<T: 'static> InputEditor<T> {
         }))
     }
 
-    pub fn on_change(self: Rc<Self>, event: Event) -> bool {
-        true
-    }
+    pub fn on_change(self: Rc<Self>, event: Event) {}
 
     pub fn new_integer(min: Option<T>, max: Option<T>, step: Option<T>) -> Result<Rc<Self>, Error>
     where

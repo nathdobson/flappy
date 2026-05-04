@@ -58,13 +58,12 @@ impl FirmwareTab {
     fn weak_callback(
         this: &EmptyRc<Self>,
         callback: fn(Rc<Self>, Event),
-    ) -> impl 'static + Fn(Event) -> bool {
+    ) -> impl 'static + Fn(Event) {
         let this = this.downgrade();
         move |event| {
             if let Some(this) = this.upgrade() {
                 callback(this, event)
             }
-            false
         }
     }
     fn flash_firmware(self: Rc<Self>, event: Event) {

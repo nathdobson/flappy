@@ -108,7 +108,7 @@ impl ConnectTab {
                 listener: EventListener::new(&form, EventType::Submit, move |e| {
                     e.prevent_default();
                     if ws_url.value().is_empty() {
-                        return false;
+                        return;
                     }
                     if let Err(e) = query_params.modify(|query_params| {
                         query_params.ws_url = ws_url.value();
@@ -118,7 +118,6 @@ impl ConnectTab {
                     }) {
                         error!("When connecting: {:?}", e);
                     }
-                    false
                 })?,
             });
         } else {
@@ -146,7 +145,6 @@ impl ConnectTab {
                             ),
                         );
                     }
-                    false
                 }
             })?;
 
@@ -167,13 +165,12 @@ impl ConnectTab {
                         Ok(msg) => msg,
                         Err(_) => {
                             status.set(StatusPriority::Error, "Message too long".to_string());
-                            return false;
+                            return;
                         }
                     };
                     if let Err(e) = request_send.try_send(DisplayRequest::Run(msg)) {
                         status.set(StatusPriority::Error, "Message queue overflow".to_string());
                     }
-                    false
                 }
             })?;
 
