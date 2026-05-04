@@ -36,6 +36,7 @@ impl<'a, T: 'a> EventListenerSet<'a, T> {
     }
 }
 
+#[allow(dead_code)]
 pub enum EventType {
     Submit,
     Click,

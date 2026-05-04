@@ -9,7 +9,7 @@ use std::str::ParseBoolError;
 use thiserror::Error;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
-use web_sys::{DomException, UsbTransferStatus};
+use web_sys::{DomException};
 
 #[derive(Debug, Clone)]
 pub struct JsErrorAdapter(JsValue);
@@ -91,8 +91,6 @@ pub enum Error {
     WsError(#[from] ws_stream_wasm::WsErr),
     #[error("IO error")]
     IoError(#[from] std::io::Error),
-    #[error("deadline exceeded")]
-    DeadlineExceeded,
     #[error("MQTT error")]
     MqttError(#[from] ProtocolError),
     #[error("type cast error")]
@@ -103,8 +101,6 @@ pub enum Error {
     SerdeDeError(#[from] serde_json_core::de::Error),
     #[error("capacity error")]
     CapacityError(#[from] CapacityError),
-    #[error("try send error")]
-    TrySendError,
     #[error("MQTT disconnect")]
     Disconnect(#[from] ReasonCode),
     #[error("send error")]
@@ -121,26 +117,12 @@ pub enum Error {
     CannotFindElement,
     #[error("Bluetooth not supported by browser")]
     BluetoothNotSupported,
-    #[error("bad response")]
-    BadResponse,
     #[error("error writing settings")]
     WriteSettingsError(#[from] WriteSettingsError),
     #[error("not connected")]
     NotConnected,
-    #[error("usb configuration not found")]
-    UsbConfigurationNotFound,
-    #[error("usb missing interface")]
-    UsbMissingInterface,
-    #[error("usb missing endpoint")]
-    UsbMissingEndpoint,
-    #[error("usb transfer error {0:?}")]
-    UsbTransferError(UsbTransferStatus),
-    #[error("usb missing data")]
-    UsbMissingData,
     #[error("error parsing integer")]
     ParseIntError(#[from] std::num::ParseIntError),
-    #[error("microcontroller not in application mode")]
-    NotApplicationMode,
     #[error("picoboot error")]
     Picoboot(#[from] picoboot::Error),
     #[error("BLE error")]
@@ -149,8 +131,6 @@ pub enum Error {
     SetupClientError(#[from] setup_client::error::Error),
     #[error("usb error")]
     UsbError(#[from] nusb::Error),
-    #[error("feature requires USB connection")]
-    RequiresUsb,
     #[error("microcontroller not in picoboot mode")]
     NotPicobootMode,
     #[error("USB not supported by browser")]

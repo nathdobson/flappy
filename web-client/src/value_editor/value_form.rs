@@ -17,8 +17,9 @@ pub struct ValueForm<T> {
     value: Rc<dyn ValueEditor<T>>,
     submit: HtmlInputElement,
     submit_status: HtmlDivElement,
-    event_listener: EventListener<'static>,
     on_submit: RefCell<Option<Rc<dyn DynAsyncFn(T) -> Result<(), Error>>>>,
+    #[allow(dead_code)]
+    event_listener: EventListener<'static>,
 }
 
 impl<T: 'static> ValueForm<T> {

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use futures_util::future::LocalBoxFuture;
 use std::marker::Tuple;
 

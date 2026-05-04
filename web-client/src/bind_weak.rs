@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::rc::{Rc, Weak};
 
 pub fn bind_weak_fn0<T, O>(x: Weak<T>, f: impl Fn(Rc<T>) -> O) -> impl Fn() -> O

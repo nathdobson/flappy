@@ -25,17 +25,6 @@ pub fn bluetooth() -> Result<Bluetooth, Error> {
         .ok_or(Error::BluetoothNotSupported)
 }
 
-pub fn get_element_by_id<T: JsCast>(id: &str) -> Result<T, Error> {
-    let window = web_sys::window().ok_or(Error::CannotFindElement)?;
-    let document = window.document().ok_or(Error::CannotFindElement)?;
-    Ok(document
-        .get_element_by_id(id)
-        .ok_or(Error::CannotFindElement)?
-        .dyn_into::<T>()
-        .ok()
-        .ok_or(Error::TypeError)?)
-}
-
 pub fn create_text_node(text: &str) -> Result<Text, Error> {
     Ok(document()?.create_text_node(text))
 }
@@ -184,6 +173,7 @@ impl<T> Future for JoinHandle<T> {
 }
 
 impl<T> JoinHandle<Result<T, Error>> {
+    #[allow(dead_code)]
     pub async fn try_join(self) -> Result<T, Error> {
         Ok(self.await??)
     }

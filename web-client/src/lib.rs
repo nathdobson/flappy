@@ -40,7 +40,7 @@ use crate::firmware_tab::FirmwareTab;
 use crate::home_tab::HomeTab;
 use crate::query_params::QueryParamsCell;
 use crate::setup_tab::SetupTab;
-use crate::tabs::{TabContainer, TabContent};
+use crate::tabs::TabContainer;
 use crate::utils::document;
 use log::{error, info};
 use std::future::pending;
@@ -51,11 +51,10 @@ use wasm_bindgen::prelude::*;
 async fn start() {
     wasm_logger::init(wasm_logger::Config::default());
     console_error_panic_hook::set_once();
-    if let Err(e) = main().await {
-        error!("uncaught error: {:?}", e);
-    }
+    let Err(e) = main().await;
+    error!("uncaught error: {:?}", e);
 }
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<!, Error> {
     let query_params = Rc::new(QueryParamsCell::new()?);
     let home = Rc::new(HomeTab::new()?);
     let connect = Rc::new(ConnectTab::new(query_params.clone())?);
@@ -71,10 +70,6 @@ async fn main() -> Result<(), Error> {
         .ok_or(Error::CannotFindElement)?
         .append_child(tabs.node())?;
     pending::<!>().await;
-    // let status = Status::new()?;
-    // let Err(e) = Root::new(status.clone()).await;
-    // status.set(StatusPriority::Error, format!("{}", e));
-    Ok(())
 }
 
 #[wasm_bindgen]

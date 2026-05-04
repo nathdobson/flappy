@@ -1,35 +1,28 @@
 use crate::bind_weak::bind_weak_try_async_fn1;
-use crate::connection::{connect, EitherClient};
+use crate::connection::{EitherClient, connect};
 use crate::error::Error;
 use crate::event_listener::{EventListenerSet, EventType};
 use crate::field;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
-use crate::utils::{bluetooth, create_element, sleep, spawn_local_joinable, JoinHandle};
 use crate::utils::AppendChild;
+use crate::utils::{JoinHandle, create_element, sleep, spawn_local_joinable};
 use crate::value_editor::input_editor::InputEditor;
 use crate::value_editor::select_editor::SelectEditor;
 use crate::value_editor::struct_editor::StructEditor;
 use crate::value_editor::value_form::ValueForm;
-use btleplug::api::Peripheral;
 use empty_rc::EmptyRc;
-use itertools::Itertools;
 use log::info;
 use picoboot::Picoboot;
 use protocol_wifi::WifiSettings;
 
-use crate::browser_support::{check_usb_supported, BROWSER_SUPPORT_MESSAGE};
+use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_ble_supported, check_usb_supported};
 use crate::value_editor::bool_editor::BoolEditor;
-use protocol::setup::{
-    DisplaySettings, DriverVersion, MqttSettings,
-    WriteAppSettings,
-};
+use protocol::setup::{DisplaySettings, DriverVersion, MqttSettings, WriteAppSettings};
 use setup_client::client::{Client, ClientTransport};
 use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
-use web_sys::{
-    Event, HtmlButtonElement, HtmlDivElement, HtmlElement,
-};
+use web_sys::{Event, HtmlButtonElement, HtmlDivElement, HtmlElement};
 
 pub struct SetupTab {
     node: HtmlDivElement,
@@ -48,9 +41,11 @@ pub struct SetupTab {
     mqtt_settings: Rc<ValueForm<MqttSettings>>,
     display_settings: Rc<ValueForm<DisplaySettings>>,
 
+    #[allow(dead_code)]
     listeners: EventListenerSet<'static, Self>,
 }
 
+#[allow(dead_code)]
 struct ConnectionTask {
     connection: Rc<OnceCell<Rc<Client>>>,
     picoboot: Rc<Cell<Option<Picoboot>>>,
@@ -78,9 +73,9 @@ impl SetupTab {
 
         let node = create_element::<"div">()?;
         node.set_class_name("setup-tab");
-        
+
         let connect_section = node.append_element::<"div">()?;
-        let ble_supported = bluetooth().is_ok();
+        let ble_supported = check_ble_supported().is_ok();
         let usb_supported = check_usb_supported().is_ok();
         if !ble_supported || !usb_supported {
             connect_section
@@ -106,7 +101,6 @@ impl SetupTab {
         let disconnect_button = connect_section.append_element::<"button">()?;
         disconnect_button.append_text("Disconnect")?;
         listeners.add(&disconnect_button, EventType::Click, Self::disconnect)?;
-
 
         let device_section = node.append_element::<"div">()?;
         device_section.set_class_name("setup-section device-info-section");
@@ -285,17 +279,6 @@ impl SetupTab {
         }
         Ok(())
     }
-    fn weak_callback(
-        this: &EmptyRc<Self>,
-        callback: fn(Rc<Self>, Event),
-    ) -> impl 'static + Fn(Event) {
-        let this = this.downgrade();
-        move |event| {
-            if let Some(this) = this.upgrade() {
-                callback(this, event)
-            }
-        }
-    }
     fn spawn_connection(self: Rc<Self>, typ: ClientTransport) -> ConnectionTask {
         self.show_connection(true).ok();
         let client_cell = Rc::new(OnceCell::new());
@@ -309,9 +292,8 @@ impl SetupTab {
                         Ok(EitherClient::Application(client)) => {
                             let client = Rc::new(client);
                             client_cell.set(client.clone()).ok().unwrap();
-                            if let Err(e) = self.run_connection(client).await {
-                                self.connect_status.set_error(StatusPriority::Error, &e);
-                            }
+                            let Err(e) = self.run_connection(client).await;
+                            self.connect_status.set_error(StatusPriority::Error, &e);
                         }
                         Ok(EitherClient::Picoboot(client)) => {
                             picoboot_cell.set(Some(client));
@@ -324,7 +306,7 @@ impl SetupTab {
             picoboot: picoboot_cell,
         }
     }
-    async fn run_connection(&self, connection: Rc<Client>) -> Result<(), Error> {
+    async fn run_connection(&self, connection: Rc<Client>) -> Result<!, Error> {
         info!("Requesting device info...");
         let device_info = connection.device_info().await?;
         info!("Device info: {:#?}", device_info);
@@ -356,7 +338,6 @@ impl SetupTab {
             self.mqtt_status
                 .set_text_content(Some(&format!("{}", status.mqtt_status)));
         }
-        Ok(())
     }
     fn connect_ble(self: Rc<Self>, _event: Event) {
         self.connect_status.reset();

@@ -14,6 +14,7 @@ pub struct InputEditor<T> {
     input: HtmlInputElement,
     from_str: Box<dyn Fn(&str) -> Result<T, Error>>,
     to_str: Box<dyn Fn(&T) -> String>,
+    #[allow(dead_code)]
     listener: EventListener<'static>,
 }
 

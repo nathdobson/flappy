@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 use web_sys::{HtmlAnchorElement, HtmlDivElement, HtmlElement, HtmlLiElement};
 
+#[allow(dead_code)]
 struct Tab {
     content: Rc<dyn TabContent>,
     anchor: HtmlAnchorElement,

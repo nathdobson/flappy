@@ -7,7 +7,6 @@ use std::rc::Rc;
 use web_sys::{HtmlDivElement, Node};
 
 trait FieldEditor<S: 'static> {
-    fn node(&self) -> Node;
     fn set_value(&self, value: &S);
     fn get_value(&self, value: &mut S) -> Result<(), Error>;
 }
@@ -18,10 +17,7 @@ struct ValueFieldEditor<S, F> {
 }
 
 impl<S: 'static, F: 'static> FieldEditor<S> for ValueFieldEditor<S, F> {
-    fn node(&self) -> Node {
-        self.inner.clone().node()
-    }
-
+    
     fn set_value(&self, value: &S) {
         self.inner.clone().set_value((self.field.get)(value));
     }

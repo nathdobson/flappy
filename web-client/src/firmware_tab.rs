@@ -17,8 +17,9 @@ use web_sys::{Event, HtmlDivElement, HtmlElement, Response};
 
 pub struct FirmwareTab {
     node: HtmlDivElement,
-    firmware_listener: EventListener<'static>,
     firmware_status: Rc<Status>,
+    #[allow(dead_code)]
+    firmware_listener: EventListener<'static>,
 }
 
 impl FirmwareTab {

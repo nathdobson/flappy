@@ -15,11 +15,14 @@ use tokio::sync::mpsc::channel;
 use unicode_segmentation::UnicodeSegmentation;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement};
+
+#[allow(dead_code)]
 enum ConnectTabInner {
     ConnectForm(ConnectForm),
     Connect(Connect),
 }
 
+#[allow(dead_code)]
 pub struct ConnectTab {
     node: HtmlDivElement,
     inner: ConnectTabInner,
@@ -61,11 +64,13 @@ fn append_submit(form: &HtmlFormElement, text: &str) -> Result<HtmlInputElement,
     Ok(input)
 }
 
+#[allow(dead_code)]
 struct ConnectForm {
     form: HtmlFormElement,
     listener: EventListener<'static>,
 }
 
+#[allow(dead_code)]
 struct Connect {
     status: Rc<Status>,
     submit_listener: EventListener<'static>,
@@ -132,7 +137,7 @@ impl ConnectTab {
                 let status = status.clone();
                 let display = display.clone();
                 let text = text.clone();
-                move |e| {
+                move |_| {
                     if let Some(info) = display.info() {
                         status.set(
                             StatusPriority::Info,
