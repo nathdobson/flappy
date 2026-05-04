@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 embassy-sync = {path="../../submodules/embassy/embassy-sync"}
-heapless = "0.9.2"
+heapless = {path="../../submodules/heapless"}
 embassy-rp = {path="../../submodules/embassy/embassy-rp"}

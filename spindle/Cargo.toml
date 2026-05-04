@@ -5,5 +5,3 @@ resolver = "3"
 #[profile.dev]
 #panic = "abort"
 
-[patch.crates-io]
-heapless = {path="../submodules/heapless"}

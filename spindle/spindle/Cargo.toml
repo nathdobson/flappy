@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 arena={path= "../../common/arena" }
-heapless="0.9.2"
+heapless={path="../../submodules/heapless"}
 log = "0.4.29"
 
 [dev-dependencies]

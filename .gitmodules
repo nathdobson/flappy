@@ -68,3 +68,9 @@
 [submodule "submodules/rp-pac"]
 	path = submodules/rp-pac
 	url = https://github.com/embassy-rs/rp-pac.git
+[submodule "submodules/formats"]
+	path = submodules/formats
+	url = https://github.com/nathdobson/formats.git
+[submodule "submodules/smoltcp"]
+	path = submodules/smoltcp
+	url = https://github.com/nathdobson/smoltcp.git

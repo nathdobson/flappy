@@ -1,9 +1,3 @@
 [workspace]
 members = ["arena","mqtt-client","protocol", "io-adapters", "glyph-render", "mqtt-core", "serde-string", "fake-display", "empty-rc", "setup-client", "spawn-local", "make-static", "protocol-usb", "log-vec", "fixed-freelist", "protocol-wifi", "protocol-ble", "error-report"]
 resolver = "3"
-
-
-[patch.crates-io]
-web-sys={path="../submodules/wasm-bindgen/crates/web-sys"}
-wasm-bindgen={path="../submodules/wasm-bindgen"}
-js-sys={path="../submodules/wasm-bindgen/crates/js-sys"}
