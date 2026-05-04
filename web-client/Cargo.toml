@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 wasm-bindgen = {path = "../submodules/wasm-bindgen"}
 mqtt-client = { path = "../common/mqtt-client" }
-console_error_panic_hook = { version = "0.1.7" }
+console_error_panic_hook = { path="../submodules/console_error_panic_hook" }
 web-sys = { path="../submodules/wasm-bindgen/crates/web-sys", features = [
   "console",
   "Window",
@@ -61,27 +61,23 @@ web-sys = { path="../submodules/wasm-bindgen/crates/web-sys", features = [
   "HtmlParagraphElement",
 ] }
 js-sys = {path="../submodules/wasm-bindgen/crates/js-sys"}
-wasm-logger = "0.2.0"
+console_log = {path="../submodules/console_log"}
 log = "0.4.29"
-wasm-bindgen-futures = "0.4.70"
+wasm-bindgen-futures = {path="../submodules/wasm-bindgen/crates/futures"}
 url = "2.5.7"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_qs = "0.15.0"
-ws_stream_wasm = { version = "0.7.5", features = ["tokio_io"] }
+ws_stream_wasm = { path="../submodules/ws_stream_wasm", features = ["tokio_io"] }
 io-adapters = { path = "../common/io-adapters" }
 embassy-futures = {path="../submodules/embassy/embassy-futures"}
-arena = { path = "../common/arena" }
 protocol = { path = "../common/protocol", features = ["serde","uuid"] }
 tokio = { version = "1.51.0", features = ["sync", "macros"] }
 serde-json-core = {path="../submodules/serde-json-core"}
 heapless = {path="../submodules/heapless"}
 mqtt-core = { path = "../common/mqtt-core" }
-uuid = { version = "1.23.0", features = ["v4", "js"] }
+uuid = {  path="../submodules/uuid", features = ["v4", "js"] }
 futures-util = "0.3.31"
-by_address = "1.2.1"
 unicode-segmentation = "1.13.2"
-jsonformat = "2.1.0"
-itertools = "0.14.0"
 empty-rc={path="../common/empty-rc"}
 picoboot = {path="../submodules/picoboot"}
 btleplug={path="../submodules/btleplug"}
@@ -89,7 +85,6 @@ nusb ={path="../submodules/nusb"}
 setup-client = {path="../common/setup-client"}
 embassy-sync = {path="../submodules/embassy/embassy-sync"}
 async_io_stream = "0.3.3"
-protocol-ble = {path="../common/protocol-ble",features = ["uuid"] }
 protocol-wifi = {path="../common/protocol-wifi"}
 error-report = {path="../common/error-report"}
 thiserror="2.0.18"
@@ -98,13 +93,8 @@ thiserror="2.0.18"
 built = {version="0.8.0",features = ["git2"]}
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.68"
+wasm-bindgen-test = {path="../submodules/wasm-bindgen/crates/test"}
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
-
-[patch.crates-io]
-web-sys={path="../submodules/wasm-bindgen/crates/web-sys"}
-wasm-bindgen={path="../submodules/wasm-bindgen"}
-js-sys={path="../submodules/wasm-bindgen/crates/js-sys"}

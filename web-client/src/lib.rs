@@ -42,14 +42,14 @@ use crate::query_params::QueryParamsCell;
 use crate::setup_tab::SetupTab;
 use crate::tabs::TabContainer;
 use crate::utils::document;
-use log::{error, info};
+use log::{error, info, Level};
 use std::future::pending;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]
 async fn start() {
-    wasm_logger::init(wasm_logger::Config::default());
+    console_log::init_with_level(Level::Info).unwrap();
     console_error_panic_hook::set_once();
     let Err(e) = main().await;
     error!("uncaught error: {:?}", e);

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-uuid = {version="1.23.0",optional = true}
+uuid = {path="../../submodules/uuid",optional = true}
 trouble-host = {path="../../submodules/trouble/host",optional = true}
 
 [features]

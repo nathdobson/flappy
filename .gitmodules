@@ -47,3 +47,24 @@
 [submodule "submodules/bt-hci"]
 	path = submodules/bt-hci
 	url = https://github.com/nathdobson/bt-hci.git
+[submodule "submodules/ws_stream_wasm"]
+	path = submodules/ws_stream_wasm
+	url = https://github.com/nathdobson/ws_stream_wasm.git
+[submodule "submodules/console_error_panic_hook"]
+	path = submodules/console_error_panic_hook
+	url = https://github.com/nathdobson/console_error_panic_hook.git
+[submodule "submodules/uuid"]
+	path = submodules/uuid
+	url = https://github.com/nathdobson/uuid.git
+[submodule "submodules/bluez-async"]
+	path = submodules/bluez-async
+	url = https://github.com/nathdobson/bluez-async.git
+[submodule "submodules/console_log"]
+	path = submodules/console_log
+	url = https://github.com/nathdobson/console_log.git
+[submodule "submodules/btuuid"]
+	path = submodules/btuuid
+	url = https://github.com/nathdobson/btuuid.git
+[submodule "submodules/rp-pac"]
+	path = submodules/rp-pac
+	url = https://github.com/embassy-rs/rp-pac.git

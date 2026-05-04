@@ -20,7 +20,7 @@ embassy-rp = { path = "../../submodules/embassy/embassy-rp", features = [
    "critical-section-impl", "rp235xa","binary-info",
   "log"
 ] }
-rp-pac = {version = "7.0.0", features = ["rp235x"]}
+rp-pac = {path="../../submodules/rp-pac", features = ["rp235x"]}
 embassy-time = { path = "../../submodules/embassy/embassy-time", features = [] }
 embassy-usb = { path = "../../submodules/embassy/embassy-usb" ,optional = true}
 embassy-net = { path = "../../submodules/embassy/embassy-net", features = [
@@ -48,8 +48,7 @@ serde = { version = "1.0.228", features = [
   "derive",
 ], default-features = false, optional = true }
 serde-json-core = { path="../../submodules/serde-json-core", optional = true }
-rand_core = "0.9.3"
-uuid = { version = "1.18.1", default-features = false, optional = true }
+uuid = { path="../../submodules/uuid", default-features = false, optional = true }
 heapless = { version = "0.9.2" }
 embedded-tls = { path="../../submodules/embedded-tls", default-features = false, optional = true, features = ["log"] }
 #embedded-tls = {version = "0.18.0",default-features = false,optional = true,features = ["webpki"]}

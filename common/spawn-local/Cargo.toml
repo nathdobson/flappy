@@ -9,4 +9,4 @@ edition = "2024"
 tokio ={version = "1.51.1",features = ["rt"]}
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-wasm-bindgen-futures = "0.4.68"
+wasm-bindgen-futures = {path="../../submodules/wasm-bindgen/crates/futures"}

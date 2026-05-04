@@ -15,7 +15,7 @@ jsonformat="2.1.0"
 futures-core = "0.3.31"
 futures-util = "0.3.31"
 btleplug = {path="../../submodules/btleplug",features = ["serde"], optional = true}
-uuid = "1.23.0"
+uuid = {path="../../submodules/uuid"}
 serde-string = {path="../../common/serde-string"}
 log = "0.4.29"
 picoboot = {path="../../submodules/picoboot", optional = true }
