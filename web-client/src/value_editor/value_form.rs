@@ -1,19 +1,16 @@
 use crate::dyn_async_fn::DynAsyncFn;
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
-use crate::status::StatusPriority;
 use crate::utils::create_element;
 use crate::utils::AppendChild;
 use crate::value_editor::ValueEditor;
 use empty_rc::EmptyRc;
 use error_report::Report;
-use futures_util::future::{BoxFuture, LocalBoxFuture};
 use js_sys::futures::spawn_local;
 use log::warn;
-use std::cell::{OnceCell, RefCell};
-use std::future::Future;
+use std::cell::RefCell;
 use std::rc::Rc;
-use web_sys::{HtmlDivElement, HtmlFormElement, HtmlInputElement, Text};
+use web_sys::{HtmlDivElement, HtmlFormElement, HtmlInputElement};
 
 pub struct ValueForm<T> {
     form: HtmlFormElement,

@@ -30,7 +30,7 @@ Bluetooth and USB connectivity require a supported web browser and platform.
 
 
 pub fn check_usb_supported() -> Result<(), Error> {
-    let usb = try_window()?
+    try_window()?
         .navigator()
         .usb()
         .ok_or(Error::UsbNotSupported)?;

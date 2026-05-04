@@ -41,7 +41,7 @@ fn append_field(
     form: &HtmlFormElement,
     id: &str,
     text: &str,
-    placeholder: &str,
+    _placeholder: &str,
 ) -> Result<HtmlInputElement, Error> {
     let label = form.append_element::<"label">()?;
     label.append_text(text)?;
@@ -53,7 +53,7 @@ fn append_field(
 }
 
 fn append_submit(form: &HtmlFormElement, text: &str) -> Result<HtmlInputElement, Error> {
-    let label = form.append_element::<"div">()?;
+    let _label = form.append_element::<"div">()?;
     let input = form.append_element::<"input">()?;
     input.set_id("submit");
     input.set_type("submit");
@@ -152,7 +152,7 @@ impl ConnectTab {
             submit.set_value("Send to Display");
 
             let (request_send, request_recv) = channel::<DisplayRequest>(10);
-            let (response_send, mut response_recv) = channel::<DisplayResponseContainer>(10);
+            let (response_send, response_recv) = channel::<DisplayResponseContainer>(10);
 
             let submit_listener = EventListener::new(&form, EventType::Submit, {
                 let status = status.clone();
@@ -166,7 +166,7 @@ impl ConnectTab {
                             return;
                         }
                     };
-                    if let Err(e) = request_send.try_send(DisplayRequest::Run(msg)) {
+                    if let Err(_) = request_send.try_send(DisplayRequest::Run(msg)) {
                         status.set(StatusPriority::Error, "Message queue overflow".to_string());
                     }
                 }

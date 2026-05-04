@@ -9,11 +9,9 @@ use empty_rc::EmptyRc;
 use js_sys::futures::spawn_local;
 use js_sys::{ArrayBuffer, Date, Uint8Array};
 use log::info;
-use picoboot::{Access, Picoboot};
 use setup_client::client::Client;
 use setup_client::flash_firmware::flash_firmware;
 use std::rc::Rc;
-use std::time::Duration;
 use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlDivElement, HtmlElement, Response};
 
@@ -66,7 +64,7 @@ impl FirmwareTab {
             }
         }
     }
-    fn flash_firmware(self: Rc<Self>, event: Event) {
+    fn flash_firmware(self: Rc<Self>, _event: Event) {
         spawn_local(async move {
             self.firmware_status.reset();
             if let Err(e) = self.try_flash_firmware().await {

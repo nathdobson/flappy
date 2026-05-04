@@ -1,53 +1,34 @@
-use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
-use crate::connection::{connect, connect_usb, EitherClient};
+use crate::bind_weak::bind_weak_try_async_fn1;
+use crate::connection::{connect, EitherClient};
 use crate::error::Error;
-use crate::event_listener::{EventListener, EventListenerSet, EventType};
+use crate::event_listener::{EventListenerSet, EventType};
 use crate::field;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
 use crate::utils::{bluetooth, create_element, sleep, spawn_local_joinable, JoinHandle};
-use crate::utils::{try_window, AppendChild};
+use crate::utils::AppendChild;
 use crate::value_editor::input_editor::InputEditor;
 use crate::value_editor::select_editor::SelectEditor;
-use crate::value_editor::struct_editor::{Field, StructEditor};
+use crate::value_editor::struct_editor::StructEditor;
 use crate::value_editor::value_form::ValueForm;
-use btleplug::api::Central;
-use btleplug::api::CentralEvent;
-use btleplug::api::Manager;
 use btleplug::api::Peripheral;
-use btleplug::api::ScanFilter;
 use empty_rc::EmptyRc;
-use futures_util::StreamExt;
 use itertools::Itertools;
-use js_sys::{Array, ArrayBuffer, JsString, Uint8Array};
-use jsonformat::Indentation;
-use log::{error, info};
-use picoboot::{Access, Picoboot};
-use protocol_ble::uuid::{APP_STATUS_UUID, RPC_SERVICE_UUID};
+use log::info;
+use picoboot::Picoboot;
 use protocol_wifi::WifiSettings;
 
 use crate::browser_support::{check_usb_supported, BROWSER_SUPPORT_MESSAGE};
 use crate::value_editor::bool_editor::BoolEditor;
 use protocol::setup::{
-    AppSettings, AppStatus, DisplaySettings, DriverVersion, MqttSettings, SetupRequest,
-    WriteAppSettings, MAX_SETUP_MESSAGE_SIZE,
+    DisplaySettings, DriverVersion, MqttSettings,
+    WriteAppSettings,
 };
-use setup_client::ble::BleClient;
 use setup_client::client::{Client, ClientTransport};
-use setup_client::usb::UsbClient;
-use std::cell::{Cell, OnceCell, Ref, RefCell};
-use std::fmt::Display;
-use std::future::IntoFuture;
-use std::iter::Once;
+use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
-use std::str::FromStr;
-use std::time::Duration;
-use wasm_bindgen::{JsCast, JsValue};
-use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::{
-    window, Blob, BlobPropertyBag, Bluetooth, BluetoothLeScanFilterInit, Event, File,
-    FileSystemFileHandle, HtmlButtonElement, HtmlDivElement, HtmlElement, Request, RequestDeviceOptions, Response,
-    Text, Url,
+    Event, HtmlButtonElement, HtmlDivElement, HtmlElement,
 };
 
 pub struct SetupTab {
@@ -155,7 +136,7 @@ impl SetupTab {
         wifi_section
             .append_element::<"div">()?
             .set_text_content(Some("Wifi Settings"));
-        let mut wifi_struct = StructEditor::<WifiSettings>::new()?;
+        let wifi_struct = StructEditor::<WifiSettings>::new()?;
         wifi_struct.add(field!("Wifi Name", ssid), InputEditor::new()?)?;
         wifi_struct.add(field!("Wifi Password", password), InputEditor::new()?)?;
         let wifi_settings = ValueForm::new(wifi_struct)?;
@@ -178,7 +159,7 @@ impl SetupTab {
         mqtt_section
             .append_element::<"div">()?
             .set_text_content(Some("MQTT Settings"));
-        let mut mqtt_struct = StructEditor::<MqttSettings>::new()?;
+        let mqtt_struct = StructEditor::<MqttSettings>::new()?;
         mqtt_struct.add(field!("MQTT Hostname", hostname), InputEditor::new()?)?;
         mqtt_struct.add(
             field!("MQTT Port", port),
@@ -207,7 +188,7 @@ impl SetupTab {
         display_section
             .append_element::<"div">()?
             .set_text_content(Some("Display Settings"));
-        let mut display_struct = StructEditor::<DisplaySettings>::new()?;
+        let display_struct = StructEditor::<DisplaySettings>::new()?;
         display_struct.add(
             field!("Segment calibrations", calibration),
             InputEditor::new_json()?,
@@ -377,21 +358,21 @@ impl SetupTab {
         }
         Ok(())
     }
-    fn connect_ble(self: Rc<Self>, event: Event) {
+    fn connect_ble(self: Rc<Self>, _event: Event) {
         self.connect_status.reset();
         self.connect_status
             .set(StatusPriority::Info, "Bluetooth: connecting...".to_string());
         self.connection
             .replace(Some(self.clone().spawn_connection(ClientTransport::Ble)));
     }
-    fn connect_usb(self: Rc<Self>, event: Event) {
+    fn connect_usb(self: Rc<Self>, _event: Event) {
         self.connect_status.reset();
         self.connect_status
             .set(StatusPriority::Info, "USB: connecting...".to_string());
         self.connection
             .replace(Some(self.clone().spawn_connection(ClientTransport::Usb)));
     }
-    fn disconnect(self: Rc<Self>, event: Event) {
+    fn disconnect(self: Rc<Self>, _event: Event) {
         self.show_connection(false).ok();
         self.connection.replace(None);
     }

@@ -1,20 +1,17 @@
 use crate::error::Error;
-use crate::query_params::{QueryParams, QueryParamsCell};
+use crate::query_params::QueryParamsCell;
 use crate::status::{Status, StatusPriority};
-use crate::utils::{sleep, try_window};
-use arena::Arena;
+use crate::utils::sleep;
 use async_io_stream::IoStream;
-use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
+use embassy_futures::select::{select4, Either4};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use io_adapters::split::{split_io, SplitRead, SplitWrite};
 use io_adapters::tokio::TokioStreamAdapter;
-use log::{error, info};
+use log::error;
 use mqtt_client::client::{ConnectRequest, MqttClient, PublishRequest};
-use mqtt_core::protocol::{Packet, PublishPacket, Qos};
+use mqtt_core::protocol::{PublishPacket, Qos};
 use protocol::display::{DisplayRequest, DisplayResponse};
 use protocol::setup::{DeviceInfo, MAX_SETUP_MESSAGE_SIZE};
-use serde::{Deserialize, Serialize};
-use std::pin::pin;
 use std::rc::Rc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use uuid::Uuid;
@@ -180,14 +177,14 @@ async fn do_connect(
 pub async fn run_mqtt_once(
     params: Rc<QueryParamsCell>,
     status: Rc<Status>,
-    mut requests: &mut PeekReceiver<DisplayRequest>,
+    requests: &mut PeekReceiver<DisplayRequest>,
     responses: &mut Sender<DisplayResponseContainer>,
 ) -> Result<!, Error> {
     status.set(
         StatusPriority::Info,
         format!("Connecting to WebSocket {}", params.borrow().ws_url),
     );
-    let (meta, stream) = WsMeta::connect(&params.borrow().ws_url, Some(vec!["mqtt"])).await?;
+    let (_meta, stream) = WsMeta::connect(&params.borrow().ws_url, Some(vec!["mqtt"])).await?;
     let (read, write) = split_io(stream.into_io());
     let client = FlappyMqttClient::new(TokioStreamAdapter(write), TokioStreamAdapter(read));
     let req_topic = format!("{}/request", params.borrow().topic);

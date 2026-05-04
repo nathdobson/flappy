@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::utils::{create_element, get_element_by_id};
+use crate::utils::create_element;
 use error_report::Report;
 use log::{error, info};
 use std::cell::RefCell;

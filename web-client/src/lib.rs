@@ -35,44 +35,17 @@ mod built_info {
 }
 
 use crate::connect_tab::ConnectTab;
-use crate::display::{Display, DisplayState};
 use crate::error::Error;
 use crate::firmware_tab::FirmwareTab;
 use crate::home_tab::HomeTab;
-use crate::mqtt_connector::run_mqtt;
-use crate::query_params::{QueryParams, QueryParamsCell};
+use crate::query_params::QueryParamsCell;
 use crate::setup_tab::SetupTab;
-use crate::status::{Status, StatusPriority};
 use crate::tabs::{TabContainer, TabContent};
-use crate::utils::{create_element, create_text_node, document, get_element_by_id, sleep};
-use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
-use futures_util::AsyncWriteExt;
-use io_adapters::split::split_io;
-use io_adapters::tokio::TokioStreamAdapter;
-use log::{error, info, warn};
-use protocol::display::{
-    DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS, MAX_GLYPH_BYTES,
-};
-use protocol::setup::DeviceInfo;
-use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
+use crate::utils::document;
+use log::{error, info};
 use std::future::pending;
-use std::iter;
-use std::ops::Add;
-use std::pin::pin;
 use std::rc::Rc;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::mpsc::{channel, Receiver};
-use tokio::try_join;
-use url::Url;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
-use web_sys::{
-    window, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, Node, Window,
-};
-use ws_stream_wasm::WsMeta;
 
 #[wasm_bindgen(start)]
 async fn start() {

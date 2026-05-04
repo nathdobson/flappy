@@ -3,9 +3,7 @@ use crate::query_params::QueryParamsCell;
 use crate::utils::create_element;
 use std::cell::Cell;
 use std::rc::Rc;
-use web_sys::{
-    HtmlAnchorElement, HtmlDivElement, HtmlElement, HtmlLiElement,
-};
+use web_sys::{HtmlAnchorElement, HtmlDivElement, HtmlElement, HtmlLiElement};
 
 struct Tab {
     content: Rc<dyn TabContent>,
@@ -38,7 +36,7 @@ impl TabContainer {
         header.set_class_name("tab-header");
         node.append_child(&header)?;
         let mut tabs = vec![];
-        for (index, content) in content.into_iter().enumerate() {
+        for content in content.into_iter() {
             let content_node = content.node();
             content_node.style().set_property("display", "none")?;
             node.append_child(content_node)?;

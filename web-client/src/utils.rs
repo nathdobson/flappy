@@ -184,7 +184,7 @@ impl<T> Future for JoinHandle<T> {
 }
 
 impl<T> JoinHandle<Result<T, Error>> {
-    pub async fn try_join(mut self) -> Result<T, Error> {
+    pub async fn try_join(self) -> Result<T, Error> {
         Ok(self.await??)
     }
 }
