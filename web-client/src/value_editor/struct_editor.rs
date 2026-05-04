@@ -1,31 +1,33 @@
 use crate::error::Error;
-use crate::utils::{create_element, AppendChild};
+use crate::utils::{AppendChild, create_element};
 use crate::value_editor::ValueEditor;
+use std::cell::RefCell;
 use std::marker::PhantomData;
+use std::rc::Rc;
 use web_sys::{HtmlDivElement, Node};
 
 trait FieldEditor<S: 'static> {
-    fn node(&self) -> &Node;
-    fn set_value(&mut self, value: &S);
+    fn node(&self) -> Node;
+    fn set_value(&self, value: &S);
     fn get_value(&self, value: &mut S) -> Result<(), Error>;
 }
 
 struct ValueFieldEditor<S, F> {
-    inner: Box<dyn ValueEditor<F>>,
+    inner: Rc<dyn ValueEditor<F>>,
     field: Field<S, F>,
 }
 
 impl<S: 'static, F: 'static> FieldEditor<S> for ValueFieldEditor<S, F> {
-    fn node(&self) -> &Node {
-        self.inner.node()
+    fn node(&self) -> Node {
+        self.inner.clone().node()
     }
 
-    fn set_value(&mut self, value: &S) {
-        self.inner.set_value((self.field.get)(value));
+    fn set_value(&self, value: &S) {
+        self.inner.clone().set_value((self.field.get)(value));
     }
 
     fn get_value(&self, value: &mut S) -> Result<(), Error> {
-        *(self.field.get_mut)(value) = self.inner.get_value()?;
+        *(self.field.get_mut)(value) = self.inner.clone().get_value()?;
         Ok(())
     }
 }
@@ -33,7 +35,7 @@ impl<S: 'static, F: 'static> FieldEditor<S> for ValueFieldEditor<S, F> {
 pub struct StructEditor<S> {
     phantom: PhantomData<S>,
     div: HtmlDivElement,
-    fields: Vec<Box<dyn FieldEditor<S>>>,
+    fields: RefCell<Vec<Box<dyn FieldEditor<S>>>>,
 }
 
 pub struct Field<S, F> {
@@ -44,30 +46,35 @@ pub struct Field<S, F> {
 
 #[macro_export]
 macro_rules! field {
-    ($name:ident) => {
+    ($label:literal, $field:ident) => {
         $crate::value_editor::struct_editor::Field {
-            name: stringify!($name),
-            get: Box::new(|x| &x.$name),
-            get_mut: Box::new(|x| &mut x.$name),
+            name: $label,
+            get: Box::new(|x| &x.$field),
+            get_mut: Box::new(|x| &mut x.$field),
         }
     };
 }
 
 impl<S: 'static> StructEditor<S> {
-    pub fn new() -> Result<Self, Error> {
+    pub fn new() -> Result<Rc<Self>, Error> {
         let div = create_element::<"div">()?;
         div.set_class_name("struct-editor");
-        Ok(StructEditor {
+        Ok(Rc::new(StructEditor {
             div,
             phantom: PhantomData,
-            fields: vec![],
-        })
+            fields: RefCell::new(vec![]),
+        }))
     }
-    pub fn add<F: 'static>(&mut self, field: Field<S, F>, value: impl ValueEditor<F>) ->Result<(), Error>{
-        let value = Box::new(value);
-        self.div.append_element::<"div">()?.append_text(field.name)?;
-        self.div.append_child(value.node())?;
-        self.fields.push(Box::new(ValueFieldEditor {
+    pub fn add<F: 'static>(
+        &self,
+        field: Field<S, F>,
+        value: Rc<dyn ValueEditor<F>>,
+    ) -> Result<(), Error> {
+        self.div
+            .append_element::<"div">()?
+            .append_text(field.name)?;
+        self.div.append_child(&value.clone().node())?;
+        self.fields.borrow_mut().push(Box::new(ValueFieldEditor {
             inner: value,
             field,
         }));
@@ -76,19 +83,19 @@ impl<S: 'static> StructEditor<S> {
 }
 
 impl<S: 'static + Default> ValueEditor<S> for StructEditor<S> {
-    fn node(&self) -> &Node {
-        &self.div
+    fn node(self: Rc<Self>) -> Node {
+        self.div.clone().into()
     }
 
-    fn set_value(&mut self, value: &S) {
-        for field in &mut self.fields {
+    fn set_value(self: Rc<Self>, value: &S) {
+        for field in &*self.fields.borrow() {
             field.set_value(value);
         }
     }
 
-    fn get_value(&self) -> Result<S, Error> {
+    fn get_value(self: Rc<Self>) -> Result<S, Error> {
         let mut result = S::default();
-        for field in &self.fields {
+        for field in &*self.fields.borrow() {
             field.get_value(&mut result)?;
         }
         Ok(result)

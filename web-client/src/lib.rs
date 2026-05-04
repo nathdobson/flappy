@@ -13,6 +13,7 @@
 #![allow(incomplete_features)]
 #![allow(unused_mut)]
 #![feature(unsized_fn_params)]
+#![feature(trim_prefix_suffix)]
 #![allow(internal_features)]
 #![deny(non_snake_case)]
 

@@ -207,3 +207,11 @@
 .firmware-button{
     margin:5px;
 }
+
+.bool-editor {
+    margin-right: auto;
+}
+
+.select-editor {
+    margin:5px;
+}

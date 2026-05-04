@@ -2,12 +2,14 @@ use crate::dyn_async_fn::DynAsyncFn;
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::status::StatusPriority;
-use crate::utils::create_element;
 use crate::utils::AppendChild;
+use crate::utils::create_element;
 use crate::value_editor::ValueEditor;
 use empty_rc::EmptyRc;
+use error_report::Report;
 use futures_util::future::{BoxFuture, LocalBoxFuture};
 use js_sys::futures::spawn_local;
+use log::warn;
 use std::cell::{OnceCell, RefCell};
 use std::future::Future;
 use std::rc::Rc;
@@ -15,7 +17,7 @@ use web_sys::{HtmlDivElement, HtmlFormElement, HtmlInputElement, Text};
 
 pub struct ValueForm<T> {
     form: HtmlFormElement,
-    value: RefCell<Box<dyn ValueEditor<T>>>,
+    value: Rc<dyn ValueEditor<T>>,
     submit: HtmlInputElement,
     submit_status: HtmlDivElement,
     event_listener: EventListener<'static>,
@@ -23,12 +25,11 @@ pub struct ValueForm<T> {
 }
 
 impl<T: 'static> ValueForm<T> {
-    pub fn new(value: impl ValueEditor<T>) -> Result<Rc<Self>, Error> {
+    pub fn new(value: Rc<dyn ValueEditor<T>>) -> Result<Rc<Self>, Error> {
         let this = EmptyRc::<Self>::new();
         let form = create_element::<"form">()?;
         form.set_class_name("editor-form");
-        let value = Box::new(value);
-        form.append_child(value.node())?;
+        form.append_child(&value.clone().node())?;
         let submit = form.append_element::<"input">()?;
         submit.set_type("submit");
         submit.set_value("Save");
@@ -41,7 +42,7 @@ impl<T: 'static> ValueForm<T> {
                     this.submit_status.set_text_content(Some("Submitting..."));
                     if let Err(e) = this.clone().do_submit() {
                         this.submit_status
-                            .set_text_content(Some(&format!("Submit failure: {}", e)));
+                            .set_text_content(Some(&format!("Submit failure: {}", Report::new(e))));
                     } else {
                         this.submit_status.set_text_content(Some("Submitted"));
                     }
@@ -51,7 +52,7 @@ impl<T: 'static> ValueForm<T> {
         })?;
         let this = this.into_rc(ValueForm {
             form,
-            value: RefCell::new(value),
+            value,
             submit,
             submit_status,
             event_listener,
@@ -64,13 +65,15 @@ impl<T: 'static> ValueForm<T> {
         self.submit.set_value(name);
     }
     fn do_submit(self: Rc<Self>) -> Result<(), Error> {
-        let value = self.value.borrow().get_value()?;
+        let value = self.value.clone().get_value()?;
         let on_submit = self.on_submit.borrow().clone();
         if let Some(on_submit) = on_submit {
             spawn_local(async move {
                 let on_submit = on_submit.call(value);
                 if let Err(e) = on_submit.await {
-                    self.submit_status.set_text_content(Some(&format!("{}", e)));
+                    self.submit_status
+                        .set_text_content(Some(&format!("Submit failure: {}", Report::new(&e))));
+                    warn!("Submit failure: {}", Report::new(&e));
                 }
             });
         }
@@ -80,7 +83,7 @@ impl<T: 'static> ValueForm<T> {
         &self.form
     }
     pub fn set_value(&self, value: &T) {
-        self.value.borrow_mut().set_value(value);
+        self.value.clone().set_value(value);
     }
     pub fn set_on_submit<F>(&self, on_submit: F)
     where

@@ -7,9 +7,9 @@ use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
 use crate::utils::{AppendChild, try_window};
 use crate::utils::{JoinHandle, bluetooth, create_element, sleep, spawn_local_joinable};
+use crate::value_editor::input_editor::InputEditor;
 use crate::value_editor::select_editor::SelectEditor;
 use crate::value_editor::struct_editor::{Field, StructEditor};
-use crate::value_editor::text_editor::TextEditor;
 use crate::value_editor::value_form::ValueForm;
 use btleplug::api::Central;
 use btleplug::api::CentralEvent;
@@ -26,6 +26,8 @@ use picoboot::{Access, Picoboot};
 use protocol_ble::uuid::{APP_STATUS_UUID, RPC_SERVICE_UUID};
 use protocol_wifi::WifiSettings;
 
+use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_usb_supported};
+use crate::value_editor::bool_editor::BoolEditor;
 use protocol::setup::{
     AppSettings, AppStatus, DisplaySettings, DriverVersion, MAX_SETUP_MESSAGE_SIZE, MqttSettings,
     SetupRequest, WriteAppSettings,
@@ -47,7 +49,6 @@ use web_sys::{
     HtmlButtonElement, HtmlDivElement, HtmlElement, Request, RequestDeviceOptions, Response, Text,
     Url, window,
 };
-use crate::browser_support::{check_usb_supported, BROWSER_SUPPORT_MESSAGE};
 
 pub struct SetupTab {
     node: HtmlDivElement,
@@ -68,7 +69,6 @@ pub struct SetupTab {
     wifi_settings: Rc<ValueForm<WifiSettings>>,
     mqtt_settings: Rc<ValueForm<MqttSettings>>,
     display_settings: Rc<ValueForm<DisplaySettings>>,
-
 }
 
 struct ConnectionTask {
@@ -90,7 +90,6 @@ impl TabContent for SetupTab {
         &self.node
     }
 }
-
 
 impl SetupTab {
     pub fn new() -> Result<Rc<Self>, Error> {
@@ -150,8 +149,8 @@ impl SetupTab {
             .append_element::<"div">()?
             .set_text_content(Some("Wifi Settings"));
         let mut wifi_struct = StructEditor::<WifiSettings>::new()?;
-        wifi_struct.add(field!(ssid), TextEditor::new()?)?;
-        wifi_struct.add(field!(password), TextEditor::new()?)?;
+        wifi_struct.add(field!("Wifi Name", ssid), InputEditor::new()?)?;
+        wifi_struct.add(field!("Wifi Password", password), InputEditor::new()?)?;
         let wifi_settings = ValueForm::new(wifi_struct)?;
         wifi_settings.set_submit_name("Save Wifi Settings");
         wifi_settings.set_on_submit(bind_weak_try_async_fn1(
@@ -173,11 +172,14 @@ impl SetupTab {
             .append_element::<"div">()?
             .set_text_content(Some("MQTT Settings"));
         let mut mqtt_struct = StructEditor::<MqttSettings>::new()?;
-        mqtt_struct.add(field!(hostname), TextEditor::new()?)?;
-        mqtt_struct.add(field!(port), TextEditor::new()?)?;
-        mqtt_struct.add(field!(username), TextEditor::new()?)?;
-        mqtt_struct.add(field!(password), TextEditor::new()?)?;
-        mqtt_struct.add(field!(topic), TextEditor::new()?)?;
+        mqtt_struct.add(field!("MQTT Hostname", hostname), InputEditor::new()?)?;
+        mqtt_struct.add(
+            field!("MQTT Port", port),
+            InputEditor::new_integer(Some(0), Some(u16::MAX), Some(1))?,
+        )?;
+        mqtt_struct.add(field!("MQTT Username", username), InputEditor::new()?)?;
+        mqtt_struct.add(field!("MQTT Password", password), InputEditor::new()?)?;
+        mqtt_struct.add(field!("MQTT Topic", topic), InputEditor::new()?)?;
         let mqtt_settings = ValueForm::new(mqtt_struct)?;
         mqtt_settings.set_submit_name("Save MQTT Settings");
         mqtt_settings.set_on_submit(bind_weak_try_async_fn1(
@@ -199,20 +201,44 @@ impl SetupTab {
             .append_element::<"div">()?
             .set_text_content(Some("Display Settings"));
         let mut display_struct = StructEditor::<DisplaySettings>::new()?;
-        display_struct.add(field!(calibration), TextEditor::new_json()?)?;
-        display_struct.add(field!(glyphs), TextEditor::new_json()?)?;
-        display_struct.add(field!(background), TextEditor::new()?)?;
-        display_struct.add(field!(foreground), TextEditor::new()?)?;
         display_struct.add(
-            field!(driver_version),
+            field!("Segment calibrations", calibration),
+            InputEditor::new_json()?,
+        )?;
+        display_struct.add(field!("Glyphs", glyphs), InputEditor::new_json()?)?;
+        display_struct.add(
+            field!("Background color", background),
+            InputEditor::new_color()?,
+        )?;
+        display_struct.add(
+            field!("Foreground color", foreground),
+            InputEditor::new_color()?,
+        )?;
+        display_struct.add(
+            field!("Driver board version", driver_version),
             SelectEditor::new(vec![DriverVersion::V1_0, DriverVersion::V2_0])?,
         )?;
 
-        display_struct.add(field!(micros_per_tick), TextEditor::new_optional()?)?;
-        display_struct.add(field!(slow_ticks_per_step), TextEditor::new_optional()?)?;
-        display_struct.add(field!(slow_steps_per_stage), TextEditor::new_optional()?)?;
-        display_struct.add(field!(fast_ticks_per_step), TextEditor::new_optional()?)?;
-        display_struct.add(field!(rehome_after_stopping), TextEditor::new()?)?;
+        display_struct.add(
+            field!("Microseconds per tick", micros_per_tick),
+            InputEditor::new_optional_integer(Some(1), None, Some(1))?,
+        )?;
+        display_struct.add(
+            field!("Steps per stage (slow)", slow_steps_per_stage),
+            InputEditor::new_optional_integer(Some(1), Some(u16::MAX), Some(1))?,
+        )?;
+        display_struct.add(
+            field!("Ticks per step (slow)", slow_ticks_per_step),
+            InputEditor::new_optional_integer(Some(1), Some(u8::MAX), Some(1))?,
+        )?;
+        display_struct.add(
+            field!("Ticks per step (fast)", fast_ticks_per_step),
+            InputEditor::new_optional_integer(Some(1), Some(u8::MAX), Some(1))?,
+        )?;
+        display_struct.add(
+            field!("Re-home after stopping", rehome_after_stopping),
+            BoolEditor::new()?,
+        )?;
         let display_settings = ValueForm::new(display_struct)?;
         display_settings.set_submit_name("Save Display Settings");
         display_settings.set_on_submit(bind_weak_try_async_fn1(
@@ -227,8 +253,6 @@ impl SetupTab {
             },
         ));
         display_section.append_child(display_settings.node())?;
-
-
 
         let connect_ble_listener = EventListener::new(
             &connect_ble_button,
@@ -264,8 +288,6 @@ impl SetupTab {
             wifi_settings,
             mqtt_settings,
             display_settings,
-
-
         });
         this.show_connection(false)?;
         Ok(this)
@@ -399,7 +421,4 @@ impl SetupTab {
         self.connection()?.write_settings(settings).await?;
         Ok(())
     }
-
-
 }
-
