@@ -1,4 +1,3 @@
-use log::info;
 use crate::error::Error;
 use crate::utils::{bluetooth, try_window};
 

@@ -1,8 +1,8 @@
 use crate::error::Error;
 use crate::tabs::TabContent;
+use crate::utils::create_element;
 use crate::utils::AppendChild;
-use crate::utils::{create_element, create_text_node};
-use web_sys::{HtmlDivElement, HtmlElement, Node};
+use web_sys::{HtmlDivElement, HtmlElement};
 
 pub struct HomeTab {
     node: HtmlDivElement,

@@ -1,10 +1,10 @@
 use crate::error::Error;
-use crate::utils::AppendChild;
 use crate::utils::create_element;
+use crate::utils::AppendChild;
 use crate::value_editor::ValueEditor;
 use std::fmt::Display;
 use std::rc::Rc;
-use web_sys::{HtmlInputElement, HtmlSelectElement, Node};
+use web_sys::{HtmlSelectElement, Node};
 
 pub struct SelectEditor<T> {
     values: Vec<T>,

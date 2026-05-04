@@ -5,7 +5,6 @@ pub mod struct_editor;
 pub mod value_form;
 
 use crate::error::Error;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use web_sys::Node;
 

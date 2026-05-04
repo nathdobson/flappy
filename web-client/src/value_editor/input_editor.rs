@@ -1,17 +1,11 @@
-use crate::bind_weak::bind_weak_fn1;
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::utils::create_element;
 use crate::value_editor::ValueEditor;
 use empty_rc::EmptyRc;
-use error_report::Report;
-use log::info;
 use protocol::setup::MAX_SETUP_MESSAGE_SIZE;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::fmt::Display;
-use std::marker::PhantomData;
-use std::ops::{RangeInclusive, RangeToInclusive};
 use std::rc::Rc;
 use std::str::FromStr;
 use web_sys::{Event, HtmlInputElement, Node};
@@ -40,11 +34,8 @@ impl<T: 'static> InputEditor<T> {
         let input = create_element::<"input">()?;
         input.set_type("text");
         input.set_class_name("text-editor");
-        let listener = EventListener::new(
-            &input,
-            EventType::Change,
-            bind_weak_fn1(this.downgrade(), Self::on_change),
-        )?;
+        let listener =
+            EventListener::new_weak(&input, EventType::Change, this.downgrade(), Self::on_change)?;
         Ok(this.into_rc(InputEditor {
             input,
             from_str: Box::new(from_str),

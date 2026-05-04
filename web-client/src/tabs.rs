@@ -1,13 +1,10 @@
 use crate::error::Error;
-use crate::event_listener::{EventListener, EventType};
-use crate::query_params::{QueryParams, QueryParamsCell};
-use crate::utils::{create_element, document};
-use by_address::ByAddress;
-use log::info;
-use std::cell::{Cell, OnceCell};
+use crate::query_params::QueryParamsCell;
+use crate::utils::create_element;
+use std::cell::Cell;
 use std::rc::Rc;
 use web_sys::{
-    Element, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlLiElement, Node,
+    HtmlAnchorElement, HtmlDivElement, HtmlElement, HtmlLiElement,
 };
 
 struct Tab {

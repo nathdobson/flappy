@@ -1,12 +1,10 @@
 use crate::error::Error;
 use crate::mqtt_connector::DisplayResponseContainer;
 use crate::status::{Status, StatusPriority};
-use crate::utils::{create_element, get_element_by_id, sleep};
-use embassy_futures::select::{select, Either};
+use crate::utils::{create_element, sleep};
+use embassy_futures::select::{Either, select};
 use log::{error, info};
-use protocol::display::{
-    DisplayRequest, DisplayResponse, DISPLAY_REQUEST_CAPACITY, MAX_GLYPHS, MAX_GLYPH_BYTES,
-};
+use protocol::display::{DisplayResponse, MAX_GLYPH_BYTES, MAX_GLYPHS};
 use protocol::setup::DeviceInfo;
 use std::cell::{Ref, RefCell};
 use std::future::pending;
@@ -107,7 +105,7 @@ impl Display {
         }
         let mut inners = vec![];
         let mut outers = vec![];
-        for i in 0..info.glyphs {
+        for _ in 0..info.glyphs {
             let letter_outer = create_element::<"div">()?;
             letter_outer
                 .style()

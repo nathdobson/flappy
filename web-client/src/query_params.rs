@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::utils::try_window;
 use serde::{Deserialize, Serialize};
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::{Ref, RefCell};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QueryParams {

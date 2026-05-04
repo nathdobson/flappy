@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::utils::{AppendChild, create_element};
+use crate::utils::{create_element, AppendChild};
 use crate::value_editor::ValueEditor;
 use std::cell::RefCell;
 use std::marker::PhantomData;

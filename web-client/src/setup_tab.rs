@@ -1,12 +1,12 @@
 use crate::bind_weak::{bind_weak_async_fn1, bind_weak_try_async_fn1};
-use crate::connection::{EitherClient, connect, connect_usb};
+use crate::connection::{connect, connect_usb, EitherClient};
 use crate::error::Error;
-use crate::event_listener::{EventListener, EventType};
+use crate::event_listener::{EventListener, EventListenerSet, EventType};
 use crate::field;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
-use crate::utils::{AppendChild, try_window};
-use crate::utils::{JoinHandle, bluetooth, create_element, sleep, spawn_local_joinable};
+use crate::utils::{bluetooth, create_element, sleep, spawn_local_joinable, JoinHandle};
+use crate::utils::{try_window, AppendChild};
 use crate::value_editor::input_editor::InputEditor;
 use crate::value_editor::select_editor::SelectEditor;
 use crate::value_editor::struct_editor::{Field, StructEditor};
@@ -26,11 +26,11 @@ use picoboot::{Access, Picoboot};
 use protocol_ble::uuid::{APP_STATUS_UUID, RPC_SERVICE_UUID};
 use protocol_wifi::WifiSettings;
 
-use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_usb_supported};
+use crate::browser_support::{check_usb_supported, BROWSER_SUPPORT_MESSAGE};
 use crate::value_editor::bool_editor::BoolEditor;
 use protocol::setup::{
-    AppSettings, AppStatus, DisplaySettings, DriverVersion, MAX_SETUP_MESSAGE_SIZE, MqttSettings,
-    SetupRequest, WriteAppSettings,
+    AppSettings, AppStatus, DisplaySettings, DriverVersion, MqttSettings, SetupRequest,
+    WriteAppSettings, MAX_SETUP_MESSAGE_SIZE,
 };
 use setup_client::ble::BleClient;
 use setup_client::client::{Client, ClientTransport};
@@ -43,20 +43,17 @@ use std::rc::Rc;
 use std::str::FromStr;
 use std::time::Duration;
 use wasm_bindgen::{JsCast, JsValue};
-use wasm_bindgen_futures::{JsFuture, spawn_local};
+use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::{
-    Blob, BlobPropertyBag, Bluetooth, BluetoothLeScanFilterInit, Event, File, FileSystemFileHandle,
-    HtmlButtonElement, HtmlDivElement, HtmlElement, Request, RequestDeviceOptions, Response, Text,
-    Url, window,
+    window, Blob, BlobPropertyBag, Bluetooth, BluetoothLeScanFilterInit, Event, File,
+    FileSystemFileHandle, HtmlButtonElement, HtmlDivElement, HtmlElement, Request, RequestDeviceOptions, Response,
+    Text, Url,
 };
 
 pub struct SetupTab {
     node: HtmlDivElement,
-    connect_usb_listener: EventListener<'static>,
     connect_usb_button: HtmlButtonElement,
-    connect_ble_listener: EventListener<'static>,
     connect_ble_button: HtmlButtonElement,
-    disconnect_listener: EventListener<'static>,
     disconnect_button: HtmlButtonElement,
     connection: RefCell<Option<ConnectionTask>>,
     connect_status: Rc<Status>,
@@ -69,6 +66,8 @@ pub struct SetupTab {
     wifi_settings: Rc<ValueForm<WifiSettings>>,
     mqtt_settings: Rc<ValueForm<MqttSettings>>,
     display_settings: Rc<ValueForm<DisplaySettings>>,
+
+    listeners: EventListenerSet<'static, Self>,
 }
 
 struct ConnectionTask {
@@ -94,9 +93,11 @@ impl TabContent for SetupTab {
 impl SetupTab {
     pub fn new() -> Result<Rc<Self>, Error> {
         let this = EmptyRc::<Self>::new();
+        let mut listeners = EventListenerSet::new(this.downgrade());
 
         let node = create_element::<"div">()?;
         node.set_class_name("setup-tab");
+        
         let connect_section = node.append_element::<"div">()?;
         let ble_supported = bluetooth().is_ok();
         let usb_supported = check_usb_supported().is_ok();
@@ -105,20 +106,26 @@ impl SetupTab {
                 .append_element::<"p">()?
                 .set_inner_html(BROWSER_SUPPORT_MESSAGE);
         }
-
         connect_section.set_class_name("setup-section");
+
         let connect_status = Status::new()?;
         connect_section.append_child(connect_status.node())?;
         connect_status.set(StatusPriority::Info, "Display not connected".to_string());
+
         let connect_ble_button = connect_section.append_element::<"button">()?;
         connect_ble_button.append_text("Connect via Bluetooth")?;
         connect_ble_button.set_disabled(!ble_supported);
+        listeners.add(&connect_ble_button, EventType::Click, Self::connect_ble)?;
+
         let connect_usb_button = connect_section.append_element::<"button">()?;
         connect_usb_button.append_text("Connect via USB")?;
         connect_usb_button.set_disabled(!usb_supported);
+        listeners.add(&connect_usb_button, EventType::Click, Self::connect_usb)?;
 
         let disconnect_button = connect_section.append_element::<"button">()?;
         disconnect_button.append_text("Disconnect")?;
+        listeners.add(&disconnect_button, EventType::Click, Self::disconnect)?;
+
 
         let device_section = node.append_element::<"div">()?;
         device_section.set_class_name("setup-section device-info-section");
@@ -254,28 +261,10 @@ impl SetupTab {
         ));
         display_section.append_child(display_settings.node())?;
 
-        let connect_ble_listener = EventListener::new(
-            &connect_ble_button,
-            EventType::Click,
-            Self::weak_callback(&this, Self::connect_ble),
-        )?;
-        let connect_usb_listener = EventListener::new(
-            &connect_usb_button,
-            EventType::Click,
-            Self::weak_callback(&this, Self::connect_usb),
-        )?;
-        let disconnect_listener = EventListener::new(
-            &disconnect_button,
-            EventType::Click,
-            Self::weak_callback(&this, Self::disconnect),
-        )?;
         let this = this.into_rc(SetupTab {
             node,
             connect_usb_button,
-            connect_usb_listener,
             connect_ble_button,
-            connect_ble_listener,
-            disconnect_listener,
             disconnect_button,
             connection: RefCell::new(None),
             connect_status,
@@ -288,6 +277,7 @@ impl SetupTab {
             wifi_settings,
             mqtt_settings,
             display_settings,
+            listeners,
         });
         this.show_connection(false)?;
         Ok(this)

@@ -1,13 +1,39 @@
+use crate::bind_weak::{ bind_weak_fnmut1};
 use crate::error::Error;
 use log::info;
+use std::rc::{Rc, Weak};
 use wasm_bindgen::closure::Closure;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast};
 use web_sys::{Event, EventTarget};
 
 pub struct EventListener<'a> {
     target: EventTarget,
     typ: EventType,
     closure: Closure<dyn 'a + FnMut(Event)>,
+}
+
+pub struct EventListenerSet<'a, T> {
+    listeners: Vec<EventListener<'a>>,
+    this: Weak<T>,
+}
+
+impl<'a, T: 'a> EventListenerSet<'a, T> {
+    pub fn new(this: Weak<T>) -> Self {
+        EventListenerSet {
+            listeners: vec![],
+            this,
+        }
+    }
+    pub fn add(
+        &mut self,
+        target: &EventTarget,
+        typ: EventType,
+        callback: impl 'a + FnMut(Rc<T>, Event),
+    ) -> Result<(), Error> {
+        self.listeners
+            .push(EventListener::new_weak(target, typ, self.this.clone(), callback)?);
+        Ok(())
+    }
 }
 
 pub enum EventType {
@@ -31,6 +57,14 @@ impl<'a> EventListener<'a> {
             typ,
             closure,
         })
+    }
+    pub fn new_weak<T: 'a>(
+        target: &EventTarget,
+        typ: EventType,
+        this: Weak<T>,
+        callback: impl 'a + FnMut(Rc<T>, Event),
+    ) -> Result<EventListener<'a>, Error> {
+        Self::new(target, typ, bind_weak_fnmut1(this, callback))
     }
 }
 

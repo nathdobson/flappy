@@ -1,10 +1,10 @@
-use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_usb_supported};
-use crate::connection::{EitherClient, connect_usb};
+use crate::browser_support::{check_usb_supported, BROWSER_SUPPORT_MESSAGE};
+use crate::connection::{connect_usb, EitherClient};
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
-use crate::utils::{AppendChild, create_element, sleep, try_window};
+use crate::utils::{create_element, sleep, try_window, AppendChild};
 use empty_rc::EmptyRc;
 use js_sys::futures::spawn_local;
 use js_sys::{ArrayBuffer, Date, Uint8Array};

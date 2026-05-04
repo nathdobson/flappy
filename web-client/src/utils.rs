@@ -1,8 +1,6 @@
 use crate::error::Error;
 use futures_util::future::FutureExt;
-use log::info;
 use std::future::Future;
-use std::marker::PhantomData;
 use std::panic::AssertUnwindSafe;
 use std::pin::Pin;
 use std::task::{Context, Poll};

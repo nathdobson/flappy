@@ -1,10 +1,10 @@
 use crate::error::Error;
 use crate::utils::{create_element, get_element_by_id};
+use error_report::Report;
 use log::{error, info};
 use std::cell::RefCell;
 use std::rc::Rc;
 use web_sys::{HtmlDivElement, HtmlElement};
-use error_report::Report;
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum StatusPriority {

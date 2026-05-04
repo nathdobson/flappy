@@ -7,7 +7,6 @@ use std::any::Any;
 use std::fmt::{Debug, Display, Formatter};
 use std::str::ParseBoolError;
 use thiserror::Error;
-use tokio::sync::mpsc::error::{SendError, TrySendError};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use web_sys::{DomException, UsbTransferStatus};

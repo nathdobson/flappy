@@ -1,8 +1,6 @@
 use crate::error::Error;
 use crate::utils::create_element;
 use crate::value_editor::ValueEditor;
-use empty_rc::EmptyRc;
-use std::marker::PhantomData;
 use std::rc::Rc;
 use web_sys::{HtmlInputElement, Node};
 

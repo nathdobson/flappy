@@ -1,22 +1,20 @@
-use crate::display::{Display, DisplayState};
+use crate::display::Display;
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
-use crate::mqtt_connector::{run_mqtt, DisplayResponseContainer};
+use crate::mqtt_connector::{DisplayResponseContainer, run_mqtt};
 use crate::query_params::QueryParamsCell;
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
 use crate::utils::AppendChild;
-use crate::utils::{create_element};
-use embassy_futures::select::{select, Either};
-use log::{error, info};
-use protocol::display::{DisplayRequest, DisplayResponse, MAX_GLYPHS};
+use crate::utils::create_element;
+use log::error;
+use protocol::display::DisplayRequest;
 use std::rc::Rc;
 use std::str::FromStr;
-use std::{iter, mem};
-use tokio::sync::mpsc::{channel, Receiver};
+use tokio::sync::mpsc::channel;
 use unicode_segmentation::UnicodeSegmentation;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, Node};
+use web_sys::{HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement};
 enum ConnectTabInner {
     ConnectForm(ConnectForm),
     Connect(Connect),

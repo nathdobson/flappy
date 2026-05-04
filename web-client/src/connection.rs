@@ -2,16 +2,12 @@ use crate::error::Error;
 use crate::status::{Status, StatusPriority};
 use crate::utils::try_window;
 use futures_util::StreamExt;
-use log::info;
 use nusb::device_info_from_wasm;
 use picoboot::Picoboot;
-use protocol::setup::{
-    AppSettings, AppStatus, DeviceInfo, SetupRequest, SetupResponse, WriteAppSettings,
-};
 use protocol::usb::VENDOR_ID;
-use setup_client::ble::{BleClient, BleClientBuilder};
+use setup_client::ble::BleClientBuilder;
 use setup_client::client::{Client, ClientTransport};
-use setup_client::usb::{BootSelect, UsbClient, UsbClientBuilder};
+use setup_client::usb::{BootSelect, UsbClientBuilder};
 use std::rc::Rc;
 use web_sys::{Usb, UsbDeviceFilter, UsbDeviceRequestOptions};
 
