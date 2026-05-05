@@ -1,7 +1,8 @@
+use crate::built_info;
 use crate::error::Error;
 use crate::tabs::TabContent;
-use crate::utils::create_element;
 use crate::utils::AppendChild;
+use crate::utils::create_element;
 use web_sys::{HtmlDivElement, HtmlElement};
 
 pub struct HomeTab {
@@ -26,6 +27,11 @@ impl HomeTab {
     pub fn new() -> Result<Self, Error> {
         let node = create_element::<"div">()?;
         let ul = node.append_element::<"ul">()?;
+        let li = ul.append_element::<"li">()?;
+        li.set_text_content(Some(&format!(
+            "Flappy Web Client version {}",
+            built_info::GIT_VERSION.unwrap_or("<unknown>"),
+        )));
         let li = ul.append_element::<"li">()?;
         let a = li.append_element::<"a">()?;
         a.append_text("GitHub Repository")?;

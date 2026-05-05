@@ -9,7 +9,7 @@ use std::str::ParseBoolError;
 use thiserror::Error;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
-use web_sys::{DomException};
+use web_sys::DomException;
 
 #[derive(Debug, Clone)]
 pub struct JsErrorAdapter(JsValue);
@@ -100,7 +100,7 @@ pub enum Error {
     #[error("serde json deserialization error")]
     SerdeDeError(#[from] serde_json_core::de::Error),
     #[error("capacity error")]
-    CapacityError(#[from] CapacityError),
+    CapacityError,
     #[error("MQTT disconnect")]
     Disconnect(#[from] ReasonCode),
     #[error("send error")]
@@ -137,6 +137,12 @@ pub enum Error {
     UsbNotSupported,
     #[error("error parsing boolean")]
     ParseBoolError(#[from] ParseBoolError),
+}
+
+impl From<CapacityError> for Error {
+    fn from(_: CapacityError) -> Self {
+        Error::CapacityError
+    }
 }
 
 impl From<Box<dyn Any + Send + 'static>> for Error {

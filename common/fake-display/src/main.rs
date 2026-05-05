@@ -3,12 +3,12 @@
 #![allow(unreachable_code)]
 #![allow(unused_variables)]
 
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use arena::Arena;
 use clap::Parser;
 use clap::builder::TypedValueParser;
 use embassy_futures::select::select4;
 use embassy_futures::select::{Either4, Either5, select5};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use glyph_render::Renderer;
 use io_adapters::split::split_io;
 use io_adapters::tokio::TokioStreamAdapter;
@@ -155,13 +155,17 @@ async fn main() -> anyhow::Result<()> {
                         let mut renderer = Renderer::<MAX_GLYPHS>::new(&glyphs);
                         renderer.append(&a)?;
                         let rendered = renderer.finish();
-                        let rendered = rendered
-                            .iter()
-                            .map(|x| heapless::String::<MAX_GLYPH_BYTES>::try_from(&*GLYPHS[*x]))
-                            .collect::<Result<
-                                heapless::Vec<heapless::String<MAX_GLYPH_BYTES>, MAX_GLYPHS>,
-                                CapacityError,
-                            >>()?;
+                        let rendered:heapless::Vec<heapless::String<MAX_GLYPH_BYTES>,MAX_GLYPHS> =
+                            rendered
+                                .iter()
+                                .map(|x| {
+                                    heapless::String::<MAX_GLYPH_BYTES>::try_from(&*GLYPHS[*x])
+                                })
+                                .collect::<Result<
+                                    Vec<heapless::String<MAX_GLYPH_BYTES>>,
+                                    CapacityError,
+                                >>()?
+                                .try_into()?;
                         println!("Rendered = {:?}", rendered);
                         client
                             .publish(&PublishRequest {

@@ -19,3 +19,4 @@ embassy-sync = {path="../../submodules/embassy/embassy-sync"}
 serde-json-core = {path="../../submodules/serde-json-core"}
 protocol = {path="../protocol", features = ["serde"]}
 glyph-render = {path="../glyph-render"}
+heapless = {path="../../submodules/heapless", features = ["alloc"]}

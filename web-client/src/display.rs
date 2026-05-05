@@ -8,9 +8,7 @@ use protocol::display::{DisplayResponse, MAX_GLYPH_BYTES, MAX_GLYPHS};
 use protocol::setup::DeviceInfo;
 use std::cell::{Ref, RefCell};
 use std::future::pending;
-use std::iter;
 use std::rc::Rc;
-use std::str::FromStr;
 use tokio::sync::mpsc::Receiver;
 use web_sys::{HtmlDivElement, HtmlElement};
 
@@ -132,9 +130,13 @@ impl Display {
         mut response_recv: Receiver<DisplayResponseContainer>,
         status: Rc<Status>,
     ) -> Result<!, Error> {
-        let mut state = DisplayState::Stopped(
-            iter::repeat_n(heapless::String::from_str(" ").unwrap(), MAX_GLYPHS).collect(),
-        );
+        let mut state = heapless::Vec::new();
+        for _ in 0..MAX_GLYPHS {
+            state
+                .push(" ".try_into()?)
+                .map_err(|_| Error::CapacityError)?;
+        }
+        let mut state = DisplayState::Stopped(state);
         loop {
             match select(response_recv.recv(), self.handle_state(state.clone())).await {
                 Either::First(None) => return Err(Error::UnexpectedEof),
