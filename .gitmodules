@@ -67,7 +67,7 @@
 	url = https://github.com/nathdobson/btuuid.git
 [submodule "submodules/rp-pac"]
 	path = submodules/rp-pac
-	url = https://github.com/embassy-rs/rp-pac.git
+	url = https://github.com/nathdobson/rp-pac.git
 [submodule "submodules/formats"]
 	path = submodules/formats
 	url = https://github.com/nathdobson/formats.git
