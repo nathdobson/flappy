@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::utils::{create_element, AppendChild};
+use crate::utils::{AppendChild, create_element};
 use crate::value_editor::ValueEditor;
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -7,7 +7,7 @@ use std::rc::Rc;
 use web_sys::{HtmlDivElement, Node};
 
 trait FieldEditor<S: 'static> {
-    fn set_value(&self, value: &S);
+    fn set_value(&self, value: &S) -> Result<(), Error>;
     fn get_value(&self, value: &mut S) -> Result<(), Error>;
 }
 
@@ -17,9 +17,9 @@ struct ValueFieldEditor<S, F> {
 }
 
 impl<S: 'static, F: 'static> FieldEditor<S> for ValueFieldEditor<S, F> {
-    
-    fn set_value(&self, value: &S) {
-        self.inner.clone().set_value((self.field.get)(value));
+    fn set_value(&self, value: &S) -> Result<(), Error> {
+        self.inner.clone().set_value((self.field.get)(value))?;
+        Ok(())
     }
 
     fn get_value(&self, value: &mut S) -> Result<(), Error> {
@@ -83,10 +83,11 @@ impl<S: 'static + Default> ValueEditor<S> for StructEditor<S> {
         self.div.clone().into()
     }
 
-    fn set_value(self: Rc<Self>, value: &S) {
+    fn set_value(self: Rc<Self>, value: &S) -> Result<(), Error> {
         for field in &*self.fields.borrow() {
-            field.set_value(value);
+            field.set_value(value)?;
         }
+        Ok(())
     }
 
     fn get_value(self: Rc<Self>) -> Result<S, Error> {

@@ -73,7 +73,7 @@ embassy-futures = {path="../submodules/embassy/embassy-futures"}
 protocol = { path = "../common/protocol", features = ["serde","uuid"] }
 tokio = { version = "1.51.0", features = ["sync", "macros"] }
 serde-json-core = {path="../submodules/serde-json-core"}
-heapless = {path="../submodules/heapless"}
+heapless = {path="../submodules/heapless",features = ["alloc"]}
 mqtt-core = { path = "../common/mqtt-core" }
 uuid = {  path="../submodules/uuid", features = ["v4", "js"] }
 futures-util = "0.3.31"

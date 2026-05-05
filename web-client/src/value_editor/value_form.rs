@@ -79,8 +79,8 @@ impl<T: 'static> ValueForm<T> {
     pub fn node(&self) -> &HtmlFormElement {
         &self.form
     }
-    pub fn set_value(&self, value: &T) {
-        self.value.clone().set_value(value);
+    pub fn set_value(&self, value: &T) -> Result<(), Error>{
+        self.value.clone().set_value(value)
     }
     pub fn set_on_submit<F>(&self, on_submit: F)
     where

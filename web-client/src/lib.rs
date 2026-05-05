@@ -11,6 +11,8 @@
     unsized_fn_params,
     trim_prefix_suffix
 )]
+#![feature(iterator_try_collect)]
+
 mod bind_weak;
 mod connect_tab;
 mod connection;

@@ -215,3 +215,23 @@
 .select-editor {
     margin:5px;
 }
+
+.list-editor-entries{
+    display: flex;
+    align-items: stretch;
+    justify-content: left;
+    flex-direction: column;
+}
+
+.list-editor-entry{
+    display: flex;
+    flex-direction: row;
+}
+
+.list-editor{
+    display: flex;
+    align-items: stretch;
+    justify-content: left;
+    flex-direction: column;
+    border: 1px dashed;
+}

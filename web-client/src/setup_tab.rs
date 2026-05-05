@@ -7,7 +7,7 @@ use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
 use crate::utils::AppendChild;
 use crate::utils::{JoinHandle, create_element, sleep, spawn_local_joinable};
-use crate::value_editor::input_editor::{InputEditorBuilder};
+use crate::value_editor::input_editor::InputEditorBuilder;
 use crate::value_editor::select_editor::SelectEditor;
 use crate::value_editor::struct_editor::StructEditor;
 use crate::value_editor::value_form::ValueForm;
@@ -19,6 +19,9 @@ use protocol_wifi::WifiSettings;
 use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_ble_supported, check_usb_supported};
 use crate::input_type::InputType;
 use crate::value_editor::bool_editor::BoolEditor;
+use crate::value_editor::calibration_editor::CalibrationEditor;
+use crate::value_editor::list_editor::ListEditor;
+use protocol::display::STEPS_PER_REVOLUTION;
 use protocol::setup::{DisplaySettings, DriverVersion, MqttSettings, WriteAppSettings};
 use setup_client::client::{Client, ClientTransport};
 use std::cell::{Cell, OnceCell, RefCell};
@@ -168,6 +171,7 @@ impl SetupTab {
         mqtt_struct.add(
             field!("MQTT Port", port),
             InputEditorBuilder::new()
+                .with_from_str_display()
                 .with_type(InputType::Number)
                 .with_min(0)
                 .with_max(u16::MAX)
@@ -208,7 +212,7 @@ impl SetupTab {
         let display_struct = StructEditor::<DisplaySettings>::new()?;
         display_struct.add(
             field!("Segment calibrations", calibration),
-            InputEditorBuilder::new().with_json_serde().build()?,
+            ListEditor::new(|| Ok(CalibrationEditor::new(STEPS_PER_REVOLUTION)?))?,
         )?;
         display_struct.add(
             field!("Glyphs", glyphs),
@@ -318,7 +322,7 @@ impl SetupTab {
             self.glyph_count.set_text_content(None);
             self.wifi_status.set_text_content(None);
             self.mqtt_status.set_text_content(None);
-            self.wifi_settings.set_value(&WifiSettings::default());
+            self.wifi_settings.set_value(&WifiSettings::default())?;
             self.connect_status.reset();
             self.connect_status.set(StatusPriority::Info, String::new());
         }
@@ -367,9 +371,9 @@ impl SetupTab {
         self.glyph_count
             .set_text_content(Some(&format!("{}", device_info.glyphs)));
         let settings = connection.read_settings().await?;
-        self.wifi_settings.set_value(&settings.wifi);
-        self.mqtt_settings.set_value(&settings.mqtt);
-        self.display_settings.set_value(&settings.display);
+        self.wifi_settings.set_value(&settings.wifi)?;
+        self.mqtt_settings.set_value(&settings.mqtt)?;
+        self.display_settings.set_value(&settings.display)?;
         // There's probably a bug in chrome's WebUSB implementation that drops packets, so we
         // need to run touch_app_status twice.
         connection.touch_app_status().await?;

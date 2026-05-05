@@ -29,6 +29,7 @@ pub struct InputEditorBuilder<T> {
     min: Option<T>,
     max: Option<T>,
     step: Option<T>,
+    value: Option<T>,
 }
 
 impl<T: 'static> InputEditorBuilder<T> {
@@ -41,6 +42,7 @@ impl<T: 'static> InputEditorBuilder<T> {
             min: None,
             max: None,
             step: None,
+            value: None,
         }
     }
     pub fn with_from_str_display(self) -> Self
@@ -93,6 +95,10 @@ impl<T: 'static> InputEditorBuilder<T> {
         self.step = Some(step);
         self
     }
+    pub fn with_value(mut self, value: T) -> Self {
+        self.value = Some(value);
+        self
+    }
 
     pub fn new_number() -> Self
     where
@@ -117,6 +123,7 @@ impl<T: 'static> InputEditorBuilder<T> {
             )
     }
 
+    #[track_caller]
     pub fn build(self) -> Result<Rc<InputEditor<T>>, Error> {
         let this = EmptyRc::new();
         let from_str = self.from_str.expect("from_str");
@@ -132,6 +139,9 @@ impl<T: 'static> InputEditorBuilder<T> {
         }
         if let Some(step) = self.step {
             input.set_max(&to_str(&step));
+        }
+        if let Some(value) = self.value {
+            input.set_value(&to_str(&value));
         }
         let listener = EventListener::new_weak(
             &input,
@@ -150,7 +160,7 @@ impl<T: 'static> InputEditorBuilder<T> {
     }
 }
 
-impl<T:'static> InputEditorBuilder<Option<T>> {
+impl<T: 'static> InputEditorBuilder<Option<T>> {
     pub fn with_optional(self) -> Self
     where
         T: FromStr + Display,
@@ -199,8 +209,10 @@ impl<T: 'static + Default> ValueEditor<T> for InputEditor<T> {
         self.input.clone().into()
     }
 
-    fn set_value(self: Rc<Self>, value: &T) {
+    fn set_value(self: Rc<Self>, value: &T) -> Result<(), Error> {
+        self.input.set_custom_validity("");
         self.input.set_value(&(self.to_str)(value));
+        Ok(())
     }
 
     fn get_value(self: Rc<Self>) -> Result<T, Error> {

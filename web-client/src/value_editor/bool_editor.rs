@@ -22,8 +22,9 @@ impl ValueEditor<bool> for BoolEditor {
         self.input.clone().into()
     }
 
-    fn set_value(self: Rc<Self>, value: &bool) {
-        self.input.set_checked(*value)
+    fn set_value(self: Rc<Self>, value: &bool) -> Result<(), Error> {
+        self.input.set_checked(*value);
+        Ok(())
     }
 
     fn get_value(self: Rc<Self>) -> Result<bool, Error> {

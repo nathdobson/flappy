@@ -1,6 +1,6 @@
 use crate::error::Error;
-use crate::utils::create_element;
 use crate::utils::AppendChild;
+use crate::utils::create_element;
 use crate::value_editor::ValueEditor;
 use std::fmt::Display;
 use std::rc::Rc;
@@ -29,7 +29,7 @@ impl<T: 'static + Eq + Display + Clone> ValueEditor<T> for SelectEditor<T> {
         self.input.clone().into()
     }
 
-    fn set_value(self: Rc<Self>, value: &T) {
+    fn set_value(self: Rc<Self>, value: &T) -> Result<(), Error> {
         self.input.set_value(&format!(
             "{}",
             self.values
@@ -37,6 +37,7 @@ impl<T: 'static + Eq + Display + Clone> ValueEditor<T> for SelectEditor<T> {
                 .position(|x| x == value)
                 .expect("value not listed")
         ));
+        Ok(())
     }
 
     fn get_value(self: Rc<Self>) -> Result<T, Error> {

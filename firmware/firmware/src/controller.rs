@@ -10,11 +10,10 @@ use embassy_time::{Instant, Timer};
 use heapless::{CapacityError, String, Vec};
 use log::{error, info};
 use make_static::make_static;
-use protocol::display::MAX_GLYPHS;
+use protocol::display::{MAX_GLYPHS, STEPS_PER_REVOLUTION};
 use protocol::setup::{DisplaySettings, DriverVersion};
 
 const MODULE: &'static str = "[CTRL ]";
-const STEPS_PER_REV: usize = 2048;
 const FLAP_COUNT: usize = 45;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum SegmentMode {
@@ -180,8 +179,8 @@ impl<'a> DisplayControllerGuard<'a> {
         for (index, char) in self.guard.segments.iter_mut().enumerate() {
             let calibration = self.settings.calibration.get(index).cloned().unwrap_or(0);
             let new_target = ((calibration
-                + message.get(index).cloned().unwrap_or(0) * STEPS_PER_REV / FLAP_COUNT)
-                % STEPS_PER_REV) as isize;
+                + message.get(index).cloned().unwrap_or(0) * STEPS_PER_REVOLUTION / FLAP_COUNT)
+                % STEPS_PER_REVOLUTION) as isize;
             if !char.homed || new_target != char.position {
                 char.target = new_target;
                 char.mode = SegmentMode::Spinning;
@@ -282,7 +281,7 @@ impl<'a> DisplayControllerGuard<'a> {
                     }
                     _ => {}
                 }
-                if char.position > ((STEPS_PER_REV * 3) / 2) as isize {
+                if char.position > ((STEPS_PER_REVOLUTION * 3) / 2) as isize {
                     // We're well past the homing point, so the homing sensor must be malfunctioning.
                     char.mode = SegmentMode::Disabled;
                     char.homed = false;
@@ -302,9 +301,9 @@ impl<'a> DisplayControllerGuard<'a> {
                                 char.accel_step += 1;
                             }
                             if char.homed {
-                                let distance = (char.target as usize + STEPS_PER_REV
+                                let distance = (char.target as usize + STEPS_PER_REVOLUTION
                                     - char.position as usize)
-                                    % STEPS_PER_REV;
+                                    % STEPS_PER_REVOLUTION;
                                 if char.accel_step <= distance && distance <= char.accel_step + 1 {
                                     char.mode = SegmentMode::Decelerating;
                                 }
@@ -316,7 +315,8 @@ impl<'a> DisplayControllerGuard<'a> {
                             if char.accel_step > 0 {
                                 char.accel_step -= 1;
                             }
-                            if char.position as usize % STEPS_PER_REV == char.target as usize {
+                            if char.position as usize % STEPS_PER_REVOLUTION == char.target as usize
+                            {
                                 char.mode = SegmentMode::Holding(10);
                             }
                         }
