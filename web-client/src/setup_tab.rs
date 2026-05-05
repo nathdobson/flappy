@@ -7,7 +7,7 @@ use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
 use crate::utils::AppendChild;
 use crate::utils::{JoinHandle, create_element, sleep, spawn_local_joinable};
-use crate::value_editor::input_editor::InputEditor;
+use crate::value_editor::input_editor::{InputEditorBuilder};
 use crate::value_editor::select_editor::SelectEditor;
 use crate::value_editor::struct_editor::StructEditor;
 use crate::value_editor::value_form::ValueForm;
@@ -17,6 +17,7 @@ use picoboot::Picoboot;
 use protocol_wifi::WifiSettings;
 
 use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_ble_supported, check_usb_supported};
+use crate::input_type::InputType;
 use crate::value_editor::bool_editor::BoolEditor;
 use protocol::setup::{DisplaySettings, DriverVersion, MqttSettings, WriteAppSettings};
 use setup_client::client::{Client, ClientTransport};
@@ -131,8 +132,14 @@ impl SetupTab {
             .append_element::<"div">()?
             .set_text_content(Some("Wifi Settings"));
         let wifi_struct = StructEditor::<WifiSettings>::new()?;
-        wifi_struct.add(field!("Wifi Name", ssid), InputEditor::new()?)?;
-        wifi_struct.add(field!("Wifi Password", password), InputEditor::new()?)?;
+        wifi_struct.add(
+            field!("Wifi Name", ssid),
+            InputEditorBuilder::new().with_from_str_display().build()?,
+        )?;
+        wifi_struct.add(
+            field!("Wifi Password", password),
+            InputEditorBuilder::new().with_from_str_display().build()?,
+        )?;
         let wifi_settings = ValueForm::new(wifi_struct)?;
         wifi_settings.set_submit_name("Save Wifi Settings");
         wifi_settings.set_on_submit(bind_weak_try_async_fn1(
@@ -154,14 +161,30 @@ impl SetupTab {
             .append_element::<"div">()?
             .set_text_content(Some("MQTT Settings"));
         let mqtt_struct = StructEditor::<MqttSettings>::new()?;
-        mqtt_struct.add(field!("MQTT Hostname", hostname), InputEditor::new()?)?;
+        mqtt_struct.add(
+            field!("MQTT Hostname", hostname),
+            InputEditorBuilder::new().with_from_str_display().build()?,
+        )?;
         mqtt_struct.add(
             field!("MQTT Port", port),
-            InputEditor::new_integer(Some(0), Some(u16::MAX), Some(1))?,
+            InputEditorBuilder::new()
+                .with_type(InputType::Number)
+                .with_min(0)
+                .with_max(u16::MAX)
+                .build()?,
         )?;
-        mqtt_struct.add(field!("MQTT Username", username), InputEditor::new()?)?;
-        mqtt_struct.add(field!("MQTT Password", password), InputEditor::new()?)?;
-        mqtt_struct.add(field!("MQTT Topic", topic), InputEditor::new()?)?;
+        mqtt_struct.add(
+            field!("MQTT Username", username),
+            InputEditorBuilder::new().with_from_str_display().build()?,
+        )?;
+        mqtt_struct.add(
+            field!("MQTT Password", password),
+            InputEditorBuilder::new().with_from_str_display().build()?,
+        )?;
+        mqtt_struct.add(
+            field!("MQTT Topic", topic),
+            InputEditorBuilder::new().with_from_str_display().build()?,
+        )?;
         let mqtt_settings = ValueForm::new(mqtt_struct)?;
         mqtt_settings.set_submit_name("Save MQTT Settings");
         mqtt_settings.set_on_submit(bind_weak_try_async_fn1(
@@ -185,16 +208,19 @@ impl SetupTab {
         let display_struct = StructEditor::<DisplaySettings>::new()?;
         display_struct.add(
             field!("Segment calibrations", calibration),
-            InputEditor::new_json()?,
+            InputEditorBuilder::new().with_json_serde().build()?,
         )?;
-        display_struct.add(field!("Glyphs", glyphs), InputEditor::new_json()?)?;
+        display_struct.add(
+            field!("Glyphs", glyphs),
+            InputEditorBuilder::new().with_json_serde().build()?,
+        )?;
         display_struct.add(
             field!("Background color", background),
-            InputEditor::new_color()?,
+            InputEditorBuilder::new_color().build()?,
         )?;
         display_struct.add(
             field!("Foreground color", foreground),
-            InputEditor::new_color()?,
+            InputEditorBuilder::new_color().build()?,
         )?;
         display_struct.add(
             field!("Driver board version", driver_version),
@@ -203,19 +229,38 @@ impl SetupTab {
 
         display_struct.add(
             field!("Microseconds per tick", micros_per_tick),
-            InputEditor::new_optional_integer(Some(1), None, Some(1))?,
+            InputEditorBuilder::new()
+                .with_optional()
+                .with_type(InputType::Number)
+                .with_min(Some(1))
+                .build()?,
         )?;
         display_struct.add(
             field!("Steps per stage (slow)", slow_steps_per_stage),
-            InputEditor::new_optional_integer(Some(1), Some(u16::MAX), Some(1))?,
+            InputEditorBuilder::new()
+                .with_optional()
+                .with_type(InputType::Number)
+                .with_min(Some(1))
+                .with_max(Some(u16::MAX))
+                .build()?,
         )?;
         display_struct.add(
             field!("Ticks per step (slow)", slow_ticks_per_step),
-            InputEditor::new_optional_integer(Some(1), Some(u8::MAX), Some(1))?,
+            InputEditorBuilder::new()
+                .with_optional()
+                .with_type(InputType::Number)
+                .with_min(Some(1))
+                .with_max(Some(u8::MAX))
+                .build()?,
         )?;
         display_struct.add(
             field!("Ticks per step (fast)", fast_ticks_per_step),
-            InputEditor::new_optional_integer(Some(1), Some(u8::MAX), Some(1))?,
+            InputEditorBuilder::new()
+                .with_optional()
+                .with_type(InputType::Number)
+                .with_min(Some(1))
+                .with_max(Some(u8::MAX))
+                .build()?,
         )?;
         display_struct.add(
             field!("Re-home after stopping", rehome_after_stopping),

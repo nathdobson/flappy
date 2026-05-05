@@ -29,6 +29,7 @@ mod browser_support;
 mod firmware_tab;
 mod utils;
 mod value_editor;
+mod input_type;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
