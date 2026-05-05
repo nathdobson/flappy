@@ -57,7 +57,7 @@ impl<const SEND_CAP: usize, W: Write> MqttWriter<W, SEND_CAP> {
     }
     pub async fn send_packet(&mut self, packet: &Packet<'_>) -> Result<(), Error<W::Error, !>> {
         self.packet.clear();
-        self.packet.extend([0u8; FIXED_HEADER_RESERVATION]);
+        self.packet.extend_from_slice(&[0u8; FIXED_HEADER_RESERVATION])?;
         let mut builder = MqttPacketBuilder {
             typ: match packet {
                 Packet::Connack(_) => PacketType::CONNACK,

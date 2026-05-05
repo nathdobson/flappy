@@ -32,7 +32,9 @@ pub struct Freelist<'a, M: RawMutex> {
 impl<M: RawMutex, T, const N: usize> FreelistStorage<M, T, N> {
     pub fn new() -> Self {
         let mut freelist = Vec::new();
-        freelist.extend(0..N);
+        for i in 0..N {
+            freelist.push(i).unwrap();
+        }
         FreelistStorage {
             memory: [const { UnsafePinned::new(MaybeUninit::uninit()) }; N],
             freelist: Mutex::new(RefCell::new(freelist)),
