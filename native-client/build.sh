@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -e
 set -u
+
+# cross misses these dependencies when scanning, probably because they're not used after the initial dependency analysis.
+REPO=$(dirname $PWD)
+export CROSS_CONTAINER_OPTS="
+  -v $REPO/submodules/wasm-bindgen:$REPO/submodules/wasm-bindgen:z
+  -v $REPO/submodules/bluez-async:$REPO/submodules/bluez-async:z
+"
+
 cargo build --release --target aarch64-apple-darwin
 cargo build --release --target x86_64-apple-darwin
 
