@@ -132,7 +132,7 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    width: 100%;
+    width: min(100%, 800px);
     box-sizing: border-box;
 }
 
