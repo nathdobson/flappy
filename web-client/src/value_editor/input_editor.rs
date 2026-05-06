@@ -78,7 +78,10 @@ impl<T: 'static> InputEditorBuilder<T> {
             },
         )
     }
-
+    pub fn with_class(mut self, class: &'static str) -> Self {
+        self.class = class;
+        self
+    }
     pub fn with_type(mut self, typ: InputType) -> Self {
         self.typ = typ;
         self
@@ -116,6 +119,7 @@ impl<T: 'static> InputEditorBuilder<T> {
         Error: From<<T as FromStr>::Err>,
     {
         Self::new()
+            .with_class("color-editor")
             .with_type(InputType::Color)
             .with_from_str_to_str(
                 |x| Ok(T::from_str(x.trim_prefix("#"))?),

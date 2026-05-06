@@ -27,9 +27,11 @@ impl CalibrationEditor {
             .with_value(0)
             .build()?;
         let node = create_element::<"div">()?;
+        node.set_class_name("calibration-editor");
         node.append_child(&input.clone().node())?;
         for adjust in [-10, 10] {
             let button = node.append_element::<"button">()?;
+            button.set_type("button");
             let label = if adjust < 0 {
                 format!("{}", adjust)
             } else {

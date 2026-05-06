@@ -132,13 +132,15 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .setup-tab * {
-    font-size: 10pt;
+    font-size: 12pt;
 }
 
-.setup-tab button {
+.setup-tab > button {
     margin:10px;
 }
 
@@ -150,11 +152,12 @@
     border: 4px solid;
     width:100%;
     margin:10px;
+    box-sizing: border-box;
 }
 
 .device-info-section {
     display: grid;
-    grid-template-columns: max-content max-content;
+    grid-template-columns: 30% 70%;
 }
 
 .device-info-section > div{
@@ -171,15 +174,17 @@
 
 .struct-editor {
     display: grid;
-    grid-template-columns: max-content max-content;
-}
-
-.struct-editor > div{
-    margin: 5px;
+    grid-template-columns: 30% 70%;
+    width:100%;
+    box-sizing: border-box;
+    row-gap: 10px;
 }
 
 .struct-editor > *:nth-child(odd) {
     text-align: end;
+    display: flex;
+    justify-content: right;
+    align-items: center;
 }
 
 .struct-editor > *:nth-child(even) {
@@ -190,7 +195,7 @@
 }
 
 .text-editor {
-    margin:5px;
+    margin:2px;
 }
 
 .editor-form {
@@ -198,6 +203,8 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
+    width:100%;
+    box-sizing: border-box;
 }
 
 .editor-form input[type=submit]{
@@ -228,10 +235,28 @@
     flex-direction: row;
 }
 
+.list-editor-entry > button{
+    margin:2px;
+}
+
 .list-editor{
     display: flex;
     align-items: stretch;
     justify-content: left;
     flex-direction: column;
     border: 1px dashed;
+    padding:2px;
+    margin:2px;
+}
+
+.list-editor > button{
+    margin:2px;
+}
+
+.calibration-editor > *{
+    margin:2px;
+}
+
+.color-editor {
+    margin:2px;
 }

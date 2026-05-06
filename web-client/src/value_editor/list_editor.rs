@@ -55,11 +55,12 @@ impl<V: 'static, I: 'static> ListEditor<V, I> {
         let mut listeners = EventListenerSet::new(this.downgrade());
         let node = create_element::<"div">()?;
         node.set_class_name("list-editor");
-        let entries_node = node.append_element::<"div">()?;
-        entries_node.set_class_name("list-editor-entries");
         let add = node.append_element::<"button">()?;
+        add.set_type("button");
         add.set_text_content(Some("Append entry"));
         listeners.add(&add, EventType::Click, Self::add_entry)?;
+        let entries_node = node.append_element::<"div">()?;
+        entries_node.set_class_name("list-editor-entries");
         Ok(this.into_rc(ListEditor {
             node,
             entries_node,
@@ -87,10 +88,11 @@ impl<V: 'static, I: 'static> ListEditor<V, I> {
         let node = self.entries_node.append_element::<"div">()?;
         node.set_class_name("list-editor-entry");
         node.append_child(&editor.clone().node())?;
-        let delete = node.append_element::<"button">()?;
-        delete.set_text_content(Some("Delete entry"));
+        let remove = node.append_element::<"button">()?;
+        remove.set_type("button");
+        remove.set_text_content(Some("Remove"));
         let listener = EventListener::new_weak(
-            &delete,
+            &remove,
             EventType::Click,
             entry.downgrade(),
             ListEntry::delete_entry,

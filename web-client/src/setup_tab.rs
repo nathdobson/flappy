@@ -165,11 +165,11 @@ impl SetupTab {
             .set_text_content(Some("MQTT Settings"));
         let mqtt_struct = StructEditor::<MqttSettings>::new()?;
         mqtt_struct.add(
-            field!("MQTT Hostname", hostname),
+            field!("Hostname", hostname),
             InputEditorBuilder::new().with_from_str_display().build()?,
         )?;
         mqtt_struct.add(
-            field!("MQTT Port", port),
+            field!("Port", port),
             InputEditorBuilder::new()
                 .with_from_str_display()
                 .with_type(InputType::Number)
@@ -178,15 +178,15 @@ impl SetupTab {
                 .build()?,
         )?;
         mqtt_struct.add(
-            field!("MQTT Username", username),
+            field!("Username", username),
             InputEditorBuilder::new().with_from_str_display().build()?,
         )?;
         mqtt_struct.add(
-            field!("MQTT Password", password),
+            field!("Password", password),
             InputEditorBuilder::new().with_from_str_display().build()?,
         )?;
         mqtt_struct.add(
-            field!("MQTT Topic", topic),
+            field!("Topic", topic),
             InputEditorBuilder::new().with_from_str_display().build()?,
         )?;
         let mqtt_settings = ValueForm::new(mqtt_struct)?;
@@ -211,7 +211,7 @@ impl SetupTab {
             .set_text_content(Some("Display Settings"));
         let display_struct = StructEditor::<DisplaySettings>::new()?;
         display_struct.add(
-            field!("Segment calibrations", calibration),
+            field!("Calibrations", calibration),
             ListEditor::new(|| Ok(CalibrationEditor::new(STEPS_PER_REVOLUTION)?))?,
         )?;
         display_struct.add(
@@ -219,15 +219,15 @@ impl SetupTab {
             InputEditorBuilder::new().with_json_serde().build()?,
         )?;
         display_struct.add(
-            field!("Background color", background),
+            field!("Background", background),
             InputEditorBuilder::new_color().build()?,
         )?;
         display_struct.add(
-            field!("Foreground color", foreground),
+            field!("Foreground", foreground),
             InputEditorBuilder::new_color().build()?,
         )?;
         display_struct.add(
-            field!("Driver board version", driver_version),
+            field!("Driver version", driver_version),
             SelectEditor::new(vec![DriverVersion::V1_0, DriverVersion::V2_0])?,
         )?;
 
