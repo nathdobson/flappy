@@ -8,7 +8,7 @@ use tokio::select;
 use tokio::sync::oneshot;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{Bluetooth, Document, HtmlAnchorElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, HtmlLabelElement, HtmlLiElement, HtmlOListElement, HtmlOptionElement, HtmlParagraphElement, HtmlSelectElement, HtmlUListElement, Node, Text, Window};
+use web_sys::{Bluetooth, Document, HtmlAnchorElement, HtmlBrElement, HtmlButtonElement, HtmlDivElement, HtmlElement, HtmlFormElement, HtmlInputElement, HtmlLabelElement, HtmlLiElement, HtmlOListElement, HtmlOptionElement, HtmlParagraphElement, HtmlSelectElement, HtmlUListElement, Node, Text, Window};
 
 pub fn try_window() -> Result<Window, Error> {
     web_sys::window().ok_or(Error::CannotFindElement)
@@ -128,6 +128,10 @@ impl HasElementType for Tag<"select"> {
 
 impl HasElementType for Tag<"p"> {
     type ElementType = HtmlParagraphElement;
+}
+
+impl HasElementType for Tag<"br"> {
+    type ElementType = HtmlBrElement;
 }
 
 pub async fn sleep(millis: i32) {

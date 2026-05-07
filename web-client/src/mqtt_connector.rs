@@ -76,7 +76,7 @@ pub async fn run_mqtt(
         .await
         .into_err();
         error!("MQTT Connection failure: {}", e);
-        status.set_error(StatusPriority::Error, &e);
+        status.set_error(StatusPriority::Error,"MQTT Connection failure", &e);
         requests.peek_recv().await.ok_or(Error::ChannelClosed)?;
     }
 }

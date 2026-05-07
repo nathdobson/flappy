@@ -39,8 +39,13 @@ impl Status {
             self.element.set_text_content(Some(&value));
         }
     }
-    pub fn set_error(&self, priority: StatusPriority, error: &dyn core::error::Error) {
+    pub fn set_error(
+        &self,
+        priority: StatusPriority,
+        prefix: &str,
+        error: &dyn core::error::Error,
+    ) {
         error!("{:?}", error);
-        self.set(priority, format!("{}", Report::new(error)));
+        self.set(priority, format!("{}: {}", prefix, Report::new(error)));
     }
 }

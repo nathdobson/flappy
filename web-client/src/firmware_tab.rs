@@ -1,10 +1,10 @@
-use crate::browser_support::{check_usb_supported, BROWSER_SUPPORT_MESSAGE};
-use crate::connection::{connect_usb, EitherClient};
+use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_usb_supported};
+use crate::connection::{EitherClient, connect_usb};
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
-use crate::utils::{create_element, sleep, try_window, AppendChild};
+use crate::utils::{AppendChild, create_element, sleep, try_window};
 use empty_rc::EmptyRc;
 use js_sys::futures::spawn_local;
 use js_sys::{ArrayBuffer, Date, Uint8Array};
@@ -13,10 +13,11 @@ use setup_client::client::Client;
 use setup_client::flash_firmware::flash_firmware;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use web_sys::{Event, HtmlDivElement, HtmlElement, Response};
+use web_sys::{Event, HtmlButtonElement, HtmlDivElement, HtmlElement, Response};
 
 pub struct FirmwareTab {
     node: HtmlDivElement,
+    firmware_button: HtmlButtonElement,
     firmware_status: Rc<Status>,
     #[allow(dead_code)]
     firmware_listener: EventListener<'static>,
@@ -28,6 +29,12 @@ impl FirmwareTab {
         let node = create_element::<"div">()?;
         node.set_class_name("setup-tab");
         let firmware_section = node.append_element::<"div">()?;
+        firmware_section
+            .append_element::<"p">()?
+            .append_text(&format!(
+                "Update firmware (version {})",
+                crate::built_info::GIT_VERSION.unwrap_or("<unknown>")
+            ))?;
         firmware_section.set_class_name("setup-section");
         let usb_supported = check_usb_supported().is_ok();
         if !usb_supported {
@@ -35,16 +42,44 @@ impl FirmwareTab {
                 .append_element::<"p">()?
                 .set_inner_html(BROWSER_SUPPORT_MESSAGE);
         }
+        firmware_section.append_text("Standard update process:")?;
+        let list = firmware_section.append_element::<"ol">()?;
+        list.append_element::<"li">()?
+            .set_text_content(Some("Unplug the power supply from the display."));
+        list.append_element::<"li">()?
+            .set_text_content(Some("Connect this device to the display with a USB cable."));
+        list.append_element::<"li">()?
+            .append_text("Click 'Flash Firmware'.")?;
+        list.append_element::<"li">()?
+            .append_text("Select 'Split Flap Display' in the first prompt.")?;
+        list.append_element::<"li">()?
+            .append_text("Select 'RP2350 Boot' in the second prompt.")?;
+        list.append_element::<"li">()?
+            .append_text("After flashing, unplug the USB cable and plug in the power supply.")?;
+        firmware_section.append_text("If the standard update process fails:")?;
+        let list = firmware_section.append_element::<"ol">()?;
+        list.append_element::<"li">()?
+            .set_text_content(Some("Unplug the power supply from the display."));
+        list.append_element::<"li">()?
+            .set_text_content(Some("Hold the white button on the display near the USB port."));
+        list.append_element::<"li">()?
+            .set_text_content(Some("Connect this device to the display with a USB cable."));
+        list.append_element::<"li">()?
+            .set_text_content(Some("Release the white button."));
+        list.append_element::<"li">()?
+            .append_text("Click 'Flash Firmware'.")?;
+        list.append_element::<"li">()?
+            .append_text("Select 'RP2350 Boot'.")?;
+        list.append_element::<"li">()?
+            .append_text("After flashing, unplug the USB cable and plug in the power supply.")?;
         let firmware_button = firmware_section.append_element::<"button">()?;
-        firmware_button.set_text_content(Some(&format!(
-            "Flash firmware (version {})",
-            crate::built_info::GIT_VERSION.unwrap_or("<unknown>")
-        )));
+        firmware_button.set_text_content(Some("Update firmware"));
         firmware_button.set_disabled(!usb_supported);
-        let firmware_listener = EventListener::new(
+        let firmware_listener = EventListener::new_weak(
             &firmware_button,
             EventType::Click,
-            Self::weak_callback(&this, Self::flash_firmware),
+            this.downgrade(),
+            Self::flash_firmware,
         )?;
         let firmware_status = Status::new()?;
         firmware_section.append_child(firmware_status.node())?;
@@ -52,25 +87,21 @@ impl FirmwareTab {
             node,
             firmware_listener,
             firmware_status,
+            firmware_button,
         }))
     }
-    fn weak_callback(
-        this: &EmptyRc<Self>,
-        callback: fn(Rc<Self>, Event),
-    ) -> impl 'static + Fn(Event) {
-        let this = this.downgrade();
-        move |event| {
-            if let Some(this) = this.upgrade() {
-                callback(this, event)
-            }
-        }
-    }
     fn flash_firmware(self: Rc<Self>, _event: Event) {
+        self.firmware_button.set_disabled(true);
         spawn_local(async move {
             self.firmware_status.reset();
             if let Err(e) = self.try_flash_firmware().await {
-                self.firmware_status.set_error(StatusPriority::Error, &e);
+                self.firmware_status.set_error(
+                    StatusPriority::Error,
+                    "Failed to update firmware",
+                    &e,
+                );
             }
+            self.firmware_button.set_disabled(false);
         })
     }
     async fn try_flash_firmware(&self) -> Result<(), Error> {

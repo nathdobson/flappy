@@ -59,6 +59,7 @@ web-sys = { path="../submodules/wasm-bindgen/crates/web-sys", features = [
   "HtmlOptionElement",
   "HtmlSelectElement",
   "HtmlParagraphElement",
+  "HtmlBrElement",
 ] }
 js-sys = {path="../submodules/wasm-bindgen/crates/js-sys"}
 console_log = {path="../submodules/console_log"}

@@ -95,15 +95,18 @@ impl SetupTab {
         let connect_ble_button = connect_section.append_element::<"button">()?;
         connect_ble_button.append_text("Connect via Bluetooth")?;
         connect_ble_button.set_disabled(!ble_supported);
+        connect_ble_button.set_class_name("connect-button");
         listeners.add(&connect_ble_button, EventType::Click, Self::connect_ble)?;
 
         let connect_usb_button = connect_section.append_element::<"button">()?;
         connect_usb_button.append_text("Connect via USB")?;
         connect_usb_button.set_disabled(!usb_supported);
+        connect_usb_button.set_class_name("connect-button");
         listeners.add(&connect_usb_button, EventType::Click, Self::connect_usb)?;
 
         let disconnect_button = connect_section.append_element::<"button">()?;
         disconnect_button.append_text("Disconnect")?;
+        disconnect_button.set_class_name("connect-button");
         listeners.add(&disconnect_button, EventType::Click, Self::disconnect)?;
 
         let device_section = node.append_element::<"div">()?;
@@ -342,12 +345,12 @@ impl SetupTab {
                             let client = Rc::new(client);
                             client_cell.set(client.clone()).ok().unwrap();
                             let Err(e) = self.run_connection(client).await;
-                            self.connect_status.set_error(StatusPriority::Error, &e);
+                            self.connect_status.set_error(StatusPriority::Error, "Connection failure", &e);
                         }
                         Ok(EitherClient::Picoboot(client)) => {
                             picoboot_cell.set(Some(client));
                         }
-                        Err(e) => self.connect_status.set_error(StatusPriority::Error, &e),
+                        Err(e) => self.connect_status.set_error(StatusPriority::Error, "Connection failure", &e),
                     }
                 }
             }),
