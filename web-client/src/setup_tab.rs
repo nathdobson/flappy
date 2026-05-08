@@ -58,7 +58,6 @@ pub struct SetupTab {
 #[allow(dead_code)]
 struct ConnectionTask {
     connection: Rc<OnceCell<Rc<Client>>>,
-    picoboot: Rc<Cell<Option<Picoboot>>>,
     task: JoinHandle<()>,
 }
 
@@ -354,11 +353,9 @@ impl SetupTab {
     fn spawn_connection(self: Rc<Self>, typ: ClientTransport) -> ConnectionTask {
         self.show_connection(true).ok();
         let client_cell = Rc::new(OnceCell::new());
-        let picoboot_cell = Rc::new(Cell::new(None));
         ConnectionTask {
             task: spawn_local_joinable({
                 let client_cell = client_cell.clone();
-                let picoboot_cell = picoboot_cell.clone();
                 async move {
                     match connect(typ, self.connect_status.clone()).await {
                         Ok(EitherClient::Application(client)) => {
@@ -372,7 +369,8 @@ impl SetupTab {
                             );
                         }
                         Ok(EitherClient::Picoboot(client)) => {
-                            picoboot_cell.set(Some(client));
+                            self.connect_status
+                                .set(StatusPriority::Error, "Device is in Boot Select Mode. Restart device in order to configure display.".to_string());
                         }
                         Err(e) => self.connect_status.set_error(
                             StatusPriority::Error,
@@ -383,7 +381,6 @@ impl SetupTab {
                 }
             }),
             connection: client_cell,
-            picoboot: picoboot_cell,
         }
     }
     async fn run_connection(&self, connection: Rc<Client>) -> Result<!, Error> {
