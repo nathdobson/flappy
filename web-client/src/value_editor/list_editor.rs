@@ -119,9 +119,9 @@ where
     fn set_value(self: Rc<Self>, value: &V) -> Result<(), Error> {
         let mut entries = self.entries.borrow_mut();
         for entry in &*entries {
-            self.entries_node
-                .remove_child(&entry.editor.clone().node())?;
+            self.entries_node.remove_child(&entry.node)?;
         }
+        entries.clear();
         for new in value.into_iter() {
             let entry = self.create_entry()?;
             entry.editor.clone().set_value(new)?;

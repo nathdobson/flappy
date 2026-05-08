@@ -16,7 +16,9 @@ use log::info;
 use picoboot::Picoboot;
 use protocol_wifi::WifiSettings;
 
-use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_ble_supported, check_usb_supported};
+use crate::browser_support::{
+    BROWSER_SUPPORT_MESSAGE, check_ble_supported, check_usb_supported, force_webview_to_chrome,
+};
 use crate::input_type::InputType;
 use crate::value_editor::bool_editor::BoolEditor;
 use crate::value_editor::calibration_editor::CalibrationEditor;
@@ -44,6 +46,10 @@ pub struct SetupTab {
     wifi_settings: Rc<ValueForm<WifiSettings>>,
     mqtt_settings: Rc<ValueForm<MqttSettings>>,
     display_settings: Rc<ValueForm<DisplaySettings>>,
+    device_section: HtmlDivElement,
+    wifi_section: HtmlDivElement,
+    mqtt_section: HtmlDivElement,
+    display_section: HtmlDivElement,
 
     #[allow(dead_code)]
     listeners: EventListenerSet<'static, Self>,
@@ -82,6 +88,7 @@ impl SetupTab {
         let ble_supported = check_ble_supported().is_ok();
         let usb_supported = check_usb_supported().is_ok();
         if !ble_supported || !usb_supported {
+            force_webview_to_chrome()?;
             connect_section
                 .append_element::<"p">()?
                 .set_inner_html(BROWSER_SUPPORT_MESSAGE);
@@ -305,11 +312,24 @@ impl SetupTab {
             mqtt_settings,
             display_settings,
             listeners,
+
+            device_section,
+            wifi_section,
+            mqtt_section,
+            display_section,
         });
         this.show_connection(false)?;
         Ok(this)
     }
     fn show_connection(&self, connection: bool) -> Result<(), Error> {
+        self.device_section
+            .style()
+            .set_property("display", "none")?;
+        self.wifi_section.style().set_property("display", "none")?;
+        self.mqtt_section.style().set_property("display", "none")?;
+        self.display_section
+            .style()
+            .set_property("display", "none")?;
         self.connect_ble_button
             .style()
             .set_property("display", if connection { "none" } else { "block" })?;
@@ -345,12 +365,20 @@ impl SetupTab {
                             let client = Rc::new(client);
                             client_cell.set(client.clone()).ok().unwrap();
                             let Err(e) = self.run_connection(client).await;
-                            self.connect_status.set_error(StatusPriority::Error, "Connection failure", &e);
+                            self.connect_status.set_error(
+                                StatusPriority::Error,
+                                "Connection failure",
+                                &e,
+                            );
                         }
                         Ok(EitherClient::Picoboot(client)) => {
                             picoboot_cell.set(Some(client));
                         }
-                        Err(e) => self.connect_status.set_error(StatusPriority::Error, "Connection failure", &e),
+                        Err(e) => self.connect_status.set_error(
+                            StatusPriority::Error,
+                            "Connection failure",
+                            &e,
+                        ),
                     }
                 }
             }),
@@ -359,6 +387,10 @@ impl SetupTab {
         }
     }
     async fn run_connection(&self, connection: Rc<Client>) -> Result<!, Error> {
+        self.device_section.style().remove_property("display")?;
+        self.wifi_section.style().remove_property("display")?;
+        self.mqtt_section.style().remove_property("display")?;
+        self.display_section.style().remove_property("display")?;
         info!("Requesting device info...");
         let device_info = connection.device_info().await?;
         info!("Device info: {:#?}", device_info);

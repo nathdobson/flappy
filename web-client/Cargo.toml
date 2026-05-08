@@ -60,6 +60,7 @@ web-sys = { path="../submodules/wasm-bindgen/crates/web-sys", features = [
   "HtmlSelectElement",
   "HtmlParagraphElement",
   "HtmlBrElement",
+  "UserActivation",
 ] }
 js-sys = {path="../submodules/wasm-bindgen/crates/js-sys"}
 console_log = {path="../submodules/console_log"}
@@ -89,6 +90,7 @@ async_io_stream = "0.3.3"
 protocol-wifi = {path="../common/protocol-wifi"}
 error-report = {path="../common/error-report"}
 thiserror="2.0.18"
+regex = "1.12.3"
 
 [build-dependencies]
 built = {version="0.8.0",features = ["git2"]}

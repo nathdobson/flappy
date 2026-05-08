@@ -1,4 +1,6 @@
-use crate::browser_support::{BROWSER_SUPPORT_MESSAGE, check_usb_supported};
+use crate::browser_support::{
+    BROWSER_SUPPORT_MESSAGE, check_usb_supported, force_webview_to_chrome,
+};
 use crate::connection::{EitherClient, connect_usb};
 use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
@@ -7,13 +9,14 @@ use crate::tabs::TabContent;
 use crate::utils::{AppendChild, create_element, sleep, try_window};
 use empty_rc::EmptyRc;
 use js_sys::futures::spawn_local;
-use js_sys::{ArrayBuffer, Date, Uint8Array};
+use js_sys::{ArrayBuffer, Date, Reflect, Uint8Array, eval, global};
 use log::info;
+use regex::Regex;
 use setup_client::client::Client;
 use setup_client::flash_firmware::flash_firmware;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use web_sys::{Event, HtmlButtonElement, HtmlDivElement, HtmlElement, Response};
+use web_sys::{Event, HtmlButtonElement, HtmlDivElement, HtmlElement, Response, window};
 
 pub struct FirmwareTab {
     node: HtmlDivElement,
@@ -36,8 +39,10 @@ impl FirmwareTab {
                 crate::built_info::GIT_VERSION.unwrap_or("<unknown>")
             ))?;
         firmware_section.set_class_name("setup-section");
+
         let usb_supported = check_usb_supported().is_ok();
         if !usb_supported {
+            force_webview_to_chrome()?;
             firmware_section
                 .append_element::<"p">()?
                 .set_inner_html(BROWSER_SUPPORT_MESSAGE);
@@ -49,29 +54,30 @@ impl FirmwareTab {
         list.append_element::<"li">()?
             .set_text_content(Some("Connect this device to the display with a USB cable."));
         list.append_element::<"li">()?
-            .append_text("Click 'Flash Firmware'.")?;
+            .append_text("Click 'Update Firmware'.")?;
         list.append_element::<"li">()?
             .append_text("Select 'Split Flap Display' in the first prompt.")?;
         list.append_element::<"li">()?
             .append_text("Select 'RP2350 Boot' in the second prompt.")?;
         list.append_element::<"li">()?
-            .append_text("After flashing, unplug the USB cable and plug in the power supply.")?;
+            .append_text("After updating, unplug the USB cable and plug in the power supply.")?;
         firmware_section.append_text("If the standard update process fails:")?;
         let list = firmware_section.append_element::<"ol">()?;
         list.append_element::<"li">()?
             .set_text_content(Some("Unplug the power supply from the display."));
-        list.append_element::<"li">()?
-            .set_text_content(Some("Hold the white button on the display near the USB port."));
+        list.append_element::<"li">()?.set_text_content(Some(
+            "Hold the white button on the display near the USB port.",
+        ));
         list.append_element::<"li">()?
             .set_text_content(Some("Connect this device to the display with a USB cable."));
         list.append_element::<"li">()?
             .set_text_content(Some("Release the white button."));
         list.append_element::<"li">()?
-            .append_text("Click 'Flash Firmware'.")?;
+            .append_text("Click 'Update Firmware'.")?;
         list.append_element::<"li">()?
             .append_text("Select 'RP2350 Boot'.")?;
         list.append_element::<"li">()?
-            .append_text("After flashing, unplug the USB cable and plug in the power supply.")?;
+            .append_text("After updating, unplug the USB cable and plug in the power supply.")?;
         let firmware_button = firmware_section.append_element::<"button">()?;
         firmware_button.set_text_content(Some("Update firmware"));
         firmware_button.set_disabled(!usb_supported);
@@ -130,7 +136,6 @@ impl FirmwareTab {
                 }
                 self.firmware_status
                     .set(StatusPriority::Info, "Reconnecting...".to_string());
-                sleep(100).await;
                 match connect_usb(self.firmware_status.clone()).await? {
                     EitherClient::Application(_) => return Err(Error::NotPicobootMode),
                     EitherClient::Picoboot(client) => client,

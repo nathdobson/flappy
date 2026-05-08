@@ -24,7 +24,7 @@ pub async fn connect_ble(status: Rc<Status>) -> Result<EitherClient, Error> {
     let client = client.connect().await?;
     status.set(
         StatusPriority::Info,
-        "Press white button on microcontroller.".to_string(),
+        "Press white button near USB port.".to_string(),
     );
     let client = Client::BleClient(client);
     client.ping().await?;
