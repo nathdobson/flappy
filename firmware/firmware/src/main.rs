@@ -29,7 +29,7 @@ use cortex_m_rt::entry;
 use dummy_alloc::DummyAllocator;
 use embassy_executor::Executor;
 use embassy_rp::bind_interrupts;
-use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, PIO0};
+use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, DMA_CH2, PIO0};
 use log::error;
 use make_static::make_static;
 
@@ -43,17 +43,17 @@ mod controller;
 mod driver;
 mod error;
 // mod executor;
+#[cfg(feature = "radio")]
+mod blink;
+mod bootsel;
+mod display;
 #[cfg(feature = "flash")]
 mod flash;
 mod kernel;
-#[cfg(feature = "radio")]
-mod blink;
 #[cfg(feature = "mqtt")]
 mod mqtt;
 mod peripherals;
 mod settings_channel;
-mod bootsel;
-mod display;
 #[cfg(feature = "spindle")]
 mod spindle;
 #[cfg(feature = "usb")]
@@ -96,6 +96,6 @@ pub static EMPTY_ALLOCATOR: DummyAllocator = DummyAllocator;
 static HEAP: embedded_alloc::LlffHeap = embedded_alloc::LlffHeap::empty();
 
 bind_interrupts!(pub struct Irqs {
-    DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>, embassy_rp::dma::InterruptHandler<DMA_CH1>;
+    DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>, embassy_rp::dma::InterruptHandler<DMA_CH1>, embassy_rp::dma::InterruptHandler<DMA_CH2>;
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
 });

@@ -92,7 +92,8 @@ impl Application {
             spawner,
             peripherals: peri.radio_peri,
             pio_irq: Irqs,
-            dma_irq: Irqs,
+            dma_irq0: Irqs,
+            dma_irq1: Irqs,
         }
         .build()
         .await?;

@@ -21,7 +21,7 @@ pub fn build_peripherals() -> (KernelPeripherals, AppPeripherals) {
             #[cfg(feature = "flash")]
             flash_peri: crate::flash::FlashPeripherals {
                 FLASH: p.FLASH,
-                DMA_CH1: p.DMA_CH1,
+                DMA_CH2: p.DMA_CH2,
             },
             #[cfg(feature = "display")]
             driver_peri: crate::driver::DriverPeripherals {
@@ -44,6 +44,7 @@ pub fn build_peripherals() -> (KernelPeripherals, AppPeripherals) {
                 PIN_29: p.PIN_29,
                 PIO0: p.PIO0,
                 DMA_CH0: p.DMA_CH0,
+                DMA_CH1: p.DMA_CH1,
             },
             bootsel: BootselPeripherals { bootsel: p.BOOTSEL },
         },

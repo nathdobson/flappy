@@ -9,22 +9,22 @@ extern crate alloc;
 
 #[cfg(feature = "ble")]
 pub mod ble;
+#[cfg(feature = "ble")]
+pub mod ble_rpc;
 mod error;
 #[cfg(feature = "led")]
 pub mod led;
 #[cfg(feature = "wifi")]
 pub mod wifi;
-#[cfg(feature = "ble")]
-pub mod ble_rpc;
 
 pub use error::Error;
 
-use cyw43::{A4, Aligned, Control, aligned_bytes, Cyw43439};
+use cyw43::{A4, Aligned, Control, Cyw43439, aligned_bytes};
 use cyw43_pio::PioSpi;
 use embassy_executor::{SpawnError, Spawner};
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::interrupt::typelevel::{Binding, DMA_IRQ_0, PIO0_IRQ_0};
-use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
+use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::{Common, Irq, IrqFlags, Pio, StateMachine};
 use embassy_rp::{Peri, dma, pio};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
@@ -32,7 +32,8 @@ use embassy_sync::mutex::Mutex;
 use log::info;
 use make_static::make_static;
 
-type MyRunner = cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>, Cyw43439>;
+type MyRunner =
+    cyw43::Runner<'static, cyw43::SpiBus<Output<'static>, PioSpi<'static, PIO0, 0>>, Cyw43439>;
 
 #[allow(non_snake_case)]
 pub struct RadioPeripherals {
@@ -42,13 +43,15 @@ pub struct RadioPeripherals {
     pub PIN_29: Peri<'static, PIN_29>,
     pub PIO0: Peri<'static, PIO0>,
     pub DMA_CH0: Peri<'static, DMA_CH0>,
+    pub DMA_CH1: Peri<'static, DMA_CH1>,
 }
 
-pub struct RadioBuilder<I1, I2> {
+pub struct RadioBuilder<I1, I2, I3> {
     pub spawner: Spawner,
     pub peripherals: RadioPeripherals,
     pub pio_irq: I1,
-    pub dma_irq: I2,
+    pub dma_irq0: I2,
+    pub dma_irq1: I3,
 }
 
 struct RadioModule {
@@ -83,10 +86,11 @@ static FIRMWARE_CLM: &'static Aligned<A4, [u8]> =
 static FIRMWARE_NVRAM: &'static Aligned<A4, [u8]> =
     aligned_bytes!("../../../submodules/embassy/cyw43-firmware/nvram_rp2040.bin");
 
-impl<I1, I2> RadioBuilder<I1, I2>
+impl<I1, I2, I3> RadioBuilder<I1, I2, I3>
 where
     I1: 'static + Binding<PIO0_IRQ_0, pio::InterruptHandler<PIO0>>,
     I2: 'static + Binding<DMA_IRQ_0, dma::InterruptHandler<DMA_CH0>>,
+    I3: 'static + Binding<DMA_IRQ_0, dma::InterruptHandler<DMA_CH1>>,
 {
     pub async fn build(self) -> Result<Radio, SpawnError> {
         let module: &'static mut RadioModule;
@@ -108,7 +112,8 @@ where
             cs,
             self.peripherals.PIN_24,
             self.peripherals.PIN_29,
-            dma::Channel::new(self.peripherals.DMA_CH0, self.dma_irq),
+            dma::Channel::new(self.peripherals.DMA_CH0, self.dma_irq0),
+            dma::Channel::new(self.peripherals.DMA_CH1, self.dma_irq1),
         );
 
         let state = make_static!(cyw43::State, cyw43::State::new());

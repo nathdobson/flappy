@@ -4,7 +4,7 @@ use cortex_m::prelude::_embedded_hal_blocking_spi_Write;
 use embassy_executor::Spawner;
 use embassy_futures::yield_now;
 use embassy_rp::flash::{Async, ERASE_SIZE, Flash};
-use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, FLASH};
+use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, DMA_CH2, FLASH};
 use embassy_rp::{Peri, bind_interrupts};
 use log::{error, info};
 use protocol::setup::{AppSettings, WriteSettingsError};
@@ -19,7 +19,7 @@ const FLASH_SIZE: usize = 4 * 1024 * 1024;
 #[allow(non_snake_case)]
 pub struct FlashPeripherals {
     pub FLASH: Peri<'static, FLASH>,
-    pub DMA_CH1: Peri<'static, DMA_CH1>,
+    pub DMA_CH2: Peri<'static, DMA_CH2>,
 }
 
 #[repr(C, align(8))]
@@ -31,7 +31,7 @@ pub struct FlashModule {
 
 impl FlashModule {
     pub async fn new(peri: FlashPeripherals) -> Result<&'static FlashModule, Error> {
-        let mut flash = Flash::<_, Async, FLASH_SIZE>::new(peri.FLASH, peri.DMA_CH1, Irqs);
+        let mut flash = Flash::<_, Async, FLASH_SIZE>::new(peri.FLASH, peri.DMA_CH2, Irqs);
         let module = make_static!(
             FlashModule,
             FlashModule {
