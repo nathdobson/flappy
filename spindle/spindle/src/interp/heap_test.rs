@@ -1,5 +1,5 @@
 use crate::interp::heap::{HeapRef, HeapStorage};
-use crate::interp::heap_types::{HeapString, HeapStringInPlace};
+use crate::interp::heap_types::{HeapString, HeapStringBuilder};
 use crate::testutils::TEST_SPINDLE_OPTIONS;
 use alloc::vec::Vec;
 use core::alloc::{AllocError, Layout};
@@ -16,14 +16,14 @@ fn test_heap() {
     let mut heap_storage = HeapStorage::<20, 128>::new();
     let mut heap = heap_storage.start(1.0);
     let a = heap
-        .insert(HeapStringInPlace::new(StringInPlace::new(1)).unwrap())
+        .insert(HeapStringBuilder::new(StringInPlace::new(1)).unwrap())
         .unwrap();
     heap.get_typed_mut::<HeapString>(&a)
         .unwrap()
         .push_str("A")
         .unwrap();
     let b = heap
-        .insert(HeapStringInPlace::new(StringInPlace::new(1)).unwrap())
+        .insert(HeapStringBuilder::new(StringInPlace::new(1)).unwrap())
         .unwrap();
     heap.get_typed_mut::<HeapString>(&b)
         .unwrap()

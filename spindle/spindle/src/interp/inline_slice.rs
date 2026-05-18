@@ -5,7 +5,8 @@ use core::ops::Deref;
 use core::ops::DerefMut;
 use core::ptr;
 use core::ptr::Pointee;
-use heapless::BuilderInPlace;
+use unsized_builder::UnsizedBuilder;
+
 #[repr(C)]
 pub struct InlineSlice<Z, U: ?Sized> {
     len: usize,
@@ -13,14 +14,14 @@ pub struct InlineSlice<Z, U: ?Sized> {
     phantom: PhantomData<U>,
 }
 
-pub struct InlineSliceInPlace<B, Z> {
+pub struct InlineSliceBuilder<B, Z> {
     inner: B,
     layout: Layout,
     offset: usize,
     phantom: PhantomData<Z>,
 }
 
-impl<B: BuilderInPlace, Z> InlineSliceInPlace<B, Z> {
+impl<B: UnsizedBuilder, Z> InlineSliceBuilder<B, Z> {
     pub fn new(inner: B) -> Result<Self, AllocError> {
         let (layout, offset) = Layout::new::<usize>()
             .extend(inner.layout())
@@ -35,10 +36,10 @@ impl<B: BuilderInPlace, Z> InlineSliceInPlace<B, Z> {
     }
 }
 
-unsafe impl<B: BuilderInPlace, Z> BuilderInPlace for InlineSliceInPlace<B, Z>
+unsafe impl<B: UnsizedBuilder, Z> UnsizedBuilder for InlineSliceBuilder<B, Z>
 where
     Z: Unsize<B::Output>,
-    <B as BuilderInPlace>::Output: Pointee<Metadata = usize>,
+    <B as UnsizedBuilder>::Output: Pointee<Metadata = usize>,
 {
     type Output = InlineSlice<Z, B::Output>;
 

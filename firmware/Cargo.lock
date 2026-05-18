@@ -2589,6 +2589,7 @@ dependencies = [
  "arena",
  "heapless 0.9.3",
  "log",
+ "unsized-builder",
 ]
 
 [[package]]
@@ -2965,6 +2966,13 @@ checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
 dependencies = [
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "unsized-builder"
+version = "0.1.0"
+dependencies = [
+ "heapless 0.9.3",
 ]
 
 [[package]]

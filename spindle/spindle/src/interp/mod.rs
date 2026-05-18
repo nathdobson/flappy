@@ -16,7 +16,7 @@ mod linked_slab_test;
 use crate::compiler::stack::Stack;
 use crate::interp::error::InterpError;
 use crate::interp::heap::Heap;
-use crate::interp::heap_types::{HeapString, HeapStringInPlace};
+use crate::interp::heap_types::{HeapString, HeapStringBuilder};
 use crate::interp::value::Value;
 use crate::native::NativeFn;
 use crate::vm::{
@@ -24,7 +24,7 @@ use crate::vm::{
 };
 use core::fmt::Display;
 use heapless::VecView;
-use heapless::string::StringInPlace;
+use unsized_builder::StringBuilder;
 
 pub struct Interp<'vm> {
     program: &'vm VmProgram<'vm>,
@@ -94,7 +94,7 @@ impl<'vm> Interp<'vm> {
             VmInstr::String(s) => {
                 let r = self
                     .heap
-                    .insert(HeapStringInPlace::new(StringInPlace::new(s.len()))?)
+                    .insert(HeapStringBuilder::new(StringBuilder::new(s.len()))?)
                     .unwrap();
                 self.heap
                     .get_typed_mut::<HeapString>(&r)

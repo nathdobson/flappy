@@ -7,6 +7,7 @@ edition = "2024"
 arena={path= "../../common/arena" }
 heapless={path="../../submodules/heapless"}
 log = "0.4.29"
+unsized-builder = {path="../../common/unsized-builder"}
 
 [dev-dependencies]
 itertools = "0.14.0"

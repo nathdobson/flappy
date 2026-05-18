@@ -1,7 +1,7 @@
-use crate::interp::inline_slice::{InlineSlice, InlineSliceInPlace};
+use crate::interp::inline_slice::{InlineSlice, InlineSliceBuilder};
 use heapless::String;
-use heapless::string::{StringInPlace, StringView};
+use heapless::string::StringView;
+use unsized_builder::StringBuilder;
 
 pub type HeapString = InlineSlice<String<0>, StringView>;
-pub type HeapStringInPlace = InlineSliceInPlace<StringInPlace, String<0>>;
-
+pub type HeapStringBuilder = InlineSliceBuilder<StringBuilder, String<0>>;

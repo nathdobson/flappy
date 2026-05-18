@@ -8,8 +8,9 @@ use core::pin::UnsafePinned;
 use core::ptr::{DynMetadata, Pointee, metadata, null};
 use core::{fmt, mem, ptr};
 use heapless::deque::DequeView;
-use heapless::{BuilderInPlace, Deque, Vec, VecView};
+use heapless::{Deque, Vec, VecView};
 use log::info;
+use unsized_builder::UnsizedBuilder;
 
 type HeapAddress = u32;
 
@@ -124,7 +125,7 @@ impl<'a> Heap<'a> {
     fn heap_raw_const(&self, index: HeapAddress) -> *const () {
         unsafe { (self.heap.get() as *const u8).offset(index as isize) as *const () }
     }
-    pub fn insert<B: BuilderInPlace + 'static>(&mut self, builder: B) -> Result<HeapRef, AllocError>
+    pub fn insert<B: UnsizedBuilder + 'static>(&mut self, builder: B) -> Result<HeapRef, AllocError>
     where
         B::Output: HeapObject + Sized,
     {
