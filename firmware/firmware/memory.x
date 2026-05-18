@@ -27,7 +27,7 @@ SECTIONS {
      * Goes after .vector_table, to keep it in the first 4K of flash
      * where the Boot ROM (and picotool) can find it
      */
-    .start_block : ALIGN(4)
+    .start_block : ALIGN(8)
     {
         __start_block_addr = .;
         KEEP(*(.start_block));
