@@ -5,8 +5,6 @@ version = 4
 [[package]]
 name = "aead"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d122413f284cf2d62fb1b7db97e02edb8cda96d769b16e443a4f6195e35662b0"
 dependencies = [
  "crypto-common",
  "generic-array 0.14.7",
@@ -973,7 +971,7 @@ dependencies = [
  "hkdf",
  "hmac",
  "log",
- "p256",
+ "p256 0.13.2",
  "portable-atomic",
  "rand_core",
  "rsa",
@@ -1059,7 +1057,7 @@ dependencies = [
  "make-static",
  "mqtt-client",
  "mqtt-core",
- "p256",
+ "p256 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "protocol",
  "protocol-ble",
  "radio-builder",
@@ -1876,13 +1874,21 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 [[package]]
 name = "p256"
 version = "0.13.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9863ad85fa8f4460f9c48cb909d38a0d689dba1f6f6988a5e3e0d31071bcd4b"
 dependencies = [
  "ecdsa",
  "elliptic-curve",
- "primeorder",
+ "primeorder 0.13.1",
  "sha2",
+]
+
+[[package]]
+name = "p256"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9863ad85fa8f4460f9c48cb909d38a0d689dba1f6f6988a5e3e0d31071bcd4b"
+dependencies = [
+ "elliptic-curve",
+ "primeorder 0.13.6",
 ]
 
 [[package]]
@@ -2073,6 +2079,13 @@ name = "precomputed-hash"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
+
+[[package]]
+name = "primeorder"
+version = "0.13.1"
+dependencies = [
+ "elliptic-curve",
+]
 
 [[package]]
 name = "primeorder"
@@ -2891,7 +2904,7 @@ dependencies = [
  "embedded-io",
  "futures",
  "heapless 0.9.3",
- "p256",
+ "p256 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand",
  "rand_chacha",
  "rand_core",
