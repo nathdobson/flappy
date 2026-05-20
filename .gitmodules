@@ -131,3 +131,6 @@
 [submodule "submodules/formats-pkcs8"]
 	path = submodules/formats-pkcs8
 	url = https://github.com/nathdobson/formats.git
+[submodule "submodules/formats-spki"]
+	path = submodules/formats-spki
+	url = https://github.com/nathdobson/formats.git

@@ -2009,7 +2009,7 @@ version = "0.7.5"
 dependencies = [
  "der 0.7.10",
  "pkcs8",
- "spki",
+ "spki 0.7.3",
 ]
 
 [[package]]
@@ -2017,7 +2017,7 @@ name = "pkcs8"
 version = "0.10.2"
 dependencies = [
  "der 0.7.10",
- "spki",
+ "spki 0.7.1",
 ]
 
 [[package]]
@@ -2322,7 +2322,7 @@ dependencies = [
  "rand_core",
  "sha2",
  "signature",
- "spki",
+ "spki 0.7.3",
  "subtle",
  "zeroize",
 ]
@@ -2577,6 +2577,14 @@ dependencies = [
  "heapless 0.9.3",
  "log",
  "unsized-builder",
+]
+
+[[package]]
+name = "spki"
+version = "0.7.1"
+dependencies = [
+ "base64ct",
+ "der 0.7.10",
 ]
 
 [[package]]
