@@ -125,3 +125,6 @@
 [submodule "submodules/formats-der"]
 	path = submodules/formats-der
 	url = https://github.com/nathdobson/formats.git
+[submodule "submodules/formats-pkcs1"]
+	path = submodules/formats-pkcs1
+	url = https://github.com/nathdobson/formats.git
