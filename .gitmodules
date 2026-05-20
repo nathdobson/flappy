@@ -119,3 +119,9 @@
 [submodule "submodules/traits-cipher"]
 	path = submodules/traits-cipher
 	url = https://github.com/nathdobson/traits.git
+[submodule "submodules/universal-hashes"]
+	path = submodules/universal-hashes
+	url = https://github.com/nathdobson/universal-hashes.git
+[submodule "submodules/traits-universal-hash"]
+	path = submodules/traits-universal-hash
+	url = https://github.com/nathdobson/traits.git
