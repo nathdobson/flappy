@@ -548,7 +548,7 @@ version = "0.8.0"
 dependencies = [
  "const-oid 0.10.2",
  "der_derive",
- "heapless 0.9.3",
+ "heapless 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "time",
 ]
 
@@ -1372,6 +1372,16 @@ dependencies = [
  "embedded-io",
  "hash32 0.3.1",
  "serde_core",
+ "stable_deref_trait",
+]
+
+[[package]]
+name = "heapless"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
+dependencies = [
+ "hash32 0.3.1",
  "stable_deref_trait",
 ]
 

@@ -68,9 +68,6 @@
 [submodule "submodules/rp-pac"]
 	path = submodules/rp-pac
 	url = https://github.com/nathdobson/rp-pac.git
-[submodule "submodules/formats"]
-	path = submodules/formats
-	url = https://github.com/nathdobson/formats.git
 [submodule "submodules/smoltcp"]
 	path = submodules/smoltcp
 	url = https://github.com/nathdobson/smoltcp.git
@@ -125,3 +122,6 @@
 [submodule "submodules/traits-universal-hash"]
 	path = submodules/traits-universal-hash
 	url = https://github.com/nathdobson/traits.git
+[submodule "submodules/formats-der"]
+	path = submodules/formats-der
+	url = https://github.com/nathdobson/formats.git
