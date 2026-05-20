@@ -278,7 +278,7 @@ version = "0.7.1"
 dependencies = [
  "cipher",
  "dbl",
- "digest",
+ "digest 0.10.6",
 ]
 
 [[package]]
@@ -593,14 +593,22 @@ dependencies = [
 
 [[package]]
 name = "digest"
-version = "0.10.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+version = "0.10.6"
 dependencies = [
  "block-buffer",
  "const-oid 0.9.6",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "digest"
+version = "0.10.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
+dependencies = [
+ "block-buffer",
+ "crypto-common",
 ]
 
 [[package]]
@@ -634,7 +642,7 @@ name = "ecdsa"
 version = "0.16.9"
 dependencies = [
  "der 0.7.10",
- "digest",
+ "digest 0.10.6",
  "elliptic-curve",
  "rfc6979",
  "signature",
@@ -652,7 +660,7 @@ version = "0.13.8"
 dependencies = [
  "base16ct",
  "crypto-bigint",
- "digest",
+ "digest 0.10.6",
  "ff",
  "generic-array 0.14.7",
  "group",
@@ -953,7 +961,7 @@ dependencies = [
  "aes-gcm",
  "const-oid 0.10.2",
  "der 0.8.0",
- "digest",
+ "digest 0.10.6",
  "ecdsa",
  "embedded-io",
  "embedded-io-async",
@@ -1382,7 +1390,7 @@ dependencies = [
 name = "hmac"
 version = "0.12.1"
 dependencies = [
- "digest",
+ "digest 0.10.6",
 ]
 
 [[package]]
@@ -2299,7 +2307,7 @@ name = "rsa"
 version = "0.9.9"
 dependencies = [
  "const-oid 0.9.6",
- "digest",
+ "digest 0.10.6",
  "num-bigint-dig",
  "num-integer",
  "num-traits",
@@ -2460,7 +2468,7 @@ version = "0.10.8"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "digest",
+ "digest 0.10.6",
 ]
 
 [[package]]
@@ -2475,7 +2483,7 @@ version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77fd7028345d415a4034cf8777cd4f8ab1851274233b45f84e3d955502d93874"
 dependencies = [
- "digest",
+ "digest 0.10.7",
  "keccak",
 ]
 
@@ -2498,7 +2506,7 @@ checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
 name = "signature"
 version = "2.2.0"
 dependencies = [
- "digest",
+ "digest 0.10.6",
  "rand_core",
 ]
 
