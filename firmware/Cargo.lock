@@ -534,9 +534,7 @@ checksum = "f578e8e2c440e7297e008bb5486a3a8a194775224bbc23729b0dbdfaeebf162e"
 
 [[package]]
 name = "der"
-version = "0.7.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
+version = "0.7.8"
 dependencies = [
  "const-oid 0.9.6",
  "zeroize",
@@ -645,7 +643,7 @@ checksum = "fadb95bab5cf4a3b4d608255efdb2493a7755ba6e602bd88c95a6912609d2550"
 name = "ecdsa"
 version = "0.16.9"
 dependencies = [
- "der 0.7.10",
+ "der 0.7.8",
  "digest 0.10.6",
  "elliptic-curve",
  "rfc6979",
@@ -2007,7 +2005,7 @@ dependencies = [
 name = "pkcs1"
 version = "0.7.5"
 dependencies = [
- "der 0.7.10",
+ "der 0.7.8",
  "pkcs8",
  "spki",
 ]
@@ -2016,7 +2014,7 @@ dependencies = [
 name = "pkcs8"
 version = "0.10.2"
 dependencies = [
- "der 0.7.10",
+ "der 0.7.8",
  "spki",
 ]
 
@@ -2398,7 +2396,7 @@ name = "sec1"
 version = "0.7.3"
 dependencies = [
  "base16ct",
- "der 0.7.10",
+ "der 0.7.8",
  "generic-array 0.14.7",
  "subtle",
  "zeroize",
@@ -2582,7 +2580,7 @@ name = "spki"
 version = "0.7.3"
 dependencies = [
  "base64ct",
- "der 0.7.10",
+ "der 0.7.8",
 ]
 
 [[package]]

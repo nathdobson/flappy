@@ -122,9 +122,6 @@
 [submodule "submodules/traits-universal-hash"]
 	path = submodules/traits-universal-hash
 	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/formats-der"]
-	path = submodules/formats-der
-	url = https://github.com/nathdobson/formats.git
 [submodule "submodules/formats-pkcs1"]
 	path = submodules/formats-pkcs1
 	url = https://github.com/nathdobson/formats.git
@@ -136,4 +133,10 @@
 	url = https://github.com/nathdobson/formats.git
 [submodule "submodules/formats-sec1"]
 	path = submodules/formats-sec1
+	url = https://github.com/nathdobson/formats.git
+[submodule "submodules/formats-der-0.7.10"]
+	path = submodules/formats-der-0.7.10
+	url = https://github.com/nathdobson/formats.git
+[submodule "submodules/formats-der-0.8.0"]
+	path = submodules/formats-der-0.8.0
 	url = https://github.com/nathdobson/formats.git
