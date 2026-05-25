@@ -629,6 +629,7 @@ dependencies = [
  "block-buffer",
  "const-oid",
  "crypto-common",
+ "fallible_vec",
  "subtle",
 ]
 
@@ -654,6 +655,7 @@ dependencies = [
  "der",
  "digest",
  "elliptic-curve",
+ "fallible_vec",
  "rfc6979",
  "signature",
 ]
@@ -864,6 +866,14 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "webpki-roots",
+]
+
+[[package]]
+name = "fallible_vec"
+version = "0.3.1"
+dependencies = [
+ "generic-array 0.14.7",
+ "static_assertions",
 ]
 
 [[package]]

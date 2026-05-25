@@ -1,14 +1,14 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
 runner = "./runner.sh"
 rustflags = [
-#    "--cfg", "no_global_oom_handling",
+    "--cfg", "no_global_oom_handling",
     '--cfg=getrandom_backend="custom"',
 ]
 
 [target.'cfg(all(target_arch = "riscv32", target_os = "none"))']
 runner = "./runner.sh"
 rustflags = [
-#    "--cfg", "no_global_oom_handling",
+    "--cfg", "no_global_oom_handling",
     '--cfg=getrandom_backend="custom"',
 ]
 

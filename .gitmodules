@@ -146,3 +146,6 @@
 [submodule "submodules/rust-smallvec"]
 	path = submodules/rust-smallvec
 	url = https://github.com/nathdobson/rust-smallvec.git
+[submodule "submodules/rust_fallible_vec"]
+	path = submodules/rust_fallible_vec
+	url = https://github.com/nathdobson/rust_fallible_vec.git
