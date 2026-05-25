@@ -7,6 +7,7 @@ edition = "2024"
 heapless = {path="../../submodules/heapless",features = ["serde"],default-features = false}
 serde = { version = "1.0.228", features = ["derive"] ,default-features = false,optional = true}
 mqtt-core = {path="../mqtt-core"}
+sha2={version="0.10.9",default-features = false}
 uuid = {path="../../submodules/uuid",optional = true}
 embedded-tls = {path="../../submodules/embedded-tls", optional = true,default-features = false}
 embassy-net = {path="../../submodules/embassy/embassy-net", optional = true,default-features = false}

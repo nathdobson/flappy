@@ -69,8 +69,7 @@ glyph-render = {path ="../../common/glyph-render", default-features = false}
 mqtt-core = {path="../../common/mqtt-core"}
 fixed = {version="1.29.0",optional=true}
 spindle={path="../../spindle/spindle",optional = true}
-#p256={version="0.13.2",default-features = false,optional = true}
-p256={path="../../submodules/elliptic-curves/p256",default-features = false,optional = true}
+p256={version="0.13.2",default-features = false,optional = true}
 usb-builder = {path="../usb-builder",optional = true}
 make-static = {path="../../common/make-static"}
 board-info = {path="../board-info"}

@@ -68,84 +68,9 @@
 [submodule "submodules/rp-pac"]
 	path = submodules/rp-pac
 	url = https://github.com/nathdobson/rp-pac.git
+[submodule "submodules/formats"]
+	path = submodules/formats
+	url = https://github.com/nathdobson/formats.git
 [submodule "submodules/smoltcp"]
 	path = submodules/smoltcp
 	url = https://github.com/nathdobson/smoltcp.git
-[submodule "submodules/elliptic-curves"]
-	path = submodules/elliptic-curves
-	url = https://github.com/nathdobson/elliptic-curves.git
-[submodule "submodules/utils"]
-	path = submodules/utils
-	url = https://github.com/nathdobson/utils.git
-[submodule "submodules/MACs"]
-	path = submodules/MACs
-	url = https://github.com/nathdobson/MACs.git
-[submodule "submodules/KDFs"]
-	path = submodules/KDFs
-	url = https://github.com/nathdobson/KDFs.git
-[submodule "submodules/hashes"]
-	path = submodules/hashes
-	url = https://github.com/nathdobson/hashes.git
-[submodule "submodules/AEADs"]
-	path = submodules/AEADs
-	url = https://github.com/nathdobson/AEADs.git
-[submodule "submodules/block-ciphers"]
-	path = submodules/block-ciphers
-	url = https://github.com/nathdobson/block-ciphers.git
-[submodule "submodules/block-modes"]
-	path = submodules/block-modes
-	url = https://github.com/nathdobson/block-modes.git
-[submodule "submodules/signatures"]
-	path = submodules/signatures
-	url = https://github.com/nathdobson/signatures.git
-[submodule "submodules/traits-digest"]
-	path = submodules/traits-digest
-	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/traits-crypto-common"]
-	path = submodules/traits-crypto-common
-	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/traits-signature"]
-	path = submodules/traits-signature
-	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/traits-elliptic-curve"]
-	path = submodules/traits-elliptic-curve
-	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/traits-aead"]
-	path = submodules/traits-aead
-	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/traits-cipher"]
-	path = submodules/traits-cipher
-	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/universal-hashes"]
-	path = submodules/universal-hashes
-	url = https://github.com/nathdobson/universal-hashes.git
-[submodule "submodules/traits-universal-hash"]
-	path = submodules/traits-universal-hash
-	url = https://github.com/nathdobson/traits.git
-[submodule "submodules/formats-pkcs1"]
-	path = submodules/formats-pkcs1
-	url = https://github.com/nathdobson/formats.git
-[submodule "submodules/formats-pkcs8"]
-	path = submodules/formats-pkcs8
-	url = https://github.com/nathdobson/formats.git
-[submodule "submodules/formats-spki"]
-	path = submodules/formats-spki
-	url = https://github.com/nathdobson/formats.git
-[submodule "submodules/formats-sec1"]
-	path = submodules/formats-sec1
-	url = https://github.com/nathdobson/formats.git
-[submodule "submodules/formats-der-0.7.10"]
-	path = submodules/formats-der-0.7
-	url = https://github.com/nathdobson/formats.git
-[submodule "submodules/formats-der-0.8.0"]
-	path = submodules/formats-der-0.8
-	url = https://github.com/nathdobson/formats.git
-[submodule "submodules/num-bigint"]
-	path = submodules/num-bigint
-	url = https://github.com/nathdobson/num-bigint.git
-[submodule "submodules/rust-smallvec"]
-	path = submodules/rust-smallvec
-	url = https://github.com/nathdobson/rust-smallvec.git
-[submodule "submodules/rust_fallible_vec"]
-	path = submodules/rust_fallible_vec
-	url = https://github.com/nathdobson/rust_fallible_vec.git

@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 embedded-tls = {path="../../submodules/embedded-tls",default-features = false,features = ["log","rustpki","rsa"]}
+p256={version="0.13.2",default-features = false}
 embassy-net = {path="../../submodules/embassy/embassy-net"}
 embassy-sync = {path="../../submodules/embassy/embassy-sync"}
 embedded-io = "0.7.1"
