@@ -3,7 +3,7 @@
 This project is a redesign of David
 Kingsman's [Split Flap Display](https://www.printables.com/model/69464-split-flap-display).
 
-![Split Flap Photo](readme/flaps.jpg)
+![Split Flap Photo](assets/flaps.jpg)
 
 ## How it works
 
@@ -15,7 +15,7 @@ A client (e.g. [this webpage](https://flappy-7d77d.web.app/www)) sends messages 
 over [MQTT](https://mqtt.org/), a standardized publish/subscribe message protocol designed for IOT devices. Once the MCU
 receives a message, it communicates with a series of daisy-chained motor driver circuit boards on the back of each
 module. Each driver contains one shift register for controlling a unipolar stepper motor and one shift register for
-reading a digital hall effects sensor. Each motor spins until a magnet on the drum activates the hall sensor, indicating
+reading a digital hall effect sensor. Each motor spins until a magnet on the drum activates the hall sensor, indicating
 that the drum is at a particular absolute orientation. The motor then spins a specific number of steps to reach the
 desired symbol.
 
@@ -174,7 +174,7 @@ algorithm accounts for [Unicode Equivalence](https://en.wikipedia.org/wiki/Unico
 To display a repeating or changing message, send a UTF-8 encoded `spindle` script as follows:
 
 ```
-{"Run": "display(\"hi\");sleep_ms(1000);display(\"hi\");"}
+{"RunSpindle": "display(\"hi\");sleep_ms(1000);display(\"hi\");"}
 ```
 
 See the [Spindle](spindle/README.md) documentation for details on the scripting language.
