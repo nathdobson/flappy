@@ -451,7 +451,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "driver3.kicad_pro",
+    "filename": "driver.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -613,6 +613,14 @@
     [
       "8ea260a6-186a-4f1b-bd45-111d7bb23f21",
       "Root"
+    ],
+    [
+      "a4e368fe-32ce-4986-82de-460c0d4ff0ff",
+      "drv1"
+    ],
+    [
+      "9aec8e44-2621-4598-8db1-77d04b4fca83",
+      "drv2"
     ]
   ],
   "text_variables": {}

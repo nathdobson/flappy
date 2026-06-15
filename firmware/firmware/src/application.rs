@@ -337,6 +337,29 @@ impl Application {
                     #[cfg(feature = "display")]
                     self.driver.set_enabled(false);
                 }
+                TestType::Spin => {
+                    #[cfg(feature = "display")]
+                    self.driver.set_enabled(true);
+                    #[cfg(feature = "display")]
+                    for i in 0..5000 {
+                        let full = [0b00110011, 0b01100110, 0b11001100, 0b10011001];
+                        let brrr = [0b00001111, 0b11110000];
+                        let half = [
+                            0b00010001, 0b00110011, 0b00100010, 0b01100110, 0b01000100, 0b11001100,
+                            0b10001000, 0b10011001,
+                        ];
+                        for x in full {
+                            if let Err(e) = self.driver.write(&[x]) {
+                                error!("test error {}", e);
+                            }
+                            Delay.delay_us(2000).await;
+                        }
+                    }
+                    #[cfg(feature = "display")]
+                    self.driver.write(&[0, 0]).ok();
+                    #[cfg(feature = "display")]
+                    self.driver.set_enabled(false);
+                }
                 TestType::Read => {
                     #[cfg(feature = "display")]
                     self.driver.run_read_test().await;

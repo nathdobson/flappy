@@ -30,6 +30,7 @@ pub enum MqttField {
 pub enum TestType {
     Read,
     Enable,
+    Spin,
 }
 
 #[derive(Debug)]
@@ -165,7 +166,7 @@ impl<'a> Command<'a> {
             .next()
             .ok_or(CommandError::from("missing test type"))?;
         let typ = match typ {
-            // "spin" => TestType::Spin,
+            "spin" => TestType::Spin,
             "read" => TestType::Read,
             "enable" => TestType::Enable,
             _ => return Err(CommandError::from("unknown test type")),
