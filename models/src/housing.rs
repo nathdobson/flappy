@@ -734,10 +734,10 @@ async fn main() -> anyhow::Result<()> {
         },
         tube: Tube {
             width: 14.0,
-            wall_bottom: 1.0,
-            wall_top: 1.0,
-            wire_inlet1: 1.2,
-            wire_inlet2: 0.8,
+            wall_bottom: 0.6,
+            wall_top: 0.8,
+            wire_inlet1: 2.0,
+            wire_inlet2: 2.0,
             tab_width: 2.0,
         },
         hall_mount: HallMount {
