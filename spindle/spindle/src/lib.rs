@@ -11,6 +11,7 @@
     deref_patterns,
     trait_alias
 )]
+#![feature(try_blocks)]
 #![feature(unsize)]
 #![feature(coerce_unsized)]
 #![feature(pin_coerce_unsized_trait)]
@@ -25,7 +26,7 @@
     internal_features,
     unused_mut,
     unused_variables,
-    incomplete_features
+    unused_features
 )]
 extern crate alloc;
 extern crate core;

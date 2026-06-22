@@ -4,26 +4,25 @@ use crate::testutils::TEST_SPINDLE_OPTIONS;
 use alloc::vec::Vec;
 use core::alloc::{AllocError, Layout};
 use core::fmt::{Display, Formatter};
-use heapless::string::StringInPlace;
-use heapless::vec::VecInPlace;
-use heapless::{BuilderInPlace, VecView};
+use heapless::VecView;
 use rand::RngExt;
 use rand::SeedableRng;
 use rand_xorshift::XorShiftRng;
+use unsized_builder::{StringBuilder, UnsizedBuilder};
 
 #[test]
 fn test_heap() {
     let mut heap_storage = HeapStorage::<20, 128>::new();
     let mut heap = heap_storage.start(1.0);
     let a = heap
-        .insert(HeapStringBuilder::new(StringInPlace::new(1)).unwrap())
+        .insert(HeapStringBuilder::new(StringBuilder::new(1)).unwrap())
         .unwrap();
     heap.get_typed_mut::<HeapString>(&a)
         .unwrap()
         .push_str("A")
         .unwrap();
     let b = heap
-        .insert(HeapStringBuilder::new(StringInPlace::new(1)).unwrap())
+        .insert(HeapStringBuilder::new(StringBuilder::new(1)).unwrap())
         .unwrap();
     heap.get_typed_mut::<HeapString>(&b)
         .unwrap()
@@ -36,15 +35,15 @@ fn test_heap() {
 #[derive(Debug)]
 struct Fake;
 
-struct FakeInPlace(Layout);
+struct FakeBuilder(Layout);
 
-impl FakeInPlace {
+impl FakeBuilder {
     pub fn new(layout: Layout) -> Self {
-        FakeInPlace(layout)
+        FakeBuilder(layout)
     }
 }
 
-unsafe impl BuilderInPlace for FakeInPlace {
+unsafe impl UnsizedBuilder for FakeBuilder {
     type Output = Fake;
 
     fn layout(&self) -> Layout {
@@ -82,7 +81,7 @@ fn test_compaction() {
                     if rng.random_bool(0.5) {
                         let len: usize = rng.random_range(1..MAX_OBJECT);
                         let layout = Layout::from_size_align(len, 1).map_err(|_| AllocError)?;
-                        refs.push((layout, heap.insert(FakeInPlace::new(layout))?));
+                        refs.push((layout, heap.insert(FakeBuilder::new(layout))?));
                         bytes_count += layout.size();
                         alloc_count += 1;
                     } else {

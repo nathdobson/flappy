@@ -92,15 +92,7 @@ impl<'vm> Interp<'vm> {
             VmInstr::Integer(x) => self.push_value(Value::Number(*x)),
             VmInstr::Bool(x) => self.push_value(Value::Bool(*x)),
             VmInstr::String(s) => {
-                let r = self
-                    .heap
-                    .insert(HeapStringBuilder::new(StringBuilder::new(s.len()))?)
-                    .unwrap();
-                self.heap
-                    .get_typed_mut::<HeapString>(&r)
-                    .unwrap()
-                    .push_str(s)
-                    .unwrap();
+                let r = self.heap.insert_str(s)?;
                 self.push_value(Value::Ref(r))?;
                 Ok(())
             }

@@ -46,8 +46,9 @@ pub enum CompileError<'src> {
     BadNumberLiteral,
     UnexpectedInfixSymbol,
     Unimplemented,
-    UnknownFunction,
+    UnknownFunction(IdentToken<'src>),
     NotInLoop,
+    ExpectedFunctionLiteral,
 }
 
 impl<'src> From<TryReserveError> for CompileError<'src> {
@@ -495,9 +496,9 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
                 self.natives
                     .iter()
                     .position(|f| f.name() == x.ident)
-                    .ok_or(CompileError::UnknownFunction)?,
+                    .ok_or(CompileError::UnknownFunction(*x))?,
             ),
-            _ => return Err(CompileError::UnknownFunction),
+            _ => return Err(CompileError::ExpectedFunctionLiteral),
         };
         self.push_instr(block, VmInstr::Call(name, expr.args.exprs.len()))?;
         Ok(block)

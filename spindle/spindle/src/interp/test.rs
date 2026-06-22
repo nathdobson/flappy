@@ -287,8 +287,8 @@ async fn test_or() {
         print(true || true);
        "#,
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
     assert_matches!(result, ["false", "true", "true", "true"]);
 }
 
@@ -300,8 +300,8 @@ async fn test_or_short_circuit() {
         true || print("b");
        "#,
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
     assert_matches!(result, ["a"]);
 }
 
@@ -313,11 +313,21 @@ async fn test_or_falsy() {
         print(1 || 0);
         print(null || 2);
         print(1 || 2);
-
        "#,
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
     assert_matches!(result, ["0", "1", "2", "1"]);
 }
 
+#[tokio::test]
+async fn test_format() {
+    let result = interp(
+        r#"
+        print(format(0,"a",2));
+       "#,
+    )
+    .await
+    .unwrap();
+    assert_matches!(result, ["0a2"]);
+}

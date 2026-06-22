@@ -5,7 +5,7 @@ use crate::compiler::stack::{Stack, StackBox, StackStorage, new_stack};
 use crate::compiler::stack_executor::stack_executor;
 use crate::interp::heap::Heap;
 use crate::interp::value::Value;
-use crate::native::{NativeError, NativeFn, PrintFn};
+use crate::native::{FormatFn, NativeError, NativeFn, PrintFn};
 use crate::vm::VmProgram;
 use crate::{Spindle, SpindleError, SpindleOptions};
 use alloc::string::String;
@@ -65,7 +65,7 @@ pub static TEST_SPINDLE_OPTIONS: SpindleOptions = SpindleOptions {
 
 pub async fn interp(code: &str) -> Result<Vec<String>, SpindleError<'_>> {
     TestSpindle::new()
-        .run(TEST_SPINDLE_OPTIONS.clone(), code, &[&TestPrintFn])
+        .run(TEST_SPINDLE_OPTIONS.clone(), code, &[&TestPrintFn, &FormatFn])
         .await?;
     Ok(TEST_LOGS.with(|x| x.take()))
 }

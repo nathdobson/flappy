@@ -1,5 +1,7 @@
 use crate::interp::error::TypeError;
+use crate::interp::heap_types::{HeapString, HeapStringBuilder};
 use crate::interp::linked_slab::{LinkedSlab, LinkedSlabStorage};
+use crate::interp::value::Value;
 use core::alloc::{AllocError, Layout};
 use core::any::{Any, TypeId};
 use core::fmt::{Debug, Display, Formatter};
@@ -10,7 +12,7 @@ use core::{fmt, mem, ptr};
 use heapless::deque::DequeView;
 use heapless::{Deque, Vec, VecView};
 use log::info;
-use unsized_builder::UnsizedBuilder;
+use unsized_builder::{StringBuilder, UnsizedBuilder};
 
 type HeapAddress = u32;
 
@@ -210,6 +212,16 @@ impl<'a> Heap<'a> {
             }
             Ok(())
         }
+    }
+    pub fn insert_str(&mut self, str: &str) -> Result<HeapRef, AllocError> {
+        let r = self
+            .insert(HeapStringBuilder::new(StringBuilder::new(str.len()))?)
+            .unwrap();
+        self.get_typed_mut::<HeapString>(&r)
+            .unwrap()
+            .push_str(str)
+            .unwrap();
+        Ok(r)
     }
 }
 
