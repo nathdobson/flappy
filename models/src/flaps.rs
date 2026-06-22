@@ -112,6 +112,7 @@ async fn build_output() -> anyhow::Result<()> {
     tokio::fs::create_dir_all(working_dir.join("flaps/supports")).await?;
     tokio::fs::create_dir_all(working_dir.join("flaps/layers")).await?;
     tokio::fs::create_dir_all(working_dir.join("flaps/singles")).await?;
+    tokio::fs::create_dir_all(working_dir.join("flaps/polys")).await?;
     let plates = StackBuilder {
         working_dir: working_dir.clone(),
         width: 43.0,
@@ -125,7 +126,6 @@ async fn build_output() -> anyhow::Result<()> {
         letter_thickness: 0.4,
         flap_separation: 3.01,
         wall_separation: 0.01,
-        letter_scale: 78.0,
         wedge_width: 5.0,
         wedge_height: 0.5,
         flap_grid_width: 3,

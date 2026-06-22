@@ -5,6 +5,7 @@ use patina_bambu::{BambuObject, BambuPart, BambuPartType, BambuPlate};
 use patina_extrude::ExtrusionBuilder;
 use patina_font::PolygonOutlineBuilder;
 use patina_geo::geo2::aabb2::Aabb2;
+use patina_geo::geo2::polygon2::Polygon2;
 use patina_mesh::bimesh2::Bimesh2;
 use patina_mesh::edge_mesh2::EdgeMesh2;
 use patina_mesh::ser::{Encode, encode_file, encode_test_file};
@@ -45,11 +46,11 @@ pub struct Config {
 pub struct GlyphConfig {
     pub font: PathBuf,
     #[serde(default)]
-    pub reverse_winding: bool,
-    #[serde(default)]
     pub glyphs: Vec<String>,
     #[serde(default)]
     pub position: Vec2,
+    #[serde(default)]
+    pub letter_scale: Option<f32>,
 }
 
 pub struct StackBuilder {
@@ -68,7 +69,6 @@ pub struct StackBuilder {
 
     pub flap_separation: f64,
     pub wall_separation: f64,
-    pub letter_scale: f32,
 
     pub wedge_width: f64,
     pub wedge_height: f64,
@@ -127,7 +127,7 @@ impl StackBuilder {
         mesh.add_polygon(poly.into_iter());
         mesh
     }
-    fn letter_poly(&self, index: usize) -> Arc<EdgeMesh2> {
+    async fn letter_poly(&self, index: usize) -> Arc<EdgeMesh2> {
         let glyph = &self.config.glyphs[index];
         let config = self
             .config
@@ -136,7 +136,7 @@ impl StackBuilder {
             .find(|o| o.glyphs.contains(&glyph))
             .unwrap_or(&self.config.glyph_config);
         let font = self.fonts.get(&config.font).expect("missing font");
-        let scale = Scale::uniform(self.letter_scale);
+        let scale = Scale::uniform(config.letter_scale.unwrap_or(78.0));
         let v_metrics = font.v_metrics(scale);
         let v_shift = (v_metrics.ascent / 2.0) as f64;
         let glyph = font.glyph(
@@ -151,19 +151,22 @@ impl StackBuilder {
         let h_shift = (-h_metrics.advance_width / 2.0) as f64;
         let shift = config.position + Vec2::new(h_shift, v_shift);
         let mut outline = PolygonOutlineBuilder::new(1.0);
-        // let bb = glyph.exact_bounding_box().unwrap_or(Rect::default());
-        // let minx = bb.min.x as f64;
-        // let maxx = bb.max.x as f64;
         glyph.build_outline(&mut outline);
         let outline = outline.build();
+        let outline = Polygon2::fix_winding(&outline);
         let mut outline_mesh = EdgeMesh2::new();
         for outline in outline {
             let mut polygon: Vec<_> = outline.points().iter().map(|p| *p + shift).collect();
-            if config.reverse_winding {
-                polygon.reverse();
-            }
             outline_mesh.add_polygon(polygon.into_iter());
         }
+        encode_file(
+            &outline_mesh,
+            &self
+                .working_dir
+                .join(format!("flaps/polys/poly_{}.svg", index)),
+        )
+        .await
+        .unwrap();
         Arc::new(outline_mesh)
     }
     fn letter_split(&self, letter: Arc<EdgeMesh2>) -> [EdgeMesh2; 2] {
@@ -232,6 +235,8 @@ impl StackBuilder {
             &Preview {
                 foreground: mixed,
                 background,
+                foreground_color: self.config.foreground.color.clone(),
+                background_color: self.config.background.color.clone(),
             },
             &self
                 .working_dir
@@ -392,7 +397,7 @@ impl StackBuilder {
         let mut letters = vec![];
         for index in 0..self.config.glyphs.len() {
             println!("Building letter {}", index);
-            let split = self.letter_split(self.letter_poly(index));
+            let split = self.letter_split(self.letter_poly(index).await);
             self.render_svg(index, &blank, &split).await;
             letters.push(split);
         }
@@ -421,7 +426,7 @@ impl StackBuilder {
             .collect();
         let mut plates = HashMap::new();
         for (index, flap) in parts.iter().enumerate() {
-            let mut  plate = BambuPlate::new();
+            let mut plate = BambuPlate::new();
             let mut object = BambuObject::new();
             for part in self.flap_parts_at_position(flap, 0, 0, 0, 1, 1) {
                 object.add_part(part);
@@ -478,6 +483,8 @@ impl StackBuilder {
 struct Preview {
     foreground: EdgeMesh2,
     background: EdgeMesh2,
+    foreground_color: Color,
+    background_color: Color,
 }
 
 impl Encode for Preview {
@@ -528,8 +535,14 @@ impl Encode for Preview {
                 }
                 w.write_all("z ".as_bytes()).await?;
             }
-            w.write_all("\" fill=\"#FFFFFF\" fill-rule=\"evenodd\" />\n".as_bytes())
-                .await?;
+            w.write_all(
+                format!(
+                    "\" fill=\"{}\" fill-rule=\"evenodd\" />\n",
+                    self.foreground_color
+                )
+                .as_bytes(),
+            )
+            .await?;
             w.write_all("<path d=\"".as_bytes()).await?;
             for poly in polys {
                 w.write_all("M ".as_bytes()).await?;
@@ -539,8 +552,14 @@ impl Encode for Preview {
                 }
                 w.write_all("z ".as_bytes()).await?;
             }
-            w.write_all("\" fill=\"#000000\" fill-rule=\"evenodd\" />\n".as_bytes())
-                .await?;
+            w.write_all(
+                format!(
+                    "\" fill=\"{}\" fill-rule=\"evenodd\" />\n",
+                    self.background_color
+                )
+                .as_bytes(),
+            )
+            .await?;
             w.write_all("</svg>\n".as_bytes()).await?;
 
             Ok(())
