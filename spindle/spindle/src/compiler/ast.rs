@@ -13,7 +13,7 @@ pub enum Stmt<'src, 'par> {
     If(IfStmt<'src, 'par>),
     Loop(LoopStmt<'src, 'par>),
     While(WhileStmt<'src, 'par>),
-    Reassign(ReassignStmt<'src, 'par>),
+    Mutate(MutateStmt<'src, 'par>),
     Break,
     Continue,
 }
@@ -79,10 +79,10 @@ pub enum ElseClause<'src, 'par> {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct ReassignStmt<'src, 'par> {
+pub struct MutateStmt<'src, 'par> {
     pub ident: IdentToken<'src>,
-    pub equals: SymbolToken,
-    pub expr: Expr<'src, 'par>,
+    pub oper: SymbolToken,
+    pub expr: Option<Expr<'src, 'par>>,
 }
 
 #[derive(Debug, Copy, Clone)]

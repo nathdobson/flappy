@@ -67,9 +67,9 @@ impl DisplayModule {
     }
     pub async fn display_once(&'static self, msg: &str) {
         let (message, message_strs) = self.render(&msg);
-        #[cfg(feature = "mqtt")]
-        self.mqtt
-            .send_response(DisplayResponse::Start(message_strs.clone()));
+        // #[cfg(feature = "mqtt")]
+        // self.mqtt
+        //     .send_response(DisplayResponse::Start(message_strs.clone()));
         #[cfg(not(feature = "display"))]
         Timer::after_millis(1000).await;
         #[cfg(feature = "display")]
@@ -80,7 +80,7 @@ impl DisplayModule {
                 error!("{MODULE} error when displaying message: {}", Report::new(e));
             }
         }
-        #[cfg(feature = "mqtt")]
-        self.mqtt.send_response(DisplayResponse::Stop(message_strs))
+        // #[cfg(feature = "mqtt")]
+        // self.mqtt.send_response(DisplayResponse::Stop(message_strs))
     }
 }

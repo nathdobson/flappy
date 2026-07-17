@@ -1,15 +1,16 @@
 use crate::application::Application;
 use crate::display::DisplayModule;
 use crate::error::Error;
+use ::make_static::make_static;
 use core::alloc::AllocError;
 use core::cell::RefCell;
 use core::fmt::Display;
 use core::pin::Pin;
-use embassy_time::Delay;
+use embassy_time::{Delay, Instant};
 use embedded_hal_async::delay;
 use embedded_hal_async::delay::DelayNs;
 use heapless::{String, Vec};
-use log::error;
+use log::{error, info};
 use protocol::display::DISPLAY_REQUEST_CAPACITY;
 use spindle::compiler::ast::Program;
 use spindle::compiler::codegen::Codegen;
@@ -22,7 +23,6 @@ use spindle::interp::value::Value;
 use spindle::native::{NativeError, NativeFn, PrintFn};
 use spindle::{Spindle, SpindleOptions};
 use static_cell::StaticCell;
-use ::make_static::make_static;
 
 type MySpindle = Spindle<16384, 16384, 256, 256, 16384>;
 
@@ -49,6 +49,7 @@ impl SpindleModule {
         &self,
         src: &str,
         #[cfg(feature = "display")] display: &'static DisplayModule,
+        #[cfg(feature = "ntp")] clock: &'static ntp_builder::NtpClock,
     ) {
         self.state
             .borrow_mut()
@@ -56,6 +57,8 @@ impl SpindleModule {
                 src,
                 #[cfg(feature = "display")]
                 display,
+                #[cfg(feature = "ntp")]
+                clock,
             )
             .await;
     }
@@ -66,6 +69,7 @@ impl SpindleState {
         &mut self,
         src: &str,
         #[cfg(feature = "display")] display: &'static DisplayModule,
+        #[cfg(feature = "ntp")] clock: &'static ntp_builder::NtpClock,
     ) {
         if let Err(e) = self
             .spindle
@@ -73,11 +77,15 @@ impl SpindleState {
                 SpindleOptions::default(),
                 src,
                 &[
-                    &SleepMsFn,
+                    &SleepUsFn,
                     &PrintFn,
                     &DisplayFn {
                         #[cfg(feature = "display")]
                         display: display,
+                    },
+                    &NowUsFn {
+                        #[cfg(feature = "ntp")]
+                        clock: clock,
                     },
                 ],
             )
@@ -129,10 +137,10 @@ impl NativeFn for DisplayFn {
     }
 }
 
-struct SleepMsFn;
-impl NativeFn for SleepMsFn {
+struct SleepUsFn;
+impl NativeFn for SleepUsFn {
     fn name(&self) -> &'static str {
-        "sleep_ms"
+        "sleep_us"
     }
 
     fn native_call<'call, 'stack, 'heap>(
@@ -149,9 +157,12 @@ impl NativeFn for SleepMsFn {
                 if let Some(arg) = args.get(0) {
                     match arg {
                         Value::Number(number) => {
-                            Delay
-                                .delay_ms((*number).try_into().ok().ok_or(NativeError)?)
-                                .await;
+                            info!("sleeping for {}", number);
+                            if *number >= 0 {
+                                Delay
+                                    .delay_us((*number).try_into().ok().ok_or(NativeError)?)
+                                    .await;
+                            }
                         }
                         _ => return Err(NativeError),
                     }
@@ -159,6 +170,39 @@ impl NativeFn for SleepMsFn {
                     return Err(NativeError);
                 }
                 Ok(Value::Null)
+            })?
+            .into_pin())
+    }
+}
+
+struct NowUsFn {
+    #[cfg(feature = "ntp")]
+    clock: &'static ntp_builder::NtpClock,
+}
+impl NativeFn for NowUsFn {
+    fn name(&self) -> &'static str {
+        "now_us"
+    }
+
+    fn native_call<'call, 'stack, 'heap>(
+        &'call self,
+        stack: &'call mut Stack<'stack>,
+        heap: &'call mut Heap<'heap>,
+        args: &'call [Value],
+    ) -> Result<
+        Pin<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>>,
+        AllocError,
+    > {
+        Ok(stack
+            .push_init(async move {
+                #[cfg(feature = "ntp")]
+                return Ok(Value::Number(
+                    self.clock
+                        .now_micros()
+                        .unwrap_or_else(|| Instant::now().as_micros() as i64),
+                ));
+                #[cfg(not(feature = "ntp"))]
+                return Ok(Value::Number(Instant::now().as_micros() as i64));
             })?
             .into_pin())
     }

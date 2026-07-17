@@ -37,4 +37,8 @@ pub enum Error {
     #[cfg(feature = "display")]
     #[error("error counting display segments")]
     CountFailure,
+
+    #[cfg(feature = "ntp")]
+    #[error("ntp error")]
+    NtpError(#[from] ntp_builder::NtpError)
 }

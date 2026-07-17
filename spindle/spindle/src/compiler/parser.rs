@@ -1,6 +1,6 @@
 use crate::compiler::ast::{
     CallExpr, ElseClause, Expr, ExprList, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt,
-    ParensExpr, PrefixExpr, Program, ReassignStmt, Stmt, WhileStmt,
+    MutateStmt, ParensExpr, PrefixExpr, Program, Stmt, WhileStmt,
 };
 use crate::compiler::lexer::{Lexer, LexerError};
 use crate::compiler::token::{
@@ -168,7 +168,7 @@ where
         } else if let Some(break_stmt) = self.try_parse_continue_statement()? {
             Ok(Some(Stmt::Continue))
         } else if let Some(reassign_stmt) = self.try_parse_reassign_statement()? {
-            Ok(Some(Stmt::Reassign(reassign_stmt)))
+            Ok(Some(Stmt::Mutate(reassign_stmt)))
         } else {
             let result = Stmt::ExprStmt(self.parse_expr()?);
             self.parse_symbol(Symbol::Semi)?;
@@ -322,27 +322,37 @@ where
     }
     fn try_parse_reassign_statement(
         &mut self,
-    ) -> Result<Option<ReassignStmt<'src, 'par>>, ParserError<'src>> {
+    ) -> Result<Option<MutateStmt<'src, 'par>>, ParserError<'src>> {
         match self.try_peek_token(0)? {
             Some(Token::Ident(ident)) => {
                 let ident = *ident;
                 match self.try_peek_token(1)? {
-                    Some(Token::Symbol(
-                        equals @ SymbolToken {
-                            symbol: Symbol::Equals,
-                            ..
-                        },
-                    )) => {
-                        let equals = *equals;
-                        self.next_token()?;
-                        self.next_token()?;
-                        let expr = self.parse_expr()?;
-                        self.parse_symbol(Symbol::Semi)?;
-                        Ok(Some(ReassignStmt {
-                            ident,
-                            equals,
-                            expr,
-                        }))
+                    Some(Token::Symbol(oper)) => {
+                        let oper = *oper;
+                        match oper.symbol {
+                            Symbol::Equals | Symbol::PlusEquals | Symbol::MinusEquals => {
+                                self.next_token()?;
+                                self.next_token()?;
+                                let expr = self.parse_expr()?;
+                                self.parse_symbol(Symbol::Semi)?;
+                                Ok(Some(MutateStmt {
+                                    ident,
+                                    oper,
+                                    expr: Some(expr),
+                                }))
+                            }
+                            Symbol::PlusPlus | Symbol::MinusMinus => {
+                                self.next_token()?;
+                                self.next_token()?;
+                                self.parse_symbol(Symbol::Semi)?;
+                                Ok(Some(MutateStmt {
+                                    ident,
+                                    oper,
+                                    expr: None,
+                                }))
+                            }
+                            _ => Ok(None),
+                        }
                     }
                     _ => Ok(None),
                 }
@@ -419,10 +429,12 @@ where
     fn parse_expr2(&mut self) -> Result<Expr<'src, 'par>, ParserError<'src>> {
         let mut expr = self.parse_expr1()?;
         loop {
-            let symbol = if let Some(plus) = self.try_parse_symbol(Symbol::Times)? {
-                plus
-            } else if let Some(minus) = self.try_parse_symbol(Symbol::Divide)? {
-                minus
+            let symbol = if let Some(times) = self.try_parse_symbol(Symbol::Times)? {
+                times
+            } else if let Some(divide) = self.try_parse_symbol(Symbol::Divide)? {
+                divide
+            } else if let Some(modulo) = self.try_parse_symbol(Symbol::Remainder)? {
+                modulo
             } else {
                 break;
             };
@@ -498,6 +510,18 @@ where
         }))
     }
     fn parse_expr_list(&mut self) -> Result<ExprList<'src, 'par>, ParserError<'src>> {
+        match self.peek_token(0)? {
+            Token::Symbol(SymbolToken {
+                symbol: Symbol::RParen,
+                ..
+            }) => {
+                return Ok(ExprList {
+                    exprs: &[],
+                    commas: &[],
+                });
+            }
+            _ => {}
+        }
         let mut exprs = Vec::new_in(self.arena);
         let mut commas = Vec::new_in(self.arena);
         exprs.try_push(self.parse_expr()?)?;

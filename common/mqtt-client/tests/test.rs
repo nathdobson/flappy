@@ -4,7 +4,7 @@
 use arena::Arena;
 use core::fmt::{Debug, Display, Formatter};
 use core::time::Duration;
-use embassy_futures::select::{Either4, select4, select3, Either3};
+use embassy_futures::select::{Either3, Either4, select3, select4};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embedded_io_async::{BufRead, ErrorKind, ErrorType, Read, Write};
 use io_adapters::split::split_io;
@@ -28,7 +28,6 @@ const KEEPALIVE: u16 = 60;
 
 type MyError = Error<TokioErrorAdapter, TokioErrorAdapter>;
 
-#[ignore]
 #[tokio::test]
 async fn test() -> Result<(), MyError> {
     let host = env::var("MQTT_HOST").unwrap();
@@ -47,14 +46,11 @@ async fn test() -> Result<(), MyError> {
         .await
         .unwrap();
     let (read, write) = split_io(stream);
-    let client = MqttClient::<
-        NoopRawMutex,
-        TokioStreamAdapter<_>,
-        TokioStreamAdapter<_>,
-        1024,
-        1,
-        1,
-    >::new(TokioStreamAdapter(write), TokioStreamAdapter(read));
+    let client =
+        MqttClient::<NoopRawMutex, TokioStreamAdapter<_>, TokioStreamAdapter<_>, 1024, 1, 1>::new(
+            TokioStreamAdapter(write),
+            TokioStreamAdapter(read),
+        );
     match select3(
         async {
             println!("Connecting...");
@@ -69,12 +65,13 @@ async fn test() -> Result<(), MyError> {
             println!("Subscribing...");
             client.subscribe("testtopic/test").await?;
             loop {
+                let payload = vec![b'a'; 300];
                 client
                     .publish(&PublishRequest {
                         retain: false,
                         qos: Qos::AtMostOnce,
                         topic: "testtopic/test",
-                        payload: b"!!!!",
+                        payload: &payload,
                     })
                     .await?;
                 tokio::time::sleep(Duration::from_secs(10)).await;

@@ -82,6 +82,7 @@ radio-builder = {path="../radio-builder",optional = true,features = ["led"]}
 protocol-ble = {path="../../common/protocol-ble",optional = true,features = ["trouble-host"]}
 thiserror={version="2.0.18",default-features = false}
 error-report = {path="../../common/error-report"}
+ntp-builder = {path="../ntp-builder", optional = true}
 
 [target.'cfg(target_arch="arm")'.dependencies]
 cortex-m = { version = "0.7.6", features = ["inline-asm"] }
@@ -91,7 +92,7 @@ cortex-m-rt = { version = "0.7.0", features = [] }
 built = { version = "0.8.0", features = ["git2"] }
 
 [features]
-default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","usb","spindle","heap"]
+default = ["radio", "flash", "serde", "display","unicode","setup","ble","wifi","mqtt","usb","spindle","heap","ntp"]
 serde = ["dep:serde", "heapless/serde", "dep:serde-json-core","protocol/serde"]
 radio = [
   "dep:cyw43",
@@ -119,3 +120,4 @@ preemption = []
 usb = ["dep:embassy-usb","dep:usb-builder"]
 spindle = ["dep:spindle"]
 heap = ["dep:embedded-alloc"]
+ntp = ["wifi", "dep:ntp-builder"]

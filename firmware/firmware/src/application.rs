@@ -67,6 +67,8 @@ pub struct Application {
     #[cfg(feature = "spindle")]
     spindle: &'static crate::spindle::SpindleModule,
     settings: RefCell<AppSettings>,
+    #[cfg(feature = "ntp")]
+    clock: &'static ntp_builder::NtpClock,
 }
 
 impl Application {
@@ -109,6 +111,11 @@ impl Application {
             stack: make_static!(WifiStack::<WIFI_SOCKETS>, WifiStack::new()),
         }
         .build()?;
+        #[cfg(feature = "ntp")]
+        let clock = make_static!(
+            ntp_builder::NtpClock,
+            ntp_builder::NtpClock::new(*wifi.stack())
+        );
         #[cfg(feature = "mqtt")]
         let mqtt = crate::mqtt::MqttModule::new(spawner, &wifi.stack())?;
         #[cfg(feature = "flash")]
@@ -148,6 +155,8 @@ impl Application {
                 #[cfg(feature = "spindle")]
                 spindle,
                 settings: RefCell::new(state.clone()),
+                #[cfg(feature = "ntp")]
+                clock,
             }
         );
         Ok(application)
@@ -240,6 +249,13 @@ impl Application {
         make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
             self.update_mqtt_device_info().await;
         });
+
+        #[cfg(feature = "ntp")]
+        make_static!(_, LocalSpawn::new(self.spawner)).spawn(|| async move {
+            if let Err(e) = self.clock.init().await {
+                error!("NTP error: {}", Report::new(e));
+            }
+        });
         Ok(())
     }
     #[cfg(feature = "mqtt")]
@@ -286,6 +302,8 @@ impl Application {
                             &src,
                             #[cfg(feature = "display")]
                             self.display,
+                            #[cfg(feature = "ntp")]
+                            self.clock,
                         )
                         .await;
                 }
@@ -341,7 +359,7 @@ impl Application {
                     #[cfg(feature = "display")]
                     self.driver.set_enabled(true);
                     #[cfg(feature = "display")]
-                    for i in 0..5000 {
+                    for i in 0..100 {
                         let full = [0b00110011, 0b01100110, 0b11001100, 0b10011001];
                         let brrr = [0b00001111, 0b11110000];
                         let half = [
@@ -487,6 +505,6 @@ pub async fn main_task(spawner: Spawner, runtime: &'static KernelModule, peri: A
         app.spawn_tasks()?;
         pending::<!>().await
     } {
-        error!("{MODULE} Uncaught error: {:?}", e);
+        error!("{MODULE} Uncaught error: {}", Report::new(e));
     }
 }

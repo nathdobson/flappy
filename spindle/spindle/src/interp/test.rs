@@ -331,3 +331,40 @@ async fn test_format() {
     .unwrap();
     assert_matches!(result, ["0a2"]);
 }
+
+#[tokio::test]
+async fn test_increment() {
+    let result = interp(
+        r#"
+        let x=1;
+        x+=2;
+        print(x);
+       "#,
+    )
+        .await
+        .unwrap();
+    assert_matches!(result, ["3"]);
+}
+
+#[tokio::test]
+async fn test_countdown() {
+    let result = interp(
+        r#"
+        let countdown = 10;
+        let increment = 100 * 1000;
+        let start = now_us();
+        let end = start + increment * countdown;
+        while countdown >= 0 {
+            let hours=countdown / 3600;
+            let minutes=countdown / 60 % 60;
+            let seconds=countdown % 60;
+            print(hours,":",minutes/10,minutes%10,":",seconds/10, seconds%10);
+            countdown -= 1;
+            sleep_us(end - increment * countdown - now_us());
+        }
+       "#,
+    )
+    .await
+    .unwrap();
+    assert_matches!(result, ["0a2"]);
+}

@@ -14,6 +14,8 @@ pub enum Symbol {
     Divide,
     PlusEquals,
     PlusPlus,
+    MinusMinus,
+    MinusEquals,
     EqualsEquals,
     Equals,
     Semi,
@@ -30,6 +32,7 @@ pub enum Symbol {
     AndAnd,
     OrOr,
     Not,
+    Remainder,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -117,6 +120,9 @@ impl Debug for Symbol {
                 Symbol::AndAnd => "&&",
                 Symbol::OrOr => "||",
                 Symbol::Not => "!",
+                Symbol::MinusMinus => "--",
+                Symbol::MinusEquals => "-=",
+                Symbol::Remainder => "%",
             }
         )
     }

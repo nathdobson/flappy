@@ -74,3 +74,6 @@
 [submodule "submodules/smoltcp"]
 	path = submodules/smoltcp
 	url = https://github.com/nathdobson/smoltcp.git
+[submodule "submodules/sntpc"]
+	path = submodules/sntpc
+	url = https://github.com/vpetrigo/sntpc.git

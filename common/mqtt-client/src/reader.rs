@@ -3,6 +3,7 @@ use arena::Arena;
 use core::marker::PhantomData;
 use embedded_io_async::{BufRead, ErrorType, Read, ReadExactError};
 use heapless::VecView;
+use log::info;
 use mqtt_core::error::ProtocolError;
 use mqtt_core::protocol::{
     ConnackPacket, ConnectPacket, DisconnectPacket, Packet, PacketType, PingrespPacket, Property,
@@ -27,11 +28,11 @@ impl<R: Read> MqttReader<R> {
         };
         Ok(buf[0])
     }
-    async fn read_varint(&mut self) -> Result<u8, Error<!, R::Error>> {
-        let mut value = 0;
+    async fn read_varint(&mut self) -> Result<u32, Error<!, R::Error>> {
+        let mut value = 0u32;
         for index in 0..4 {
             let b = self.read_u8().await?;
-            value |= (b & 127) << (index * 7);
+            value |= ((b as u32) & 127) << (index * 7);
             if b & 128 == 0 {
                 break;
             }
@@ -215,6 +216,7 @@ impl<'ar> PacketParser<'ar> {
             PacketType::PUBACK => Ok(Packet::Puback(self.parse_puback()?)),
             PacketType::PUBREC => Ok(Packet::Pubrec(self.parse_pubrec()?)),
             PacketType::PINGRESP => Ok(Packet::Pingresp(self.parse_pingresp()?)),
+            // PacketType::PUBCOMP => Ok(Packet::Pubcomp(self.parse_pubcomp()?)),
             _ => todo!("{:?}", self.kind),
         }
     }

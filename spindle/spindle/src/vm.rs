@@ -21,6 +21,7 @@ pub enum VmOperator {
     Greater,
     GreaterEquals,
     EqualsEquals,
+    Remainder,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

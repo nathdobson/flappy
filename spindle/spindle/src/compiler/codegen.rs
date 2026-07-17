@@ -1,6 +1,6 @@
 use crate::compiler::ast::{
-    CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, PrefixExpr, Program,
-    ReassignStmt, Stmt, WhileStmt,
+    CallExpr, ElseClause, Expr, ForStmt, IfStmt, InfixExpr, LetStmt, LoopStmt, MutateStmt,
+    PrefixExpr, Program, Stmt, WhileStmt,
 };
 use crate::compiler::stack::Stack;
 use crate::compiler::stack_executor::StackSpawn;
@@ -13,6 +13,7 @@ use crate::vm::{
 use alloc::collections::TryReserveError;
 use alloc::vec::Vec;
 use arena::{Arena, ArenaVec};
+use core::intrinsics::unreachable;
 use core::marker::PhantomData;
 use core::mem;
 
@@ -156,7 +157,7 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
             Stmt::While(stmt) => self.compile_while_stmt(stack, block, stmt).await,
             Stmt::Break => self.compile_break_stmt(block),
             Stmt::Continue => self.compile_continue_stmt(block),
-            Stmt::Reassign(stmt) => self.compile_reassign_stmt(block, stmt),
+            Stmt::Mutate(stmt) => self.compile_mutate_stmt(block, stmt),
         }
     }
 
@@ -316,14 +317,53 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
         block = self.add_block()?;
         Ok(block)
     }
-    fn compile_reassign_stmt(
+    fn compile_mutate_stmt(
         &mut self,
         mut block: usize,
-        stmt: &'par ReassignStmt<'src, 'par>,
+        stmt: &'par MutateStmt<'src, 'par>,
     ) -> Result<usize, CompileError<'src>> {
         let var = self.find_var(&stmt.ident)?;
-        block = self.compile_expr(block, &stmt.expr)?;
-        self.push_instr(block, VmInstr::Store(var))?;
+        match stmt.oper.symbol {
+            Symbol::PlusPlus | Symbol::MinusMinus => {
+                self.push_instr(block, VmInstr::Load(var))?;
+                self.push_instr(block, VmInstr::Integer(1))?;
+                match stmt.oper.symbol {
+                    Symbol::PlusPlus => {
+                        self.push_instr(block, VmInstr::Binop(VmOperator::Plus))?;
+                    }
+                    Symbol::MinusMinus => {
+                        self.push_instr(block, VmInstr::Binop(VmOperator::Minus))?;
+                    }
+                    _ => unreachable!(),
+                }
+                self.push_instr(block, VmInstr::Store(var))?;
+            }
+            Symbol::Equals => {
+                block = self.compile_expr(
+                    block,
+                    &stmt.expr.as_ref().expect("'=' needs right hand side"),
+                )?;
+                self.push_instr(block, VmInstr::Store(var))?;
+            }
+            Symbol::PlusEquals | Symbol::MinusEquals => {
+                self.push_instr(block, VmInstr::Load(var))?;
+                block = self.compile_expr(
+                    block,
+                    &stmt.expr.as_ref().expect("'+=' needs right hand side"),
+                )?;
+                match stmt.oper.symbol {
+                    Symbol::PlusEquals => {
+                        self.push_instr(block, VmInstr::Binop(VmOperator::Plus))?;
+                    }
+                    Symbol::MinusEquals => {
+                        self.push_instr(block, VmInstr::Binop(VmOperator::Minus))?;
+                    }
+                    _ => unreachable!(),
+                }
+                self.push_instr(block, VmInstr::Store(var))?;
+            }
+            _ => unreachable!(),
+        }
         Ok(block)
     }
     fn compile_expr(
@@ -333,7 +373,7 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
     ) -> Result<usize, CompileError<'src>> {
         match expr {
             Expr::Var(x) => Ok(self.compile_var(block, x)?),
-            Expr::Parens(_) => todo!(),
+            Expr::Parens(x) => Ok(self.compile_expr(block, &x.expr)?),
             Expr::Number(n) => self.compile_number_literal(block, n.number),
             Expr::False(x) => self.compile_bool_literal(block, false),
             Expr::True(x) => self.compile_bool_literal(block, true),
@@ -462,6 +502,7 @@ impl<'src: 'par, 'par, 'vm> FunctionCodegen<'src, 'par, 'vm> {
                 Symbol::Greater => VmOperator::Greater,
                 Symbol::GreaterEquals => VmOperator::GreaterEquals,
                 Symbol::EqualsEquals => VmOperator::EqualsEquals,
+                Symbol::Remainder => VmOperator::Remainder,
                 _ => todo!("{:?}", expr.symbol),
             }),
         )?;

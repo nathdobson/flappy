@@ -13,7 +13,10 @@ use alloc::vec::Vec;
 use core::alloc::AllocError;
 use core::fmt;
 use core::pin::Pin;
+use core::time::Duration;
+use log::info;
 use std::cell::RefCell;
+use std::time::SystemTime;
 
 pub const fn test_natives() -> &'static [&'static dyn NativeFn] {
     &[&PrintFn]
@@ -59,13 +62,81 @@ impl NativeFn for TestPrintFn {
     }
 }
 
+struct TestNowUsFn;
+
+impl NativeFn for TestNowUsFn {
+    fn name(&self) -> &'static str {
+        "now_us"
+    }
+
+    fn native_call<'call, 'stack, 'heap>(
+        &'call self,
+        stack: &'call mut Stack<'stack>,
+        heap: &'call mut Heap<'heap>,
+        args: &'call [Value],
+    ) -> Result<
+        Pin<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>>,
+        AllocError,
+    > {
+        Ok(stack
+            .push_init(async move {
+                Ok(Value::Number(
+                    SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_micros() as i64,
+                ))
+            })?
+            .into_pin())
+    }
+}
+
+struct TestSleepUsFn;
+
+impl NativeFn for TestSleepUsFn {
+    fn name(&self) -> &'static str {
+        "sleep_us"
+    }
+
+    fn native_call<'call, 'stack, 'heap>(
+        &'call self,
+        stack: &'call mut Stack<'stack>,
+        heap: &'call mut Heap<'heap>,
+        args: &'call [Value],
+    ) -> Result<
+        Pin<StackBox<'call, dyn 'call + Future<Output = Result<Value, NativeError>>>>,
+        AllocError,
+    > {
+        Ok(stack
+            .push_init(async move {
+                if let Some(arg) = args.get(0) {
+                    match arg {
+                        Value::Number(number) => {
+                            println!("Sleeping {}", number);
+                            tokio::time::sleep(Duration::from_micros(*number as u64)).await;
+                        }
+                        _ => return Err(NativeError),
+                    }
+                } else {
+                    return Err(NativeError);
+                }
+                Ok(Value::Null)
+            })?
+            .into_pin())
+    }
+}
+
 pub static TEST_SPINDLE_OPTIONS: SpindleOptions = SpindleOptions {
     compaction_ratio: 1.0,
 };
 
 pub async fn interp(code: &str) -> Result<Vec<String>, SpindleError<'_>> {
     TestSpindle::new()
-        .run(TEST_SPINDLE_OPTIONS.clone(), code, &[&TestPrintFn, &FormatFn])
+        .run(
+            TEST_SPINDLE_OPTIONS.clone(),
+            code,
+            &[&TestPrintFn, &FormatFn, &TestNowUsFn, &TestSleepUsFn],
+        )
         .await?;
     Ok(TEST_LOGS.with(|x| x.take()))
 }

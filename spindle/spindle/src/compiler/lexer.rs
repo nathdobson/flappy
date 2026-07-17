@@ -151,6 +151,20 @@ impl<'lexer, 'src: 'par, 'par> TokenReader<'lexer, 'src, 'par> {
                     _ => Symbol::Plus,
                 }
             }
+            '-' => {
+                self.next()?;
+                match self.peek(0)? {
+                    '-' => {
+                        self.next()?;
+                        Symbol::MinusMinus
+                    }
+                    '=' => {
+                        self.next()?;
+                        Symbol::MinusEquals
+                    }
+                    _ => Symbol::Minus,
+                }
+            }
             '=' => {
                 self.next()?;
                 match self.peek(0)? {
@@ -229,10 +243,6 @@ impl<'lexer, 'src: 'par, 'par> TokenReader<'lexer, 'src, 'par> {
                 self.next()?;
                 Symbol::Not
             }
-            '-' => {
-                self.next()?;
-                Symbol::Minus
-            }
             '*' => {
                 self.next()?;
                 Symbol::Times
@@ -240,6 +250,10 @@ impl<'lexer, 'src: 'par, 'par> TokenReader<'lexer, 'src, 'par> {
             '/' => {
                 self.next()?;
                 Symbol::Divide
+            }
+            '%' => {
+                self.next()?;
+                Symbol::Remainder
             }
             c => return Err(LexerError::UnexpectedChar(c)),
         };

@@ -139,7 +139,11 @@ impl<'vm> Interp<'vm> {
         let b = self.pop_value()?;
         let a = self.pop_value()?;
         match op {
-            VmOperator::Plus | VmOperator::Times | VmOperator::Minus | VmOperator::Divide => {
+            VmOperator::Plus
+            | VmOperator::Times
+            | VmOperator::Minus
+            | VmOperator::Divide
+            | VmOperator::Remainder => {
                 let a = self.into_number(a)?;
                 let b = self.into_number(b)?;
                 let c = match op {
@@ -147,6 +151,7 @@ impl<'vm> Interp<'vm> {
                     VmOperator::Times => a.checked_mul(b).ok_or(InterpError::IntegerOverflow)?,
                     VmOperator::Minus => a.checked_sub(b).ok_or(InterpError::IntegerOverflow)?,
                     VmOperator::Divide => a.checked_div(b).ok_or(InterpError::IntegerOverflow)?,
+                    VmOperator::Remainder => a.checked_rem(b).ok_or(InterpError::IntegerOverflow)?,
                     _ => unreachable!(),
                 };
                 self.push_value(Value::Number(c))?;
