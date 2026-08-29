@@ -1,0 +1,8 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "GR2803LSS24ARCQ")(type "KiCad")(uri "${KIPRJMOD}/GR2803LSS24ARCQ")(options "")(descr ""))
+  (lib (name "74HC595D,118")(type "KiCad")(uri "${KIPRJMOD}/74HC595D,118/74HC595D,118.pretty")(options "")(descr ""))
+  (lib (name "SN74HC165DR(LX)")(type "KiCad")(uri "${KIPRJMOD}/SN74HC165DR(LX)/SN74HC165DR(LX).pretty")(options "")(descr ""))
+  (lib (name "PZ254RS-11-08P-01")(type "KiCad")(uri "${KIPRJMOD}/PZ254RS-11-08P-01/PZ254RS-11-08P-01.pretty")(options "")(descr ""))
+  (lib (name "HX PM2.54-1x8P WT")(type "KiCad")(uri "${KIPRJMOD}/HX PM2.54-1x8P WT/HX PM2.54-1x8P WT.pretty")(options "")(descr ""))
+)
