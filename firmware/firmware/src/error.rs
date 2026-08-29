@@ -40,5 +40,9 @@ pub enum Error {
 
     #[cfg(feature = "ntp")]
     #[error("ntp error")]
-    NtpError(#[from] ntp_builder::NtpError)
+    NtpError(#[from] ntp_builder::NtpError),
+
+    #[cfg(feature = "display")]
+    #[error("home error")]
+    HomeError,
 }

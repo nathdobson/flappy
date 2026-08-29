@@ -342,6 +342,7 @@ impl<'a> DisplayControllerGuard<'a> {
         for (index, char) in self.guard.segments.iter().enumerate() {
             if !char.homed {
                 error!("Failed to home {}", index);
+                return Err(Error::HomeError);
             }
         }
         Ok(())

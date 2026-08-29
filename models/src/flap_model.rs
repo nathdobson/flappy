@@ -40,6 +40,10 @@ pub struct Config {
     pub foreground: MaterialSelector,
     pub background: MaterialSelector,
     pub support: MaterialSelector,
+    #[serde(default)]
+    pub thickness: Option<f64>,
+    #[serde(default)]
+    pub letter_thickness: Option<f64>,
 }
 
 #[derive(Deserialize, Clone)]
