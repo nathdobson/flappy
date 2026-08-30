@@ -1,7 +1,7 @@
 # A 3d-printed Split Flap Display
 
 This project is a redesign of David
-Kingsman's [Split Flap Display](https://www.printables.com/model/69464-split-flap-display).
+Kingsman's [Split Flap Display](https://www.printables.com/model/69464-split-flap-display). See also the [product page](https://burntoutbakery.shop/).
 
 ![Split Flap Photo](assets/flaps.jpg)
 
