@@ -148,7 +148,7 @@ async fn build_output() -> anyhow::Result<()> {
 
         bambu.printer_settings_id(Some(machine.clone()));
         bambu.print_settings_id(Some(process.clone()));
-        bambu.prime_tower_positions(Some(vec![Vec2::new(65.0, 18.0)]));
+        bambu.prime_tower_positions(Some(vec![Vec2::new(65.0, 13.0)]));
         bambu.support({
             let mut support = BambuSupport::new();
             support.independent_support_layer_height(0);
