@@ -22,7 +22,7 @@
 				)
 			)
 		)
-		(property "Footprint" "ProLib_1pcs_2026-09-04:HDR-TH_3P-P2.54_DZ254S-11-03-48"
+		(property "Footprint" "HDR-TH_3P-P2.54_DZ254S-11-03-48:HDR-TH_3P-P2.54_DZ254S-11-03-48"
 			(at 0 0 0)
 			(effects
 				(font

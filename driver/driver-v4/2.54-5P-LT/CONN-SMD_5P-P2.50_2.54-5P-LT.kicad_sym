@@ -14,7 +14,7 @@
 				)
 			)
 		)
-		(property "Value" ""
+		(property "Value" "Conn_01x05_Pin"
 			(at 0 0 0)
 			(effects
 				(font
