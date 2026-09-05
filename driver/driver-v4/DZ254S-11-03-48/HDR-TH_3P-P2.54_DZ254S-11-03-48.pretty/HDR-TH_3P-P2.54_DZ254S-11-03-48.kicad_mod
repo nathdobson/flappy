@@ -241,25 +241,22 @@
 			)
 		)
 	)
-	(pad "1" thru_hole rect
+	(pad "1" smd rect
 		(at -2.54 1.45)
 		(size 1.02 2.9)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "21f4209d-1b15-4f76-afef-3be3a64c8833")
 	)
-	(pad "2" thru_hole rect
+	(pad "2" smd rect
 		(at 0 -1.45)
 		(size 1.02 2.9)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "6d2c5d3a-9533-4308-8f43-4b76cb482d2c")
 	)
-	(pad "3" thru_hole rect
+	(pad "3" smd rect
 		(at 2.54 1.45)
 		(size 1.02 2.9)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "a31e50d6-743e-4548-83ac-e98ea70f98de")
 	)
 	(embedded_fonts no)

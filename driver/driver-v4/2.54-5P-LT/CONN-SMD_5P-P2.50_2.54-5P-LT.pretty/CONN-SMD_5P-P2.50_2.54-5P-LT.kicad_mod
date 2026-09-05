@@ -330,53 +330,46 @@
 			)
 		)
 	)
-	(pad "1" thru_hole rect
+	(pad "1" smd rect
 		(at -5 -1.8 180)
 		(size 1.2 5.7)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "34f3f2ef-ab16-402e-812a-d42c65839105")
 	)
-	(pad "2" thru_hole rect
+	(pad "2" smd rect
 		(at -2.5 -1.8 180)
 		(size 1.2 5.7)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "27c79254-b0e9-46b0-ac25-52df2f3c204e")
 	)
-	(pad "3" thru_hole rect
+	(pad "3" smd rect
 		(at 0 -1.8 180)
 		(size 1.2 5.7)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "ea34d756-710b-44ef-ad43-f5efe6a2ad7e")
 	)
-	(pad "4" thru_hole rect
+	(pad "4" smd rect
 		(at 2.5 -1.8 180)
 		(size 1.2 5.7)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "d5fde2cd-2039-4142-876d-9c61485d8e1c")
 	)
-	(pad "5" thru_hole rect
+	(pad "5" smd rect
 		(at 5 -1.8 180)
 		(size 1.2 5.7)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "75fe7c26-23c1-42d1-b611-40b5c6cbf338")
 	)
-	(pad "6" thru_hole rect
+	(pad "6" smd rect
 		(at -8.09 1.8 180)
 		(size 1.1 2.5)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "81b3ceef-7122-4dc7-93c4-1d229f64646f")
 	)
-	(pad "7" thru_hole rect
+	(pad "7" smd rect
 		(at 8.09 1.8 180)
 		(size 1.1 2.5)
-		(layers "*.Cu" "*.Mask")
-		(remove_unused_layers no)
+		(layers "F.Cu" "F.Mask" "F.Paste")
 		(uuid "64800c9a-87d5-42a2-8fa3-375345dbbfe2")
 	)
 	(embedded_fonts no)
