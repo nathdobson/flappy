@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(ptr_metadata, layout_for_ptr)]
+#![feature(ptr_metadata)]
 #![deny(unused_must_use)]
 
 use core::alloc::Layout;

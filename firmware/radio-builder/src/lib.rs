@@ -1,7 +1,6 @@
 #![no_std]
 #![feature(type_alias_impl_trait)]
 #![deny(unused_must_use)]
-#![feature(never_type)]
 #![feature(allocator_api)]
 #![allow(unused_features)]
 #![allow(unused_variables)]

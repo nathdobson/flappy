@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(never_type)]
 #![feature(macro_derive)]
 #![feature(type_alias_impl_trait)]
 #![allow(dead_code)]

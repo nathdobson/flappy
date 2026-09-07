@@ -5,7 +5,6 @@
 #![allow(unused_mut)]
 #![allow(unused_variables)]
 #![allow(dead_code)]
-#![feature(never_type)]
 #![allow(unreachable_code)]
 
 mod error;

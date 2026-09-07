@@ -1,6 +1,5 @@
 #![feature(
     allocator_api,
-    never_type,
     type_alias_impl_trait,
     vec_push_within_capacity,
     ptr_metadata,
@@ -9,12 +8,12 @@
     core_intrinsics,
     unboxed_closures,
     deref_patterns,
-    trait_alias
+    trait_alias,
+    pin_coerce_unsized_trait
 )]
 #![feature(try_blocks)]
 #![feature(unsize)]
 #![feature(coerce_unsized)]
-#![feature(pin_coerce_unsized_trait)]
 #![feature(debug_closure_helpers)]
 #![feature(ptr_alignment_type)]
 #![cfg_attr(not(test), no_std)]

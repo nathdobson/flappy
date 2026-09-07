@@ -10,7 +10,6 @@
 )]
 #![feature(core_intrinsics)]
 #![feature(future_join)]
-#![feature(never_type)]
 #![feature(try_blocks)]
 #![feature(str_split_remainder)]
 #![feature(allocator_api)]

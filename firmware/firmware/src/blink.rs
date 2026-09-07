@@ -33,7 +33,7 @@ impl BlinkModule {
     }
     async fn blink(&self) {
         for i in 0u64.. {
-            let intensity = ((1.0 + core::intrinsics::sinf32((i as f32) / (INCREMENTS as f32)))
+            let intensity = ((1.0 + core::intrinsics::sin((i as f32) / (INCREMENTS as f32)))
                 / 2.0)
                 .clamp(0.0, 1.0);
             let duty = core::intrinsics::powf32(intensity, 2.0);
