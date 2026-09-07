@@ -13,6 +13,9 @@ pub enum TcpError {
     ConnectionReset,
     TimedOut,
     NoRoute,
+    Unaddressable,
+    NoFreePorts,
+    InUse,
 }
 
 #[derive(Debug, Clone)]
@@ -136,6 +139,7 @@ pub enum MqttServiceError {
     NoCertificateListSha256,
     TopicTooLong,
     AllocError,
+    NetFull,
 }
 
 #[cfg(feature = "embassy-net")]
@@ -159,8 +163,15 @@ mod embassy_net_impls {
                 tcp::ConnectError::InvalidState => TcpError::InvalidState,
                 tcp::ConnectError::ConnectionReset => TcpError::ConnectionReset,
                 tcp::ConnectError::TimedOut => TcpError::TimedOut,
-                tcp::ConnectError::NoRoute => TcpError::NoRoute,
+                tcp::ConnectError::Unaddressable => TcpError::Unaddressable,
+                tcp::ConnectError::NoFreePorts => TcpError::NoFreePorts,
+                tcp::ConnectError::InUse => TcpError::InUse,
             })
+        }
+    }
+    impl From<embassy_net::Full> for MqttServiceError {
+        fn from(_: embassy_net::Full) -> MqttServiceError {
+            MqttServiceError::NetFull
         }
     }
 }

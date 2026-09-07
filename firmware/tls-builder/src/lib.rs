@@ -7,14 +7,15 @@ use crate::merge_socket::MergeSocket;
 use crate::webpki_provider::WebPkiProvider;
 use core::fmt;
 use embassy_net::Stack;
+use embassy_net::dns::DnsQueryType;
 use embassy_net::tcp::{TcpReader, TcpSocket, TcpWriter};
+use embassy_net::wire::IpEndpoint;
 use embassy_rp::clocks::RoscRng;
 use embassy_time::Duration;
 use embedded_tls::{
     Aes256GcmSha384, TlsConfig, TlsConnection, TlsContext, TlsError, TlsReader, TlsWriter,
 };
 use log::info;
-use smoltcp::wire::{DnsQueryType, IpEndpoint};
 
 pub struct TlsConnectionBuilder<'a> {
     pub rx_buffer: &'a mut [u8],
@@ -23,7 +24,7 @@ pub struct TlsConnectionBuilder<'a> {
     pub write_record_buffer: &'a mut [u8],
     pub hostname: &'a str,
     pub port: u16,
-    pub stack: &'a Stack<'a>,
+    pub stack: Stack<'static>,
 }
 
 pub struct TlsConnectionBuilderWithDns<'a> {
@@ -32,7 +33,7 @@ pub struct TlsConnectionBuilderWithDns<'a> {
     read_record_buffer: &'a mut [u8],
     write_record_buffer: &'a mut [u8],
     hostname: &'a str,
-    stack: &'a Stack<'a>,
+    stack: Stack<'static>,
     remote_endpoint: IpEndpoint,
 }
 
@@ -40,14 +41,22 @@ pub struct TlsConnectionBuilderWithTcp<'a> {
     read_record_buffer: &'a mut [u8],
     write_record_buffer: &'a mut [u8],
     hostname: &'a str,
-    socket: TcpSocket<'a>,
+    socket: TcpSocket<'a, 'static>,
+    remote_endpoint: IpEndpoint,
+}
+
+pub struct TlsConnectionBuilderWithTcpConnected<'a> {
+    read_record_buffer: &'a mut [u8],
+    write_record_buffer: &'a mut [u8],
+    hostname: &'a str,
+    socket: TcpSocket<'a, 'static>,
 }
 
 pub struct TlsConnectionBuilderWithMergeSocket<'a> {
     read_record_buffer: &'a mut [u8],
     write_record_buffer: &'a mut [u8],
     hostname: &'a str,
-    merge_socket: MergeSocket<TcpWriter<'a>, TcpReader<'a>>,
+    merge_socket: MergeSocket<TcpWriter<'a, 'static>, TcpReader<'a, 'static>>,
 }
 
 impl<'a> TlsConnectionBuilder<'a> {
@@ -76,38 +85,52 @@ impl<'a> TlsConnectionBuilder<'a> {
 impl<'a> TlsConnectionBuilderWithDns<'a> {
     pub async fn connect_tcp<'b>(
         &'b mut self,
-    ) -> Result<TlsConnectionBuilderWithTcp<'b>, embassy_net::tcp::ConnectError> {
-        info!("[TCP] Connecting to {}", self.remote_endpoint);
-        let mut socket = TcpSocket::new(*self.stack, self.rx_buffer, self.tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(60)));
+    ) -> Result<TlsConnectionBuilderWithTcp<'b>, embassy_net::Full> {
+        let socket = TcpSocket::new(self.stack, self.rx_buffer, self.tx_buffer)?;
+        Ok(TlsConnectionBuilderWithTcp {
+            read_record_buffer: self.read_record_buffer,
+            write_record_buffer: self.write_record_buffer,
+            hostname: self.hostname,
+            socket,
+            remote_endpoint: self.remote_endpoint,
+        })
+    }
+}
 
-        socket.connect(self.remote_endpoint).await?;
+impl<'a> TlsConnectionBuilderWithTcp<'a> {
+    pub async fn connect_tcp(
+        mut self,
+    ) -> Result<TlsConnectionBuilderWithTcpConnected<'a>, embassy_net::tcp::ConnectError> {
+        info!("[TCP] Connecting to {}", self.remote_endpoint);
+        self.socket.set_timeout(Some(Duration::from_secs(60)));
+
+        self.socket.connect(self.remote_endpoint).await?;
         info!(
             "[TCP] Connected ({} -> {})",
             fmt::from_fn(|f| {
-                if let Some(local) = socket.local_endpoint() {
+                if let Some(local) = self.socket.local_endpoint() {
                     write!(f, "{}", local)?
                 }
                 Ok(())
             }),
             fmt::from_fn(|f| {
-                if let Some(remote) = socket.remote_endpoint() {
+                if let Some(remote) = self.socket.remote_endpoint() {
                     write!(f, "{}", remote)?
                 }
                 Ok(())
             }),
         );
 
-        Ok(TlsConnectionBuilderWithTcp {
+        Ok(TlsConnectionBuilderWithTcpConnected {
             read_record_buffer: self.read_record_buffer,
             write_record_buffer: self.write_record_buffer,
             hostname: self.hostname,
-            socket,
+            socket: self.socket,
         })
     }
 }
 
-impl<'a> TlsConnectionBuilderWithTcp<'a> {
+impl<'a> TlsConnectionBuilderWithTcpConnected<'a> {
     pub fn merge_socket<'b>(&'b mut self) -> TlsConnectionBuilderWithMergeSocket<'b> {
         let (read, write) = self.socket.split();
         let merge_socket = MergeSocket::new(write, read);
@@ -123,14 +146,23 @@ impl<'a> TlsConnectionBuilderWithTcp<'a> {
 // type FlappyCipherSuite = Aes128GcmSha256;
 type FlappyCipherSuite = Aes256GcmSha384;
 
-pub type FlappyTlsConnection<'b, 'a> =
-    TlsConnection<'b, &'b MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>;
+pub type FlappyTlsConnection<'b, 'a> = TlsConnection<
+    'b,
+    &'b MergeSocket<TcpWriter<'a, 'static>, TcpReader<'a, 'static>>,
+    FlappyCipherSuite,
+>;
 
-pub type FlappyTlsWriter<'a> =
-    TlsWriter<'a, &'a MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>;
+pub type FlappyTlsWriter<'a> = TlsWriter<
+    'a,
+    &'a MergeSocket<TcpWriter<'a, 'static>, TcpReader<'a, 'static>>,
+    FlappyCipherSuite,
+>;
 
-pub type FlappyTlsReader<'a> =
-    TlsReader<'a, &'a MergeSocket<TcpWriter<'a>, TcpReader<'a>>, FlappyCipherSuite>;
+pub type FlappyTlsReader<'a> = TlsReader<
+    'a,
+    &'a MergeSocket<TcpWriter<'a, 'static>, TcpReader<'a, 'static>>,
+    FlappyCipherSuite,
+>;
 
 impl<'a> TlsConnectionBuilderWithMergeSocket<'a> {
     pub async fn connect_tls<'b>(&'b mut self) -> Result<FlappyTlsConnection<'b, 'a>, TlsError> {

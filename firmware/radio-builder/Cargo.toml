@@ -16,20 +16,22 @@ heapless = {path="../../submodules/heapless",optional = true}
 trouble-host = {path="../../submodules/trouble/host",optional = true,features = ["legacy-pairing"]}
 static_cell = "2.1.1"
 thiserror={version = "2.0.18",default-features = false}
-embassy-net ={path="../../submodules/embassy/embassy-net", optional = true}
+embassy-net ={path="../../submodules/embassy/embassy-net", optional = true, features = ["ipv4","ipv6"]}
 embassy-time = {path="../../submodules/embassy/embassy-time", optional=true}
 protocol-wifi = {path="../../common/protocol-wifi",optional=true}
 embedded-hal-async = "1.0.0"
 protocol-ble = {path="../../common/protocol-ble",optional=true,features = ["trouble-host"]}
 fixed-freelist = {path="../../common/fixed-freelist",optional = true}
-bt-hci = {path="../../submodules/bt-hci"}
+bt-hci = {path="../../submodules/bt-hci/bt-hci", optional = true}
 serde = {version="1.0.228",optional  = true,default-features = false}
 serde-json-core = {path="../../submodules/serde-json-core",optional = true}
 embassy-futures = {path="../../submodules/embassy/embassy-futures", optional = true}
-error-report = {path="../../common/error-report"}
+xarxa = {path="../../submodules/xarxa", features=["medium-ip","ipv4","ipv6"],default-features = false,optional = true}
+error-report = {path="../../common/error-report", optional = true}
 
 [features]
 default = []
-wifi = ["dep:embassy-net","dep:embassy-time","dep:protocol-wifi"]
-ble = ["dep:fixed","dep:heapless","dep:trouble-host","dep:protocol-ble","dep:fixed-freelist","dep:serde","dep:serde-json-core","dep:embassy-futures"]
+wifi = ["dep:embassy-net","dep:embassy-time","dep:protocol-wifi","dep:xarxa"]
+ble = ["dep:fixed","dep:heapless","dep:trouble-host","dep:protocol-ble","dep:fixed-freelist","dep:serde","dep:serde-json-core","dep:embassy-futures","dep:bt-hci","dep:error-report"]
 led = []
+rp235xa = ["embassy-rp/rp235xa"]

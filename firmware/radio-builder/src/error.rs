@@ -46,6 +46,10 @@ pub enum Error {
     #[cfg(feature = "ble")]
     #[error("serde json serializer error")]
     SerdeSerError(#[from] serde_json_core::ser::Error),
+
+    #[cfg(feature = "wifi")]
+    #[error("embassy net buffer full")]
+    Full(#[from] embassy_net::Full)
 }
 
 #[cfg(feature = "ble")]

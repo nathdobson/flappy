@@ -2,8 +2,6 @@ use crate::error::Error;
 use cyw43::bluetooth::BtDriver;
 use embassy_executor::Spawner;
 use embassy_executor::raw::TaskPool;
-use embassy_rp::clocks::RoscRng;
-use error_report::Report;
 use log::{error, info};
 use static_cell::StaticCell;
 use trouble_host::advertise::{
@@ -16,6 +14,7 @@ use trouble_host::gatt::GattConnection;
 use trouble_host::peripheral::Peripheral;
 use trouble_host::prelude::{DefaultPacketPool, ExternalController, Runner};
 use trouble_host::{Address, HostResources, IoCapabilities, Stack};
+use error_report::Report;
 
 pub struct BlePeripherals {
     pub(crate) ble: cyw43::bluetooth::BtDriver<'static>,
@@ -55,7 +54,7 @@ type MyResources<
     const CHANNELS: usize,
     const ADV_SETS: usize,
     const BONDS: usize,
-> = HostResources<MyController<SLOTS>, MyPacketPool, CONNS, CHANNELS, ADV_SETS, BONDS>;
+> = HostResources<MyPacketPool, CONNS, CHANNELS, ADV_SETS, BONDS>;
 pub(crate) type MyPeripheral<const SLOTS: usize> =
     Peripheral<'static, MyController<SLOTS>, MyPacketPool>;
 type MyStack<const SLOTS: usize> = Stack<'static, MyController<SLOTS>, MyPacketPool>;
@@ -108,7 +107,6 @@ impl<
         let stack = self.stack.stack.init_with(|| {
             trouble_host::new(controller, resources)
                 .set_random_address(Address::random(self.peripherals.mac_address))
-                .set_random_generator_seed(&mut RoscRng)
                 .set_secure_connections_only(false)
                 .set_io_capabilities(IoCapabilities::NoInputNoOutput)
                 .build()

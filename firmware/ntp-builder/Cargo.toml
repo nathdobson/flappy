@@ -7,7 +7,7 @@ edition = "2024"
 sntpc = { path="../../submodules/sntpc/sntpc", default-features = false }
 sntpc-net-embassy = { path="../../submodules/sntpc/sntpc-net-embassy", default-features = false,features = ["ipv6"] }
 sntpc-time-embassy = { path="../../submodules/sntpc/sntpc-time-embassy", default-features = false,features = [] }
-embassy-net = {path="../../submodules/embassy/embassy-net",features = ["udp"]}
+embassy-net = {path="../../submodules/embassy/embassy-net",features = ["udp","dns"]}
 embassy-time = {path="../../submodules/embassy/embassy-time"}
 make-static = {path="../../common/make-static"}
 thiserror ={ version="2.0.18", default-features = false}

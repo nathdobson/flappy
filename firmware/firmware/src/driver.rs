@@ -40,7 +40,7 @@ pub struct DriverPeripherals {
     pub SPI0: Peri<'static, SPI0>,
 }
 struct DriverInner {
-    spi: Spi<'static, SPI0, Blocking>,
+    spi: Spi<'static, Blocking>,
     load: Output<'static>,
     latch: Output<'static>,
     enable: Output<'static>,

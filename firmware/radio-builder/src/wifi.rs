@@ -2,7 +2,8 @@ use crate::Error;
 use cyw43::{Control, JoinOptions};
 use embassy_executor::Spawner;
 use embassy_executor::raw::TaskPool;
-use embassy_net::{Stack, StackResources};
+use embassy_net::iface::Iface;
+use embassy_net::{Stack, StackStorage};
 use embassy_rp::clocks::RoscRng;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
@@ -21,7 +22,8 @@ pub struct WifiPeripherals {
 }
 
 pub struct WifiStack<const SOCK: usize> {
-    resources: StackResources<SOCK>,
+    stack_resources: StaticCell<StackStorage<'static>>,
+    driver: StaticCell<cyw43::NetDriver<'static>>,
     runner_pool: StaticCell<TaskPool<RunnerRun, 1>>,
     connect_pool: StaticCell<TaskPool<ConnectToWifi, 1>>,
 }
@@ -37,12 +39,13 @@ pub struct Wifi {
     status: Watch<NoopRawMutex, WifiStatus, 1>,
     control: &'static Mutex<NoopRawMutex, Control<'static>>,
     stack: Stack<'static>,
+    iface: Iface<'static>,
 }
 
 type RunnerRun = impl Future<Output = !>;
 
 #[define_opaque(RunnerRun)]
-fn runner_run(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> RunnerRun {
+fn runner_run(mut runner: embassy_net::Runner<'static>) -> RunnerRun {
     async move { runner.run().await }
 }
 
@@ -55,7 +58,8 @@ fn connect_to_wifi(wifi: &'static Wifi) -> ConnectToWifi {
 impl<const SOCK: usize> WifiStack<SOCK> {
     pub fn new() -> Self {
         WifiStack {
-            resources: StackResources::new(),
+            driver: StaticCell::new(),
+            stack_resources: StaticCell::new(),
             runner_pool: StaticCell::new(),
             connect_pool: StaticCell::new(),
         }
@@ -65,10 +69,16 @@ impl<const SOCK: usize> WifiStack<SOCK> {
 impl<const SOCK: usize> WifiBuilder<SOCK> {
     pub fn build(self) -> Result<&'static Wifi, Error> {
         info!("Starting WiFi");
-        let config = embassy_net::Config::dhcpv4(Default::default());
+        // let config = embassy_net::Config::dhcpv4(Default::default());
         let seed = RoscRng.next_u64();
-        let resources = &mut self.stack.resources;
-        let (stack, runner) = embassy_net::new(self.peripherals.net, config, resources, seed);
+
+        let (stack, runner) = embassy_net::Stack::new(
+            self.stack.stack_resources.init_with(StackStorage::new),
+            seed,
+        );
+        let driver = self.stack.driver.init(self.peripherals.net);
+        let iface = stack.add_iface(driver)?;
+        iface.set_dhcpv4(Some(Default::default()));
         let module: &_ = make_static!(
             Wifi,
             Wifi {
@@ -76,6 +86,7 @@ impl<const SOCK: usize> WifiBuilder<SOCK> {
                 status: Watch::new(),
                 control: self.peripherals.control,
                 stack,
+                iface
             }
         );
         self.spawner.spawn(
@@ -139,8 +150,11 @@ impl Wifi {
             settings = self.settings.wait().await;
         }
     }
-    pub fn stack(&'static self) -> &'static Stack<'static> {
-        &self.stack
+    pub fn stack(&'static self) -> Stack<'static> {
+        self.stack
+    }
+    pub fn iface(&'static self) -> Iface<'static> {
+        self.iface
     }
     pub fn watch_status(&'static self) -> Option<watch::DynReceiver<'static, WifiStatus>> {
         self.status.dyn_receiver()

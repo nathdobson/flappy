@@ -36,6 +36,7 @@ use serde::{Deserialize, Serialize};
 // use rust_mqtt::packet::v5::reason_codes::ReasonCode;
 // use rust_mqtt::utils::rng_generator::CountingRng;
 use protocol::display::DisplayResponse;
+use embassy_net::iface::Iface;
 
 const MODULE: &'static str = "[MQTT ]";
 const KEEPALIVE: u16 = 60;
@@ -54,7 +55,7 @@ use tls_builder::{FlappyTlsReader, FlappyTlsWriter, TlsConnectionBuilder};
 
 pub struct MqttModule {
     spawner: Spawner,
-    stack: &'static embassy_net::Stack<'static>,
+    iface: Iface<'static>,
     settings: Signal<NoopRawMutex, MqttSettings>,
     display_request: Signal<NoopRawMutex, DisplayRequest>,
     display_response: Watch<NoopRawMutex, DisplayResponse, 1>,
@@ -78,13 +79,13 @@ type FlappyMqttClient<'a> = MqttClient<
 impl MqttModule {
     pub fn new(
         spawner: Spawner,
-        stack: &'static embassy_net::Stack<'static>,
+        iface: Iface<'static>,
     ) -> Result<&'static MqttModule, Error> {
         let module: &_ = make_static!(
             MqttModule,
             MqttModule {
                 spawner,
-                stack,
+                iface,
                 settings: Signal::new(),
                 display_request: Signal::new(),
                 display_response: Watch::new(),
@@ -151,45 +152,24 @@ impl MqttModule {
         }
         info!(
             "{MODULE} [WiFi] Connecting to WiFi with MAC {}",
-            self.stack.hardware_address()
+            self.iface.hardware_addr()
         );
         self.status.sender().send(MqttServiceStatus::WaitingForLink);
-        self.stack.wait_link_up().await;
+        self.iface.wait_link_up().await;
         info!("{MODULE} [WiFi] Connecting to WiFi");
         info!("{MODULE} [WiFi] Waiting for IP address");
         self.status.sender().send(MqttServiceStatus::WaitingForDhcp);
-        self.stack.wait_config_up().await;
-        if let Some(config) = self.stack.config_v4() {
+        self.iface.wait_config_up().await;
+        for addr in self.iface.ip_addrs(){
             info!(
-                "{MODULE} [WiFi] Connected to IPv4 with {}",
+                "{MODULE} [WiFi] Connected to network with {}",
                 fmt::from_fn(|f| {
-                    write!(f, "IP = {}, ", config.address)?;
-                    for dns in &config.dns_servers {
-                        write!(f, "DNS = {}, ", dns)?;
-                    }
-                    if let Some(gateway) = config.gateway {
-                        write!(f, "GATEWAY = {}, ", gateway)?;
-                    }
+                    write!(f, "IP = {}, ", addr.cidr)?;
+                    write!(f, "origin = {:?}, ", addr.origin)?;
                     Ok(())
                 })
             );
         }
-        if let Some(config) = self.stack.config_v6() {
-            info!(
-                "{MODULE} [WiFi] Connected to IPv6 with {}",
-                fmt::from_fn(|f| {
-                    write!(f, "IP = {}, ", config.address)?;
-                    for dns in &config.dns_servers {
-                        write!(f, "DNS = {}, ", dns)?;
-                    }
-                    if let Some(gateway) = config.gateway {
-                        write!(f, "GATEWAY = {}, ", gateway)?;
-                    }
-                    Ok(())
-                })
-            );
-        }
-
         let mut tls = TlsConnectionBuilder {
             rx_buffer,
             tx_buffer,
@@ -197,13 +177,14 @@ impl MqttModule {
             write_record_buffer,
             hostname: &settings.hostname,
             port: settings.port,
-            stack: self.stack,
+            stack: self.iface.stack(),
         };
         self.status.sender().send(MqttServiceStatus::DnsQuery);
         let mut tls = tls.resolve_dns().await?;
         self.status.sender().send(MqttServiceStatus::TcpConnect);
         let mut tls = tls.connect_tcp().await?;
         self.status.sender().send(MqttServiceStatus::TlsConnect);
+        let mut tls=tls.connect_tcp().await?;
         let mut tls = tls.merge_socket();
         let mut tls = tls.connect_tls().await?;
 

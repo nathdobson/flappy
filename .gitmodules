@@ -77,3 +77,6 @@
 [submodule "submodules/sntpc"]
 	path = submodules/sntpc
 	url = https://github.com/vpetrigo/sntpc.git
+[submodule "submodules/xarxa"]
+	path = submodules/xarxa
+	url = https://github.com/nathdobson/xarxa.git

@@ -199,7 +199,7 @@ impl<
             .server
             .rpc_service
             .app_status
-            .notify(&self.gatt, &status)
+            .notify(&self.gatt, &status, true)
             .await?;
         Ok(())
     }
@@ -210,10 +210,10 @@ impl<
     ) -> Result<(), Error> {
         for chunk in data.chunks(SERIAL_MTU) {
             let chunk = Vec::<u8, SERIAL_MTU>::from_slice(chunk).unwrap();
-            attr.notify(&self.gatt, &chunk).await?;
+            attr.notify(&self.gatt, &chunk, false).await?;
         }
         if data.len() % SERIAL_MTU == 0 {
-            attr.notify(&self.gatt, &Vec::new()).await?;
+            attr.notify(&self.gatt, &Vec::new(), false).await?;
         }
         Ok(())
     }

@@ -114,10 +114,10 @@ impl Application {
         #[cfg(feature = "ntp")]
         let clock = make_static!(
             ntp_builder::NtpClock,
-            ntp_builder::NtpClock::new(*wifi.stack())
+            ntp_builder::NtpClock::new(wifi.stack(), wifi.iface())
         );
         #[cfg(feature = "mqtt")]
-        let mqtt = crate::mqtt::MqttModule::new(spawner, &wifi.stack())?;
+        let mqtt = crate::mqtt::MqttModule::new(spawner, wifi.iface())?;
         #[cfg(feature = "flash")]
         let state = flash.load().await?;
         #[cfg(not(feature = "flash"))]

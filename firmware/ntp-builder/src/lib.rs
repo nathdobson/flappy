@@ -6,9 +6,10 @@
 
 use core::cell::OnceCell;
 use core::net::SocketAddr;
-use embassy_net::IpListenEndpoint;
-use embassy_net::dns::{DnsQueryType, DnsSocket};
-use embassy_net::udp::{BindError, PacketMetadata, UdpSocket};
+use embassy_net::dns::DnsQueryType;
+use embassy_net::iface::Iface;
+use embassy_net::udp::{BindError, UdpSocket};
+use embassy_net::wire::IpListenEndpoint;
 use embassy_time::Instant;
 use log::info;
 use make_static::make_static;
@@ -28,46 +29,30 @@ pub enum NtpError {
     BindError(#[from] BindError),
     #[error("Ntp error")]
     SntpcError(#[from] sntpc::Error),
+    #[error("Network buffer full")]
+    Full(#[from] embassy_net::Full),
 }
 
-struct NtpBuffers {
-    rx_meta: [PacketMetadata; 2],
-    tx_meta: [PacketMetadata; 2],
-    rx_buffer: [u8; 128],
-    tx_buffer: [u8; 128],
-}
 pub struct NtpClock {
     stack: embassy_net::Stack<'static>,
-    buffers: StaticCell<NtpBuffers>,
+    iface: Iface<'static>,
     offset: OnceCell<i64>,
 }
 
 impl NtpClock {
-    pub const fn new(stack: embassy_net::Stack<'static>) -> Self {
+    pub const fn new(stack: embassy_net::Stack<'static>, iface: Iface<'static>) -> Self {
         NtpClock {
             stack,
-            buffers: StaticCell::new(),
+            iface,
             offset: OnceCell::new(),
         }
     }
     pub async fn init(&'static self) -> Result<(), NtpError> {
-        let buffers = self.buffers.init_with(|| NtpBuffers {
-            rx_meta: [PacketMetadata::EMPTY; 2],
-            tx_meta: [PacketMetadata::EMPTY; 2],
-            rx_buffer: [0; 128],
-            tx_buffer: [0; 128],
-        });
-        let mut udp = UdpSocket::new(
-            self.stack,
-            &mut buffers.rx_meta,
-            &mut buffers.rx_buffer,
-            &mut buffers.tx_meta,
-            &mut buffers.tx_buffer,
-        );
-        let dns = DnsSocket::new(self.stack);
-        self.stack.wait_config_up().await;
-        let dns = dns
-            .query("pool.ntp.org", DnsQueryType::A)
+        let mut udp = UdpSocket::new(self.stack)?;
+        self.iface.wait_config_up().await;
+        let dns = self
+            .stack
+            .dns_query("pool.ntp.org", DnsQueryType::A)
             .await?
             .first()
             .ok_or(NtpError::DnsMissingIp)?

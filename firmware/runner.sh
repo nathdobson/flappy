@@ -28,7 +28,7 @@ set -e
 #ssh -t $HOST /usr/local/bin/tio -n $DEVICE
 #reset
 
-DEVICE=/dev/cu.usbmodem2102
+DEVICE=/dev/cu.usbmodem102
 PICOTOOL=/opt/homebrew/bin/picotool
 TIO=/opt/homebrew/bin/tio
 echo uploading...
