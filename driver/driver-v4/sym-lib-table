@@ -6,4 +6,6 @@
   (lib (name "SN74HC165DR(LX)")(type "KiCad")(uri "${KIPRJMOD}/SN74HC165DR(LX)/SN74HC165DR(LX).kicad_sym")(options "")(descr ""))
   (lib (name "CONN-SMD_5P-P2.50_2.54-5P-LT")(type "KiCad")(uri "${KIPRJMOD}/2.54-5P-LT/CONN-SMD_5P-P2.50_2.54-5P-LT.kicad_sym")(options "")(descr ""))
   (lib (name "HDR-TH_3P-P2.54_DZ254S-11-03-48")(type "KiCad")(uri "${KIPRJMOD}/DZ254S-11-03-48/HDR-TH_3P-P2.54_DZ254S-11-03-48.kicad_sym")(options "")(descr ""))
+  (lib (name "SOT-23-3_L2.9-W1.3-P1.90-LS2.4-BR")(type "KiCad")(uri "${KIPRJMOD}/MT3151AT-EN/SOT-23-3_L2.9-W1.3-P1.90-LS2.4-BR.kicad_sym")(options "")(descr ""))
+  (lib (name "BurntOutBakery")(type "KiCad")(uri "${KIPRJMOD}/BurntOutBakery/BurntOutBakery.kicad_sym")(options "")(descr ""))
 )
