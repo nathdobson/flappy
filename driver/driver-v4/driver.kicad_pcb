@@ -236,7 +236,7 @@
 		(path "/764d7251-fde6-43a4-b9cd-8ff374023a50")
 		(sheetname "/")
 		(sheetfile "driver.kicad_sch")
-		(attr exclude_from_pos_files)
+		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
 			(end 0 1.2)
@@ -1841,7 +1841,7 @@
 		(path "/1d7a7c68-5106-4747-883d-e7750443fabb")
 		(sheetname "/")
 		(sheetfile "driver.kicad_sch")
-		(attr exclude_from_pos_files)
+		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
 			(end 0 1.2)
@@ -12890,7 +12890,7 @@
 		(path "/eba1bea2-7d7b-47c8-ab7a-7f2cc26e5873")
 		(sheetname "/")
 		(sheetfile "driver.kicad_sch")
-		(attr exclude_from_pos_files)
+		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_circle
 			(center 0 0)
 			(end 0 1.2)
@@ -14644,7 +14644,7 @@
 		(path "/45480e46-754a-467d-a64d-969d25e913d0")
 		(sheetname "/")
 		(sheetfile "driver.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom)
 		(fp_poly
 			(pts
 				(xy 0.241094 -0.071115) (xy 0.251877 -0.057549) (xy 0.253042 -0.041034) (xy 0.24831 -0.018964) (xy 0.230473 0.000359)

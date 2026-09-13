@@ -11480,7 +11480,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "764d7251-fde6-43a4-b9cd-8ff374023a50")
-		(property "Reference" "SIB"
+		(property "Reference" "SIB1"
 			(at 53.34 177.2919 0)
 			(effects
 				(font
@@ -11531,7 +11531,7 @@
 		(instances
 			(project "driver"
 				(path "/3da3ceca-a4be-4115-a1dd-e3edcee882c5"
-					(reference "SIB")
+					(reference "SIB1")
 					(unit 1)
 				)
 			)
@@ -15709,7 +15709,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "eba1bea2-7d7b-47c8-ab7a-7f2cc26e5873")
-		(property "Reference" "SIA"
+		(property "Reference" "SIA1"
 			(at 53.34 144.2719 0)
 			(effects
 				(font
@@ -15760,7 +15760,7 @@
 		(instances
 			(project "driver"
 				(path "/3da3ceca-a4be-4115-a1dd-e3edcee882c5"
-					(reference "SIA")
+					(reference "SIA1")
 					(unit 1)
 				)
 			)
