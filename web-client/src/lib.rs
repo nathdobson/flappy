@@ -1,7 +1,6 @@
 #![allow(incomplete_features, internal_features)]
 #![deny(unused_must_use, non_snake_case)]
 #![feature(
-    never_type,
     unsized_const_params,
     adt_const_params,
     unwrap_infallible,

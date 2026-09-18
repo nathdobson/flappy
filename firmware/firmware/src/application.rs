@@ -359,7 +359,7 @@ impl Application {
                     #[cfg(feature = "display")]
                     self.driver.set_enabled(true);
                     #[cfg(feature = "display")]
-                    for i in 0..100 {
+                    for i in 0..100000 {
                         let full = [0b00110011, 0b01100110, 0b11001100, 0b10011001];
                         let brrr = [0b00001111, 0b11110000];
                         let half = [
@@ -379,8 +379,9 @@ impl Application {
                     self.driver.set_enabled(false);
                 }
                 TestType::Read => {
+                    let version = self.settings.borrow().display.driver_version.clone();
                     #[cfg(feature = "display")]
-                    self.driver.run_read_test().await;
+                    self.driver.run_read_test(&version).await;
                 }
             },
         }
@@ -423,7 +424,10 @@ impl Application {
                 .try_into()
                 .unwrap_or("<overflow>".try_into().unwrap()),
             #[cfg(feature = "display")]
-            glyphs: self.driver.count().unwrap_or(0),
+            glyphs: {
+                let version = self.settings.borrow().display.driver_version.clone();
+                self.driver.count(&version).unwrap_or(0)
+            },
             #[cfg(not(feature = "display"))]
             glyphs: 0,
             background: self.settings.borrow().display.background.clone(),

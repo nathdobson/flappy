@@ -150,7 +150,7 @@ impl<'a> DisplayControllerGuard<'a> {
         Ok(())
     }
     fn recount(&mut self) -> Result<(), Error> {
-        let count = self.guard.driver.count()?;
+        let count = self.guard.driver.count(&self.settings.driver_version)?;
         if count > MAX_GLYPHS {
             return Err(Error::CapacityError);
         }
@@ -196,6 +196,8 @@ impl<'a> DisplayControllerGuard<'a> {
         let reverse = match self.settings.driver_version {
             DriverVersion::V1_0 => true,
             DriverVersion::V2_0 => false,
+            DriverVersion::V4_0i => false,
+            DriverVersion::V4_0e => false,
         };
         let mut output_buffer = Vec::<u8, { (MAX_GLYPHS + 1) / 2 }>::new();
         for cs in self.guard.segments.chunks_mut(2) {
@@ -220,11 +222,23 @@ impl<'a> DisplayControllerGuard<'a> {
     }
     fn read_from_drivers(&mut self) -> Result<(), Error> {
         let mut input_buffer = Vec::<u8, { MAX_GLYPHS + 1 }>::new();
-        input_buffer
-            .resize(self.guard.segments.len() + 1, 0)
-            .unwrap();
-        self.guard.driver.read(&mut input_buffer)?;
-        if input_buffer[self.guard.segments.len()] != 0xFF {
+        match &self.settings.driver_version {
+            DriverVersion::V1_0 | DriverVersion::V2_0 => {
+                input_buffer
+                    .resize(self.guard.segments.len() + 1, 0)
+                    .unwrap();
+            }
+            DriverVersion::V4_0i | DriverVersion::V4_0e => {
+                input_buffer
+                    .resize(self.guard.segments.len() / 2 + 1, 0)
+                    .unwrap();
+            }
+        }
+
+        self.guard
+            .driver
+            .read(&mut input_buffer, &self.settings.driver_version)?;
+        if input_buffer[input_buffer.len() - 1] != 0xFF {
             error!(
                 "{MODULE} Hall sensor read error (Bad terminator {})",
                 input_buffer[self.guard.segments.len()]
@@ -244,6 +258,18 @@ impl<'a> DisplayControllerGuard<'a> {
                     fault = false;
                     hall = input_buffer[i] & 1 == 1;
                     zeros = input_buffer[i] & !0b1;
+                }
+                DriverVersion::V4_0i => {
+                    fault = false;
+                    let mask = if i % 2 == 0 { 1 << 1 } else { 1 << 5 };
+                    hall = input_buffer[i / 2] & mask == mask;
+                    zeros = input_buffer[i / 2] & 0b11001100;
+                }
+                DriverVersion::V4_0e => {
+                    fault = false;
+                    let mask = if i % 2 == 0 { 1 << 1 } else { 1 << 5 };
+                    hall = input_buffer[i / 2] & mask == mask;
+                    zeros = input_buffer[i / 2] & 0b11001100;
                 }
             }
             if zeros != 0 {

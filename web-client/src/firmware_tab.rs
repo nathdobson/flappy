@@ -6,17 +6,16 @@ use crate::error::Error;
 use crate::event_listener::{EventListener, EventType};
 use crate::status::{Status, StatusPriority};
 use crate::tabs::TabContent;
-use crate::utils::{AppendChild, create_element, sleep, try_window};
+use crate::utils::{AppendChild, create_element, try_window};
 use empty_rc::EmptyRc;
 use js_sys::futures::spawn_local;
-use js_sys::{ArrayBuffer, Date, Reflect, Uint8Array, eval, global};
+use js_sys::{ArrayBuffer, Date, Uint8Array};
 use log::info;
-use regex::Regex;
 use setup_client::client::Client;
 use setup_client::flash_firmware::flash_firmware;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
-use web_sys::{Event, HtmlButtonElement, HtmlDivElement, HtmlElement, Response, window};
+use web_sys::{Event, HtmlButtonElement, HtmlDivElement, HtmlElement, Response};
 
 pub struct FirmwareTab {
     node: HtmlDivElement,

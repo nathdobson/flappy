@@ -13,7 +13,6 @@ use crate::value_editor::struct_editor::StructEditor;
 use crate::value_editor::value_form::ValueForm;
 use empty_rc::EmptyRc;
 use log::info;
-use picoboot::Picoboot;
 use protocol_wifi::WifiSettings;
 
 use crate::browser_support::{
@@ -26,7 +25,7 @@ use crate::value_editor::list_editor::ListEditor;
 use protocol::display::STEPS_PER_REVOLUTION;
 use protocol::setup::{DisplaySettings, DriverVersion, MqttSettings, WriteAppSettings};
 use setup_client::client::{Client, ClientTransport};
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{OnceCell, RefCell};
 use std::rc::Rc;
 use web_sys::{Event, HtmlButtonElement, HtmlDivElement, HtmlElement};
 
@@ -237,7 +236,12 @@ impl SetupTab {
         )?;
         display_struct.add(
             field!("Driver version", driver_version),
-            SelectEditor::new(vec![DriverVersion::V1_0, DriverVersion::V2_0])?,
+            SelectEditor::new(vec![
+                DriverVersion::V1_0,
+                DriverVersion::V2_0,
+                DriverVersion::V4_0e,
+                DriverVersion::V4_0i,
+            ])?,
         )?;
 
         display_struct.add(
@@ -368,7 +372,7 @@ impl SetupTab {
                                 &e,
                             );
                         }
-                        Ok(EitherClient::Picoboot(client)) => {
+                        Ok(EitherClient::Picoboot(_)) => {
                             self.connect_status
                                 .set(StatusPriority::Error, "Device is in Boot Select Mode. Restart device in order to configure display.".to_string());
                         }

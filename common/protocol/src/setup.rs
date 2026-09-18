@@ -57,6 +57,11 @@ pub enum DriverVersion {
     V1_0,
     #[cfg_attr(feature = "serde", serde(rename = "2.0"))]
     V2_0,
+    #[cfg_attr(feature = "serde", serde(rename = "4.0e"))]
+    V4_0e,
+    #[cfg_attr(feature = "serde", serde(rename = "4.0i"))]
+    V4_0i,
+
 }
 
 impl Display for DriverVersion {
@@ -64,6 +69,8 @@ impl Display for DriverVersion {
         match self {
             DriverVersion::V1_0 => write!(f, "1.0"),
             DriverVersion::V2_0 => write!(f, "2.0"),
+            DriverVersion::V4_0i => write!(f, "4.0i"),
+            DriverVersion::V4_0e => write!(f, "4.0e"),
         }
     }
 }

@@ -474,7 +474,8 @@ impl StackBuilder {
                 } else {
                     output_path = self.working_dir.join(format!(
                         "flaps/layers/flaps-layer{}-through-layer{}.3mf",
-                        begin, end
+                        begin + 1,
+                        end
                     ));
                 }
                 plates.insert(output_path, plate);

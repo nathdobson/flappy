@@ -10,9 +10,10 @@ use embassy_rp::{Peri, spi};
 use embassy_time::{Delay, Timer};
 use embedded_hal::delay::DelayNs;
 use embedded_hal::digital::OutputPin;
-use log::{error, info};
 use error_report::Report;
+use log::{error, info};
 use make_static::make_static;
+use protocol::setup::DriverVersion;
 
 const MODULE: &str = "[DRIVE]";
 
@@ -49,6 +50,25 @@ pub struct DriverModule {
     inner: RefCell<DriverInner>,
 }
 
+impl DriverInner {
+    pub fn pulse_load(&mut self, version: &DriverVersion) {
+        match version {
+            DriverVersion::V1_0 | DriverVersion::V2_0 => {
+                self.load.set_low();
+                Delay.delay_us(10);
+                self.load.set_high();
+                Delay.delay_us(10);
+            }
+            DriverVersion::V4_0i | DriverVersion::V4_0e => {
+                self.latch.set_low();
+                Delay.delay_us(10);
+                self.latch.set_high();
+                Delay.delay_us(10);
+            }
+        }
+    }
+}
+
 impl DriverModule {
     pub fn set_enabled(&self, enabled: bool) {
         let ref mut inner = *self.inner.borrow_mut();
@@ -58,12 +78,10 @@ impl DriverModule {
             inner.enable.set_high();
         }
     }
-    pub fn count(&self) -> Result<usize, Error> {
+
+    pub fn count(&self, version: &DriverVersion) -> Result<usize, Error> {
         let ref mut inner = *self.inner.borrow_mut();
-        inner.load.set_low();
-        Delay.delay_us(10);
-        inner.load.set_high();
-        Delay.delay_us(10);
+        inner.pulse_load(version);
         for count in 0usize..20 {
             let mut data = [0u8];
             inner.spi.blocking_read(&mut data)?;
@@ -87,12 +105,9 @@ impl DriverModule {
         Delay.delay_us(10);
         Ok(())
     }
-    pub fn read(&self, data: &mut [u8]) -> Result<(), Error> {
+    pub fn read(&self, data: &mut [u8], version: &DriverVersion) -> Result<(), Error> {
         let ref mut inner = *self.inner.borrow_mut();
-        inner.load.set_low();
-        Delay.delay_us(10);
-        inner.load.set_high();
-        Delay.delay_us(10);
+        inner.pulse_load(version);
         inner.spi.blocking_read(data)?;
         Ok(())
     }
@@ -120,10 +135,10 @@ impl DriverModule {
         );
         Ok(module)
     }
-    pub async fn run_read_test(&self) {
+    pub async fn run_read_test(&self, version: &DriverVersion) {
         loop {
             let mut buf = [0u8; 20];
-            if let Err(e) = self.read(&mut buf) {
+            if let Err(e) = self.read(&mut buf, version) {
                 error!("error during read test: {}", Report::new(e));
                 return;
             }
