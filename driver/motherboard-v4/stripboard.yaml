@@ -1,0 +1,28 @@
+# pip install https://github.com/coddingtonbear/fritzing-stripboard/archive/master.zip
+# fritzing-stripboard stripboard.yaml stripboard.fzpz
+meta:
+  title: electrocookie
+  label: electrocookie
+width: 86.36
+height: 48.26
+board:
+  - grid:
+      components:
+        - drilled_rows: C0:D0
+        - drilled_rows: B1:D17
+        - drilled_rows: C18:D18
+        - drilled_rows: E0:G18
+        - drilled_rows: H0:J18
+        - drilled_rows: K0:M18
+        - drilled_rows: N0:O0
+        - drilled_rows: N1:P17
+        - drilled_rows: N18:O18
+        - drilled_rows: RC0:RD0
+        - drilled_rows: RB1:RD17
+        - drilled_rows: RC18:RD18
+        - drilled_rows: RE0:RG18
+        - drilled_rows: RH0:RJ18
+        - drilled_rows: RK0:RM18
+        - drilled_rows: RN0:RO0
+        - drilled_rows: RN1:RP17
+        - drilled_rows: RN18:RO18
