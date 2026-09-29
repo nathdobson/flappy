@@ -359,7 +359,7 @@ impl Application {
                     #[cfg(feature = "display")]
                     self.driver.set_enabled(true);
                     #[cfg(feature = "display")]
-                    for i in 0..100000 {
+                    for i in 0..1000 {
                         let full = [0b00110011, 0b01100110, 0b11001100, 0b10011001];
                         let brrr = [0b00001111, 0b11110000];
                         let half = [

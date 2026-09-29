@@ -86,8 +86,10 @@ impl DriverModule {
             let mut data = [0u8];
             inner.spi.blocking_read(&mut data)?;
             if data[0] == 0xFF {
-                // info!("{MODULE} Counted {} flaps", count);
-                return Ok(count);
+                match version {
+                    DriverVersion::V1_0 | DriverVersion::V2_0 => return Ok(count),
+                    DriverVersion::V4_0e | DriverVersion::V4_0i => return Ok(count * 2),
+                }
             } else {
                 if data[0] != 0b01 && data[0] != 0b11 {
                     // info!("Bad data {:?}", data);
