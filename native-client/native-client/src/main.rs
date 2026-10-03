@@ -4,13 +4,19 @@
 #![allow(unused_imports)]
 #![feature(try_blocks)]
 #![allow(unused_features)]
+#![allow(unused_imports)]
+
 mod error;
+#[cfg(feature = "mqtt")]
+mod mqtt;
 #[cfg(feature = "usb")]
 mod picoboot;
 
+use std::iter;
 // use btleplug::api::Peripheral;
-use crate::error::Error;
+use crate::error::{BuildFeature, Error};
 use clap::{Parser, ValueEnum};
+use error_report::Report;
 use futures_util::stream::StreamExt;
 use itertools::Itertools;
 use jsonformat::Indentation;
@@ -24,30 +30,37 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::io::stdin;
 use tokio::io::{AsyncReadExt, AsyncWrite};
+use tokio::sync::mpsc;
 use uuid::Uuid;
-use error_report::Report;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[clap(long)]
-    transport: ClientTransport,
     #[command(subcommand)]
     subcommand: Subcommand,
 }
 
 #[derive(Parser, Debug)]
 enum Subcommand {
-    List,
+    List(ListCommand),
     Read(ReadCommand),
     Write(WriteCommand),
     Info(InfoCommand),
     Monitor(MonitorCommand),
     Picoboot(PicobootCommand),
+    FlapTest(FlapTestCommand),
+}
+
+#[derive(Parser, Debug)]
+struct ListCommand {
+    #[clap(long)]
+    transport: ClientTransport,
 }
 
 #[derive(Parser, Debug)]
 struct ReadCommand {
+    #[clap(long)]
+    transport: ClientTransport,
     #[clap(long)]
     address: String,
     #[clap(long)]
@@ -57,6 +70,8 @@ struct ReadCommand {
 #[derive(Parser, Debug)]
 struct WriteCommand {
     #[clap(long)]
+    transport: ClientTransport,
+    #[clap(long)]
     address: String,
     #[clap(long)]
     file: Option<PathBuf>,
@@ -65,11 +80,15 @@ struct WriteCommand {
 #[derive(Parser, Debug)]
 struct MonitorCommand {
     #[clap(long)]
+    transport: ClientTransport,
+    #[clap(long)]
     address: String,
 }
 
 #[derive(Parser, Debug)]
 struct InfoCommand {
+    #[clap(long)]
+    transport: ClientTransport,
     #[clap(long)]
     address: String,
 }
@@ -80,6 +99,26 @@ struct PicobootCommand {
     address: String,
     #[clap(long)]
     bin_file: PathBuf,
+}
+
+#[derive(Parser, Debug)]
+struct FlapTestCommand {
+    #[clap(long)]
+    host: String,
+    #[clap(long)]
+    port: u16,
+    #[clap(long)]
+    client_id: String,
+    #[clap(long)]
+    username: String,
+    #[clap(long)]
+    password: String,
+    #[clap(long)]
+    topic: String,
+    #[clap(long, value_delimiter = ',')]
+    index: Vec<usize>,
+    #[clap(long, required = false)]
+    step: Option<usize>,
 }
 
 async fn connect(transport: ClientTransport, address: &str) -> Result<Client, Error> {
@@ -110,7 +149,7 @@ async fn connect(transport: ClientTransport, address: &str) -> Result<Client, Er
             Err(Error::DeviceNotFound)
         }
         #[allow(unreachable_patterns)]
-        _ => Err(Error::FeatureNotEnabled(transport)),
+        _ => Err(Error::FeatureNotEnabled(transport.into())),
     }
 }
 
@@ -123,7 +162,7 @@ async fn main() {
 async fn main_impl() -> Result<(), Error> {
     let args = Args::parse();
     match &args.subcommand {
-        Subcommand::List => match args.transport {
+        Subcommand::List(list) => match list.transport {
             #[cfg(feature = "usb")]
             ClientTransport::Usb => {
                 for x in setup_client::usb::UsbClientBuilder::list().await? {
@@ -143,10 +182,10 @@ async fn main_impl() -> Result<(), Error> {
                 }
             }
             #[allow(unreachable_patterns)]
-            _ => return Err(Error::FeatureNotEnabled(args.transport)),
+            _ => return Err(Error::FeatureNotEnabled(BuildFeature::from(list.transport))),
         },
         Subcommand::Read(read) => {
-            let conn = connect(args.transport, &read.address).await?;
+            let conn = connect(read.transport, &read.address).await?;
             let settings = conn.read_settings().await?;
             let content = serde_json_core::to_string::<_, MAX_SETUP_MESSAGE_SIZE>(&settings)?;
             let content = jsonformat::format(&content, Indentation::FourSpace);
@@ -157,7 +196,7 @@ async fn main_impl() -> Result<(), Error> {
             }
         }
         Subcommand::Write(write) => {
-            let conn = connect(args.transport, &write.address).await?;
+            let conn = connect(write.transport, &write.address).await?;
             let settings = if let Some(input) = &write.file {
                 fs::read(input).await?
             } else {
@@ -179,14 +218,14 @@ async fn main_impl() -> Result<(), Error> {
                 .await?;
         }
         Subcommand::Monitor(monitor) => {
-            let conn = connect(args.transport, &monitor.address).await?;
+            let conn = connect(monitor.transport, &monitor.address).await?;
             conn.touch_app_status().await?;
             loop {
                 println!("status = {:?}", conn.receive_status().await?);
             }
         }
         Subcommand::Info(info) => {
-            let conn = connect(args.transport, &info.address).await?;
+            let conn = connect(info.transport, &info.address).await?;
             let DeviceInfo {
                 serial,
                 git_version,
@@ -207,6 +246,14 @@ async fn main_impl() -> Result<(), Error> {
         Subcommand::Picoboot(command) => {
             #[cfg(feature = "usb")]
             crate::picoboot::picoboot(command).await?;
+            #[cfg(not(feature = "usb"))]
+            return Err(Error::FeatureNotEnabled(BuildFeature::Usb));
+        }
+        Subcommand::FlapTest(flap_test) => {
+            #[cfg(feature = "mqtt")]
+            crate::mqtt::run_flap_test(flap_test).await?;
+            #[cfg(not(feature = "mqtt"))]
+            return Err(Error::FeatureNotEnabled(BuildFeature::Usb));
         }
     }
     Ok(())

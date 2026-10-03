@@ -1,0 +1,18 @@
+[package]
+name = "mqtt-client-tokio"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio-rustls = {version="0.26.4"}
+rustls = "0.23.45"
+tokio = "1.52.2"
+mqtt-client = {path="../mqtt-client"}
+embassy-sync = {path="../../submodules/embassy/embassy-sync"}
+embassy-futures = {path="../../submodules/embassy/embassy-futures"}
+arena = {path="../arena"}
+io-adapters = {path="../io-adapters"}
+mqtt-core = {path="../mqtt-core"}
+embedded-io-async = "0.7.0"
+webpki-roots = "1.0.4"
+thiserror = "2.0.21"

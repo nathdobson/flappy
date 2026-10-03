@@ -5,10 +5,17 @@ use setup_client::client::ClientTransport;
 use std::io;
 use thiserror::Error;
 
+#[derive(Debug)]
+pub enum BuildFeature {
+    Ble,
+    Usb,
+    Mqtt,
+}
+
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("feature not enabled: {0}")]
-    FeatureNotEnabled(ClientTransport),
+    #[error("feature not enabled: {0:?}")]
+    FeatureNotEnabled(BuildFeature),
     #[error("setup client error")]
     SetupClientError(#[from] setup_client::error::Error),
     #[error("json serialization error")]
@@ -24,4 +31,13 @@ pub enum Error {
     #[cfg(feature = "usb")]
     #[error("picoboot error")]
     PicobootError(#[from] picoboot::Error),
+}
+
+impl From<ClientTransport> for BuildFeature {
+    fn from(value: ClientTransport) -> Self {
+        match value {
+            ClientTransport::Usb => BuildFeature::Usb,
+            ClientTransport::Ble => BuildFeature::Ble,
+        }
+    }
 }
