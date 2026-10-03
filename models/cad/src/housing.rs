@@ -5,7 +5,7 @@
 
 use crate::tabs::Tabs;
 use anyhow::Context;
-use models::encode_sdf::EncodeBuilder;
+use cad::encode_sdf::EncodeBuilder;
 use patina_3mf::brim_points::BrimPoint;
 use patina_3mf::project_settings::brim_type::BrimType;
 use patina_bambu::BambuBuilder;

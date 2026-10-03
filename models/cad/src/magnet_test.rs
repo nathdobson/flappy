@@ -1,4 +1,6 @@
-use models::encode_sdf::EncodeBuilder;
+
+
+use cad::encode_sdf::EncodeBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
 use patina_geo::geo3::cylinder::Cylinder;

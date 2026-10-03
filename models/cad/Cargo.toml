@@ -1,0 +1,53 @@
+[package]
+name = "cad"
+version = "0.1.0"
+edition = "2024"
+
+[lints.cargo]
+non_kebab_case_bins = "allow"
+unused_dependencies="allow"
+
+
+[[bin]]
+name = "inner"
+path = "src/inner.rs"
+
+[[bin]]
+name = "outer"
+path = "src/outer.rs"
+
+[[bin]]
+name = "housing"
+path = "src/housing.rs"
+
+[[bin]]
+name = "magnet_test"
+path = "src/magnet_test.rs"
+
+[[bin]]
+name = "left_cap"
+path = "src/left_cap.rs"
+
+[[bin]]
+name = "right_cap"
+path = "src/right_cap.rs"
+
+[dependencies]
+patina-geo={path="../../submodules/patina-rs/patina-geo"}
+patina-mesh ={path="../../submodules/patina-rs/patina-mesh"}
+patina-vec={path="../../submodules/patina-rs/patina-vec",features = ["serde"]}
+tokio = {version="1.46.1",features=["rt","macros","rt-multi-thread"]}
+anyhow = "1.0.98"
+patina-sdf= {path="../../submodules/patina-rs/patina-sdf"}
+patina-threads={path="../../submodules/patina-rs/patina-threads"}
+itertools = "0.14.0"
+patina-bambu = {path="../../submodules/patina-rs/patina-bambu"}
+patina-extrude = {path="../../submodules/patina-rs/patina-extrude"}
+patina-font = {path="../../submodules/patina-rs/patina-font"}
+patina-3mf = {path="../../submodules/patina-rs/patina-3mf"}
+clap={version = "4.5.54",features = ["derive"]}
+
+zip = "4.3.0"
+rand = "0.9.2"
+serde_json = "1.0.142"
+serde = { version = "1.0.219", features = ["derive"] }

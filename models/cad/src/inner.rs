@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use models::encode_sdf::EncodeBuilder;
+use cad::encode_sdf::EncodeBuilder;
 use patina_bambu::BambuBuilder;
 use patina_bambu::model::SdfModel;
 use patina_geo::aabb::Aabb;
