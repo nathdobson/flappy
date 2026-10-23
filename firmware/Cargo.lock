@@ -1731,9 +1731,7 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "mozilla-root-ca"
-version = "2025.6.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b226deb3f9a8c9e2197c1e955f3936149ca17d1435b8d444b13daee99c4ebdd"
+version = "2026.10.7"
 dependencies = [
  "const-decoder2",
 ]

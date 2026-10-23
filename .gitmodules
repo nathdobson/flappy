@@ -80,3 +80,6 @@
 [submodule "submodules/xarxa"]
 	path = submodules/xarxa
 	url = https://github.com/nathdobson/xarxa.git
+[submodule "submodules/mozilla-root-ca"]
+	path = submodules/mozilla-root-ca
+	url = https://github.com/nathdobson/mozilla-root-ca.git
