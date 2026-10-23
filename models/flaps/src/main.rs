@@ -105,14 +105,14 @@ async fn build_output() -> anyhow::Result<()> {
         }
     }
 
-    tokio::fs::create_dir_all(working_dir.join("flaps/bodies")).await?;
-    tokio::fs::create_dir_all(working_dir.join("flaps/inserts")).await?;
-    tokio::fs::create_dir_all(working_dir.join("flaps/letters")).await?;
-    tokio::fs::create_dir_all(working_dir.join("flaps/previews")).await?;
-    tokio::fs::create_dir_all(working_dir.join("flaps/supports")).await?;
-    tokio::fs::create_dir_all(working_dir.join("flaps/layers")).await?;
-    tokio::fs::create_dir_all(working_dir.join("flaps/singles")).await?;
-    tokio::fs::create_dir_all(working_dir.join("flaps/polys")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/bodies")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/inserts")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/letters")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/previews")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/supports")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/layers")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/singles")).await?;
+    tokio::fs::create_dir_all(working_dir.join("output/polys")).await?;
     let plates = StackBuilder {
         working_dir: working_dir.clone(),
         width: 43.0,

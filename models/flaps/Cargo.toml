@@ -9,14 +9,14 @@ patina-bambu = {path="../../submodules/patina-rs/patina-bambu"}
 patina-extrude = {path="../../submodules/patina-rs/patina-extrude"}
 patina-geo = {path="../../submodules/patina-rs/patina-geo"}
 patina-mesh = {path="../../submodules/patina-rs/patina-mesh"}
-patina-vec = {path="../../submodules/patina-rs/patina-vec"}
+patina-vec = {path="../../submodules/patina-rs/patina-vec",features = ["serde"]}
 patina-font = {path="../../submodules/patina-rs/patina-font"}
 patina-sdf = {path="../../submodules/patina-rs/patina-sdf"}
 rusttype = "0.9.3"
 tokio = {version="1.46.1",features=["rt","macros","rt-multi-thread"]}
 serde = { version = "1.0.219", features = ["derive"] }
 anyhow="1.0.104"
-clap="4.6.7"
+clap={version="4.6.7",features = ["derive"]}
 zip="8.6.0"
 rand ="0.10.3"
 serde_json = "1.0.142"

@@ -167,7 +167,7 @@ impl StackBuilder {
             &outline_mesh,
             &self
                 .working_dir
-                .join(format!("flaps/polys/poly_{}.svg", index)),
+                .join(format!("output/polys/poly_{}.svg", index)),
         )
         .await
         .unwrap();
@@ -231,7 +231,7 @@ impl StackBuilder {
             &mixed,
             &self
                 .working_dir
-                .join(format!("flaps/letters/letter_{}.svg", index)),
+                .join(format!("output/letters/letter_{}.svg", index)),
         )
         .await
         .unwrap();
@@ -244,7 +244,7 @@ impl StackBuilder {
             },
             &self
                 .working_dir
-                .join(format!("flaps/previews/preview_{}.svg", index)),
+                .join(format!("output/previews/preview_{}.svg", index)),
         )
         .await
         .unwrap();
@@ -262,7 +262,7 @@ impl StackBuilder {
             &mesh,
             &self
                 .working_dir
-                .join(format!("flaps/supports/support_{}.stl", index)),
+                .join(format!("output/supports/support_{}.stl", index)),
         )
         .await
         .unwrap();
@@ -297,7 +297,7 @@ impl StackBuilder {
             &mesh,
             &self
                 .working_dir
-                .join(format!("flaps/bodies/body_{}.stl", index)),
+                .join(format!("output/bodies/body_{}.stl", index)),
         )
         .await
         .unwrap();
@@ -330,7 +330,7 @@ impl StackBuilder {
             &mesh,
             &self
                 .working_dir
-                .join(format!("flaps/inserts/insert_{}.stl", index)),
+                .join(format!("output/inserts/insert_{}.stl", index)),
         )
         .await
         .unwrap();
@@ -438,7 +438,7 @@ impl StackBuilder {
             plate.add_object(object);
             plates.insert(
                 self.working_dir
-                    .join(format!("flaps/singles/flap_{}.3mf", index)),
+                    .join(format!("output/singles/flap_{}.3mf", index)),
                 plate,
             );
         }
@@ -473,7 +473,7 @@ impl StackBuilder {
                     output_path = self.working_dir.join("flaps.3mf".to_string());
                 } else {
                     output_path = self.working_dir.join(format!(
-                        "flaps/layers/flaps-layer{}-through-layer{}.3mf",
+                        "output/layers/flaps-layer{}-through-layer{}.3mf",
                         begin + 1,
                         end
                     ));
