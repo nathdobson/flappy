@@ -1,5 +1,5 @@
+#![feature(allocator_ext)]
 #![cfg_attr(not(test), no_std)]
-#![feature(allocator_api)]
 #![deny(unused_must_use)]
 #![allow(unused_imports)]
 #![allow(unused_variables)]

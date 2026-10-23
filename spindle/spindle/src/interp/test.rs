@@ -366,5 +366,5 @@ async fn test_countdown() {
     )
     .await
     .unwrap();
-    assert_matches!(result, ["0a2"]);
+    assert_matches!(result, ["0:00:10", "0:00:09", "0:00:08", "0:00:07", "0:00:06", "0:00:05", "0:00:04", "0:00:03", "0:00:02", "0:00:01", "0:00:00"]);
 }

@@ -1,6 +1,5 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(debug_closure_helpers)]
 extern crate alloc;
 
 mod error;

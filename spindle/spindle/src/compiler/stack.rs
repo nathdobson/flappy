@@ -2,7 +2,6 @@ use alloc::alloc::Allocator;
 use alloc::boxed::Box;
 use core::alloc::{AllocError, Layout};
 use core::fmt::{Debug, Formatter};
-use core::intrinsics::abort;
 use core::marker::{PhantomData, Unsize};
 use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::DerefMut;
@@ -154,7 +153,7 @@ fn panic_abort() {
     struct Bomb();
     impl Drop for Bomb {
         fn drop(&mut self) {
-            abort();
+            core::process::abort_immediate();
         }
     }
     let _x = Bomb();

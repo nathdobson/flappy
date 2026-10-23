@@ -3051,7 +3051,6 @@ dependencies = [
  "make-static",
  "protocol-usb",
  "reboot",
- "rp-pac 7.0.0",
  "static_cell",
  "thiserror",
 ]

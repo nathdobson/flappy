@@ -1,5 +1,4 @@
 #![feature(
-    allocator_api,
     type_alias_impl_trait,
     vec_push_within_capacity,
     ptr_metadata,
@@ -14,8 +13,9 @@
 #![feature(try_blocks)]
 #![feature(unsize)]
 #![feature(coerce_unsized)]
-#![feature(debug_closure_helpers)]
 #![feature(ptr_alignment_type)]
+#![feature(abort_immediate)]
+#![feature(allocator_ext)]
 #![cfg_attr(not(test), no_std)]
 #![deny(unused_must_use, unsafe_op_in_unsafe_fn)]
 #![allow(

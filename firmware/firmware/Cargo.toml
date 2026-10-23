@@ -120,3 +120,6 @@ usb = ["dep:embassy-usb","dep:usb-builder"]
 spindle = ["dep:spindle"]
 heap = ["dep:embedded-alloc"]
 ntp = ["wifi", "dep:ntp-builder"]
+
+[lints.cargo]
+unused_dependencies = "allow"

@@ -9,8 +9,6 @@
 #![allow(unused_variables)]
 #![allow(unreachable_code)]
 #![allow(unused_mut)]
-#![feature(allocator_api)]
-#![feature(unwrap_infallible)]
 extern crate alloc;
 
 pub mod error;

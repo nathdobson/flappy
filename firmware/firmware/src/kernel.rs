@@ -1,7 +1,6 @@
 use crate::error::Error;
 use ::runtime::RemoteSpawn;
 use core::fmt::Arguments;
-use core::intrinsics::abort;
 use core::{fmt, mem};
 use embassy_executor::{SendSpawner, Spawner};
 use embassy_futures::join::join;

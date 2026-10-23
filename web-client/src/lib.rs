@@ -3,12 +3,10 @@
 #![feature(
     unsized_const_params,
     adt_const_params,
-    unwrap_infallible,
     async_fn_traits,
     tuple_trait,
     unboxed_closures,
     unsized_fn_params,
-    trim_prefix_suffix
 )]
 #![feature(iterator_try_collect)]
 

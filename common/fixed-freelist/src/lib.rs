@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(allocator_api)]
 #![feature(unsafe_pinned)]
 #![feature(unsize)]
 extern crate alloc;
