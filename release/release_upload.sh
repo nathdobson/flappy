@@ -4,15 +4,18 @@ set -u
 
 VERSION=$(git describe --exact-match --tags)
 
-cp driver/jlcpcb/production_files/BOM-driver.csv release/artifacts/driver-jlcpcb-BOM.csv
-cp driver/jlcpcb/production_files/CPL-driver.csv release/artifacts/driver-jlcpcb-CPL.csv
-cp driver/jlcpcb/production_files/GERBER-driver.zip release/artifacts/driver-jlcpcb-GERBER.zip
-cp models/flaps.3mf release/artifacts/model-flaps.3mf
-cp models/simplified/housing.3mf release/artifacts/model-housing.3mf
-cp models/simplified/inner.3mf release/artifacts/model-inner.3mf
-cp models/simplified/outer.3mf release/artifacts/model-outer.3mf
-cp models/simplified/left-cap.3mf release/artifacts/model-left-cap.3mf
-cp models/simplified/right-cap.3mf release/artifacts/model-right-cap.3mf
+cp driver/driver-v2/jlcpcb/production_files/BOM-driver.csv release/artifacts/driver-v2-jlcpcb-BOM.csv
+cp driver/driver-v2/jlcpcb/production_files/CPL-driver.csv release/artifacts/driver-v2-jlcpcb-CPL.csv
+cp driver/driver-v2/jlcpcb/production_files/GERBER-driver.zip release/artifacts/driver-v2-jlcpcb-GERBER.zip
+cp driver/driver-v4/jlcpcb/production_files/BOM-driver.csv release/artifacts/driver-v4-jlcpcb-BOM.csv
+cp driver/driver-v4/jlcpcb/production_files/CPL-driver.csv release/artifacts/driver-v4-jlcpcb-CPL.csv
+cp driver/driver-v4/jlcpcb/production_files/GERBER-driver.zip release/artifacts/driver-v4-jlcpcb-GERBER.zip
+cp models/flaps/flaps.3mf release/artifacts/model-flaps.3mf
+cp models/cad/simplified/housing.3mf release/artifacts/model-housing.3mf
+cp models/cad/simplified/inner.3mf release/artifacts/model-inner.3mf
+cp models/cad/simplified/outer.3mf release/artifacts/model-outer.3mf
+cp models/cad/simplified/left-cap.3mf release/artifacts/model-left-cap.3mf
+cp models/cad/simplified/right-cap.3mf release/artifacts/model-right-cap.3mf
 cp firmware/target/thumbv8m.main-none-eabihf/release/controller release/artifacts/firmware.elf
 cp firmware/target/firmware.bin release/artifacts/firmware.bin
 
@@ -20,7 +23,7 @@ cp native-client/target/aarch64-apple-darwin/release/native-client release/artif
 cp native-client/target/x86_64-apple-darwin/release/native-client release/artifacts/native-client-x86_64-apple-darwin
 
 #cp native-client/target/i686-pc-windows-gnu/release/native-client.exe release/artifacts/native-client-i686-pc-windows-gnu.exe
-cp native-client/target/x86_64-pc-windows-gnu/release/native-client.exe release/artifacts/native-client-x86_64-pc-windows-gnu.exe
+#cp native-client/target/x86_64-pc-windows-gnu/release/native-client.exe release/artifacts/native-client-x86_64-pc-windows-gnu.exe
 
 cp native-client/target/aarch64-unknown-linux-gnu/release/native-client release/artifacts/native-client-aarch64-unknown-linux-gnu
 cp native-client/target/i686-unknown-linux-gnu/release/native-client release/artifacts/native-client-i686-unknown-linux-gnu

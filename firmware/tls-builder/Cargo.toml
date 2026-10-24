@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 embedded-tls = {path="../../submodules/embedded-tls",default-features = false,features = ["log","rustpki","rsa"]}
 p256={version="0.13.2",default-features = false}
-embassy-net = {path="../../submodules/embassy/embassy-net"}
+embassy-net = {path="../../submodules/embassy/embassy-net", features = ["tcp"]}
 embassy-sync = {path="../../submodules/embassy/embassy-sync"}
 embedded-io = "0.7.1"
 embedded-io-async = "0.7.0"
@@ -14,3 +14,7 @@ embassy-rp = {path="../../submodules/embassy/embassy-rp"}
 embassy-time = {path="../../submodules/embassy/embassy-time"}
 log = "0.4.29"
 mozilla-root-ca = {path="../../submodules/mozilla-root-ca",features = ["der"]}
+#mozilla-root-ca = {version = "2025.6.7",features = ["der"]}
+#mozilla-root-ca = {version = "2026.10.7",features = ["der"]}
+heapless = {path="../../submodules/heapless"}
+

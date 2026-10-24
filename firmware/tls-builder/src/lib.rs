@@ -1,4 +1,6 @@
 #![no_std]
+extern crate alloc;
+
 mod merge_socket;
 mod webpki_provider;
 // mod fixed_provider;

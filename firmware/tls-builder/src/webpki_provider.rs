@@ -3,6 +3,7 @@ use embedded_tls::pki::CertVerifier;
 use embedded_tls::{
     Certificate, CryptoProvider, CryptoRngCore, TlsCipherSuite, TlsClock, TlsError, TlsVerifier,
 };
+use heapless::Vec;
 
 pub struct WebPkiProvider<C: TlsCipherSuite, R> {
     rng: R,
@@ -17,14 +18,18 @@ impl TlsClock for VeryGoodClock {
     }
 }
 
-const CERT_COUNT: usize = 143;
-static CERTS: OnceLock<[Certificate<&'static [u8]>; CERT_COUNT]> = OnceLock::new();
+static CERTS: OnceLock<Vec<Certificate<&'static [u8]>, 500>> = OnceLock::new();
 
 impl<C: TlsCipherSuite, R> WebPkiProvider<C, R> {
     pub fn new(rng: R) -> Self {
         let certs = CERTS.get_or_init(|| {
-            assert_eq!(CERT_COUNT, mozilla_root_ca::der::DER_LIST.len());
-            core::array::from_fn(|n| Certificate::X509(mozilla_root_ca::der::DER_LIST[n]))
+            let mut result = Vec::new();
+            for cert in mozilla_root_ca::der::DER_LIST {
+                result
+                    .push(Certificate::X509(*cert))
+                    .expect("Too many certs");
+            }
+            result
         });
         WebPkiProvider {
             rng,
